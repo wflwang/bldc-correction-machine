@@ -64,5 +64,5 @@ flash 32个word 256byte 一个 page 共 64 个page 第1&2个page 作为bootloade
 * [email](https://B5106D@Outlook.com)
 
 ## 仓库
-* [Gitee](https://gitee.com/szdctek/bldc_gimbal.git)
-* [Github](https://github.com/wflwang/bldc_gimbal.git)
+* [Gitee](https://gitee.com/wflwang/bldc-correction-machine.git)
+* [Github](https://github.com/wflwang/bldc-.git)

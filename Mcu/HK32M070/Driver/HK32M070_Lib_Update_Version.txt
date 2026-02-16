@@ -1,0 +1,14 @@
+/*
+* @file name: HK32M070_Lib_Update_Version
+* @description: 本文件是用来描述HK32M070系列芯片函数库版本列表
+* @author: AE Team
+*/
+
+V1.0.2/2025-12-24
+1、删除PGA_CALCLK相关函数和寄存器；
+
+V1.0.1/2025-02-21
+1、更新GPIO寄存器；2、删除ADC 拓展寄存器（ADC_ADEF）LPF相关函数。
+
+V1.0.0/2025-02-18
+1. 首次发布

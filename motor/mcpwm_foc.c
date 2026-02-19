@@ -2856,24 +2856,9 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	bool is_second_motor = false;
 	int norm_curr_ofs = 0;
 
-#ifdef HW_HAS_DUAL_MOTORS
-	is_second_motor = is_v7;
-	is_v7 = false;
-	norm_curr_ofs = is_second_motor ? 3 : 0;
-	motor_all_state_t *motor_now = is_second_motor ? (motor_all_state_t*)&m_motor_2 : (motor_all_state_t*)&m_motor_1;
-	motor_all_state_t *motor_other = is_second_motor ? (motor_all_state_t*)&m_motor_1 : (motor_all_state_t*)&m_motor_2;
-	m_isr_motor = is_second_motor ? 2 : 1;
-#ifdef HW_HAS_3_SHUNTS
-	volatile TIM_TypeDef *tim = is_second_motor ? TIM8 : TIM1;
-#endif
-#else
 	motor_all_state_t *motor_other = (motor_all_state_t*)&m_motor_1;
 	motor_all_state_t *motor_now = (motor_all_state_t*)&m_motor_1;;
 	m_isr_motor = 1;
-#ifdef HW_HAS_3_SHUNTS
-	volatile TIM_TypeDef *tim = TIM1;
-#endif
-#endif
 
 	mc_configuration *conf_now = motor_now->m_conf;
 	mc_configuration *conf_other = motor_other->m_conf;
@@ -2887,29 +2872,12 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	if (motor_other->m_duty_next_set) {
 		motor_other->m_duty_next_set = false;
 		skip_interpolation = true;
-#ifdef HW_HAS_DUAL_MOTORS
-		float curr0;
-		float curr1;
 
-		if (is_second_motor) {
-			curr0 = (GET_CURRENT1() - conf_other->foc_offsets_current[0]) * FAC_CURRENT1;
-			curr1 = (GET_CURRENT2() - conf_other->foc_offsets_current[1]) * FAC_CURRENT2;
-			TIMER_UPDATE_DUTY_M1(motor_other->m_duty1_next, motor_other->m_duty2_next, motor_other->m_duty3_next);
-		} else {
-			curr0 = (GET_CURRENT1_M2() - conf_other->foc_offsets_current[0]) * FAC_CURRENT1_M2;
-			curr1 = (GET_CURRENT2_M2() - conf_other->foc_offsets_current[1]) * FAC_CURRENT2_M2;
-			TIMER_UPDATE_DUTY_M2(motor_other->m_duty1_next, motor_other->m_duty2_next, motor_other->m_duty3_next);
-		}
-#else
 		float curr0 = (GET_CURRENT1() - conf_other->foc_offsets_current[0]) * FAC_CURRENT1;
 		float curr1 = (GET_CURRENT2() - conf_other->foc_offsets_current[1]) * FAC_CURRENT2;
 
 		TIMER_UPDATE_DUTY_M1(motor_other->m_duty1_next, motor_other->m_duty2_next, motor_other->m_duty3_next);
-#ifdef HW_HAS_DUAL_PARALLEL
-		TIMER_UPDATE_DUTY_M2(motor_other->m_duty1_next, motor_other->m_duty2_next, motor_other->m_duty3_next);
-#endif
-#endif
-
+		//clarke
 		motor_other->m_i_alpha_sample_next = curr0;
 		motor_other->m_i_beta_sample_next = ONE_BY_SQRT3 * curr0 + TWO_BY_SQRT3 * curr1;
 	}
@@ -3055,163 +3023,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 
 #define SHUNT_PICK_THR 900
 
-#ifdef HW_HAS_3_SHUNTS
-	bool full_clarke = true;
-#else
-	bool full_clarke = false;
-#endif
-
-	FOC_PROFILE_LINE_FINE();
-
-	// Use the best current samples depending on the modulation state.
-#ifdef HW_HAS_3_SHUNTS
-	if (conf_now->foc_current_sample_mode == FOC_CURRENT_SAMPLE_MODE_HIGH_CURRENT) {
-		full_clarke = false;
-
-		// High current sampling mode. Choose the lower currents to derive the highest one
-		// in order to be able to measure higher currents.
-		const float i0_abs = fabsf(curr0);
-		const float i1_abs = fabsf(curr1);
-		const float i2_abs = fabsf(curr2);
-
-		if (i0_abs > i1_abs && i0_abs > i2_abs) {
-			curr0 = -(curr1 + curr2);
-		} else if (i1_abs > i0_abs && i1_abs > i2_abs) {
-			curr1 = -(curr0 + curr2);
-		} else if (i2_abs > i0_abs && i2_abs > i1_abs) {
-			curr2 = -(curr0 + curr1);
-		}
-	} else if (conf_now->foc_current_sample_mode == FOC_CURRENT_SAMPLE_MODE_LONGEST_ZERO) {
-#ifdef HW_HAS_PHASE_SHUNTS
-		if (is_v7) {
-			if (tim->CCR1 < SHUNT_PICK_THR ||
-					tim->CCR2 < SHUNT_PICK_THR ||
-					tim->CCR3 < SHUNT_PICK_THR) {
-				full_clarke = false;
-
-				if (tim->CCR1 < tim->CCR2 && tim->CCR1 < tim->CCR3) {
-					curr0 = -(curr1 + curr2);
-				} else if (tim->CCR2 < tim->CCR1 && tim->CCR2 < tim->CCR3) {
-					curr1 = -(curr0 + curr2);
-				} else if (tim->CCR3 < tim->CCR1 && tim->CCR3 < tim->CCR2) {
-					curr2 = -(curr0 + curr1);
-				}
-			}
-		} else {
-			if (tim->CCR1 > (tim->ARR - SHUNT_PICK_THR) ||
-					tim->CCR2 > (tim->ARR - SHUNT_PICK_THR) ||
-					tim->CCR3 > (tim->ARR - SHUNT_PICK_THR)) {
-				full_clarke = false;
-
-				if (tim->CCR1 > tim->CCR2 && tim->CCR1 > tim->CCR3) {
-					curr0 = -(curr1 + curr2);
-				} else if (tim->CCR2 > tim->CCR1 && tim->CCR2 > tim->CCR3) {
-					curr1 = -(curr0 + curr2);
-				} else if (tim->CCR3 > tim->CCR1 && tim->CCR3 > tim->CCR2) {
-					curr2 = -(curr0 + curr1);
-				}
-			}
-		}
-#else
-		if (tim->CCR1 > (tim->ARR - SHUNT_PICK_THR) ||
-				tim->CCR2 > (tim->ARR - SHUNT_PICK_THR) ||
-				tim->CCR3 > (tim->ARR - SHUNT_PICK_THR)) {
-			full_clarke = false;
-
-			if (tim->CCR1 > tim->CCR2 && tim->CCR1 > tim->CCR3) {
-				curr0 = -(curr1 + curr2);
-			} else if (tim->CCR2 > tim->CCR1 && tim->CCR2 > tim->CCR3) {
-				curr1 = -(curr0 + curr2);
-			} else if (tim->CCR3 > tim->CCR1 && tim->CCR3 > tim->CCR2) {
-				curr2 = -(curr0 + curr1);
-			}
-		}
-#endif
-	} else if (conf_now->foc_current_sample_mode == FOC_CURRENT_SAMPLE_MODE_BEST_SENSOR) {
-#if 0
-#ifdef HW_HAS_PHASE_SHUNTS
-		if (is_v7) {
-			if (tim->CCR1 < SHUNT_PICK_THR ||
-				tim->CCR2 < SHUNT_PICK_THR ||
-				tim->CCR3 < SHUNT_PICK_THR) {
-
-				full_clarke = false;
-				float phase_next = state_now->phase + motor_now->m_speed_est_fast * dt;
-
-				if (tim->CCR1 >= tim->CCR2 && tim->CCR1 >= tim->CCR3) {
-					// Curr 0 is best
-					curr1 = curr0 * utils_fast_cos(phase_next + DEG2RAD_f(120.0)) / utils_fast_cos(phase_next);
-					curr2 = -(curr0 + curr1);
-				} else if (tim->CCR2 >= tim->CCR1 && tim->CCR2 >= tim->CCR3) {
-					// Curr 1 is best
-					curr0 = curr1 * utils_fast_cos(phase_next) / utils_fast_cos(phase_next - DEG2RAD_f(120.0));
-					curr2 = -(curr0 + curr1);
-				} else if (tim->CCR3 >= tim->CCR1 && tim->CCR3 >= tim->CCR2) {
-					// Curr 2 is best
-					curr0 = curr2 * utils_fast_cos(phase_next) / utils_fast_cos(phase_next + DEG2RAD_f(120.0));
-					curr1 = -(curr0 + curr2);
-				}
-			}
-		} else {
-			if (tim->CCR1 > (tim->ARR - SHUNT_PICK_THR) ||
-				tim->CCR2 > (tim->ARR - SHUNT_PICK_THR) ||
-				tim->CCR3 > (tim->ARR - SHUNT_PICK_THR)) {
-
-				full_clarke = false;
-				float phase_next = state_now->phase + motor_now->m_speed_est_fast * dt;
-
-				if (tim->CCR1 <= tim->CCR2 && tim->CCR1 <= tim->CCR3) {
-					// Curr 0 is best
-					curr1 = curr0 * utils_fast_cos(phase_next - DEG2RAD_f(120.0)) / utils_fast_cos(phase_next);
-//					curr1 = state_now->i_abs * utils_fast_sin(-phase_next - DEG2RAD_f(120.0));
-					curr2 = -(curr0 + curr1);
-				} else if (tim->CCR2 <= tim->CCR1 && tim->CCR2 <= tim->CCR3) {
-					// Curr 1 is best
-					curr0 = curr1 * utils_fast_cos(phase_next) / utils_fast_cos(phase_next - DEG2RAD_f(120.0));
-//					curr0 = state_now->i_abs * utils_fast_sin(-phase_next);
-					curr2 = -(curr0 + curr1);
-				} else if (tim->CCR3 <= tim->CCR1 && tim->CCR3 <= tim->CCR2) {
-					// Curr 2 is best
-					curr0 = curr2 * utils_fast_cos(phase_next) / utils_fast_cos(phase_next + DEG2RAD_f(120.0));
-//					curr0 = state_now->i_abs * utils_fast_sin(-phase_next);
-					curr1 = -(curr0 + curr2);
-				}
-			}
-		}
-#else
-		if (tim->CCR1 > (tim->ARR - SHUNT_PICK_THR) ||
-			tim->CCR2 > (tim->ARR - SHUNT_PICK_THR) ||
-			tim->CCR3 > (tim->ARR - SHUNT_PICK_THR)) {
-
-			full_clarke = false;
-
-			float s = state_now->phase_sin;
-			float c = state_now->phase_cos;
-
-			float predict_ia = c * state_now->id - s * state_now->iq;
-			float predict_ib  = c * state_now->iq + s * state_now->id;
-
-			if (tim->CCR1 <= tim->CCR2 && tim->CCR1 <= tim->CCR3) {
-				// Curr 0 is best
-				curr1 = -0.5 * predict_ia + SQRT3_BY_2 * predict_ib;
-				curr2 = -(curr0 + curr1);
-			} else if (tim->CCR2 <= tim->CCR1 && tim->CCR2 <= tim->CCR3) {
-				// Curr 1 is best
-				curr0 = predict_ia;
-				curr2 = -(curr0 + curr1);
-			} else if (tim->CCR3 <= tim->CCR1 && tim->CCR3 <= tim->CCR2) {
-				// Curr 2 is best
-//				curr0 = predict_ia;
-//				curr1 = -(curr0 + curr2);
-
-				curr1 = -0.5 * predict_ia + SQRT3_BY_2 * predict_ib;
-				curr0 = -(curr1 + curr2);
-			}
-		}
-#endif
-#endif
-	}
-#endif
+	//FOC_PROFILE_LINE_FINE();
 	
 	FOC_PROFILE_LINE_FINE();
 
@@ -3267,15 +3079,9 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	FOC_PROFILE_LINE_FINE();
 
 	if (motor_now->m_state == MC_STATE_RUNNING) {
-		if (full_clarke) {
-			// Full Clarke Transform
-			state_now->i_alpha = (2.0 / 3.0) * ia - (1.0 / 3.0) * ib - (1.0 / 3.0) * ic;
-			state_now->i_beta = ONE_BY_SQRT3 * ib - ONE_BY_SQRT3 * ic;
-		} else {
 			// Clarke transform assuming balanced currents
-			state_now->i_alpha = ia;
-			state_now->i_beta = ONE_BY_SQRT3 * ia + TWO_BY_SQRT3 * ib;
-		}
+		state_now->i_alpha = ia;
+		state_now->i_beta = ONE_BY_SQRT3 * ia + TWO_BY_SQRT3 * ib;
 
 		motor_now->m_i_alpha_sample_with_offset = state_now->i_alpha;
 		motor_now->m_i_beta_sample_with_offset = state_now->i_beta;
@@ -3340,16 +3146,18 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 		motor_now->m_br_vq_before = vq_now;
 
 		// Brake when set ERPM is below min ERPM
-		if (motor_now->m_control_mode == CONTROL_MODE_SPEED &&
-				fabsf(motor_now->m_speed_pid_set_rpm) < conf_now->s_pid_min_erpm) {
-			control_duty = true;
-			duty_set = 0.0;
-		}
+		//不用速度模式
+		//if (motor_now->m_control_mode == CONTROL_MODE_SPEED &&
+		//		fabsf(motor_now->m_speed_pid_set_rpm) < conf_now->s_pid_min_erpm) {
+		//	control_duty = true;
+		//	duty_set = 0.0;
+		//}
 
 		FOC_PROFILE_LINE_FINE();
 
 		// Reset integrator when leaving duty cycle mode, as the windup protection is not too fast. Making
 		// better windup protection is probably better, but not easy.
+		// 本次不是duty 上次是duty
 		if (!control_duty && motor_now->m_was_control_duty) {
 			state_now->vq_int = state_now->vq;
 			if (conf_now->foc_cc_decoupling == FOC_CC_DECOUPLING_BEMF ||
@@ -3357,6 +3165,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 				state_now->vq_int -= motor_now->m_pll_speed * conf_now->foc_motor_flux_linkage;
 			}
 		}
+
 		motor_now->m_was_control_duty = control_duty;
 
 		float current_max_for_duty = conf_now->lo_current_max;

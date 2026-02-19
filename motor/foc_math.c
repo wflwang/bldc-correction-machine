@@ -97,6 +97,12 @@ void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_bet
 	float id = motor->m_motor_state.id;
 	float iq = motor->m_motor_state.iq;
 
+	//目的：避免在电流极小时进行除法运算，防止数值不稳定（除以接近0的数）。
+	//阈值 0.1A：是经验值，当电流小于此值时，认为凸极效应可以忽略，使用平均电感即可。
+	//Ld = // 从电机参数获取（单位：H）
+	//Lq = // 从电机参数获取（单位：H）
+	//ld_lq_diff = Lq - Ld;           // 电感差值
+	//L = (Ld + Lq) / 2.0;           // 平均电感作为基准
 	// Adjust inductance for saliency.
 	if (fabsf(id) > 0.1 || fabsf(iq) > 0.1) {
 		L = L - ld_lq_diff / 2.0 + ld_lq_diff * SQ(iq) / (SQ(id) + SQ(iq));
@@ -140,11 +146,34 @@ void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_bet
 		// rearrangements in place of the original names I have chosen, and credit
 		// to David Molony as the original author must be noted.
 
+		//(v_alpha - R_ia) * dt：电压减去电阻压降后对时间的积分，这是磁链的主要变化量。
+		//L * (i_alpha - state->i_alpha_last)：电感项，补偿电流变化引起的磁链变化
 		state->x1 += (v_alpha - R_ia) * dt - L * (i_alpha - state->i_alpha_last);
 		state->x2 += (v_beta - R_ib) * dt - L * (i_beta - state->i_beta_last);
 
 		if (conf_now->foc_observer_type == FOC_OBSERVER_MXLEMMING_LAMBDA_COMP) {
+			//λ_est是观测器维护的磁链幅值估算
+			//(x1² + x2²)是当前开环估算的磁链幅值平方
 			float err = SQ(state->lambda_est) - (SQ(state->x1) + SQ(state->x2));
+			//gamma_half：控制自适应速度
+			//太小 → 自适应慢，对参数变化不敏感
+			//太大 → 可能振荡
+			//建议：从0.1开始，逐步增大直到响应足够快但不振荡
+			// 调试时可以监控这些变量：
+			//float mag_sq = SQ(state->x1) + SQ(state->x2);  // 开环估算的磁链幅值平方
+			//float lambda_sq = SQ(state->lambda_est);       // 自适应估算的磁链幅值平方
+			//float error = lambda_sq - mag_sq;              // 两者之间的误差
+			//稳态测试：在恒定速度下，lambda_est应稳定在标称值附近
+			//动态测试：加速/减速时，观测器应快速跟踪
+			//满载测试：大电流时，lambda_est应适当下降（反映饱和效应）
+			//. 故障排查
+			//如果观测器发散：
+			//检查电压/电流测量是否准确
+			//检查电阻R和电感L参数是否正确
+			//减小 gamma_half或增加限幅范围
+			//如果响应太慢：
+			//适当增大 gamma_half
+			//检查控制周期 dt是否太大
 			state->lambda_est += 0.1 * gamma_half * state->lambda_est * -err * dt;
 			utils_truncate_number(&(state->lambda_est), lambda * 0.3, lambda * 2.5);
 
@@ -243,7 +272,19 @@ void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_bet
 	// Then the state->x1 and state->x2 (which are the alpha and beta fluxes) are set as lambda*sin and lambda*cos
 	// The d flux each time would have a residual after transform from ab to dq. This can be used as an input to the flux estimator
 }
-
+/**
+ * 
+ * 参数说明：
+ * phase：输入相位（观测器直接输出的原始角度，可能有噪声/跳变）
+ * dt：控制周期（秒）
+ * phase_var：输出相位（平滑后的连续角度）
+ * speed_var：输出速度（估算的角速度）
+ * conf：配置参数，包含PLL的PI控制器参数
+ * // 监控这些变量来调试PLL：
+ * float phase_error = delta_theta;      // 相位误差，应趋近于0
+ * float pll_bandwidth = conf->foc_pll_kp / (2*π);  // 近似带宽(Hz)
+ * PLL的-3dB带宽 ≈ Kp/(2π)，积分时间常数 ≈ Kp/Ki
+ */
 void foc_pll_run(float phase, float dt, float *phase_var,
 					float *speed_var, mc_configuration *conf) {
 	UTILS_NAN_ZERO(*phase_var);
@@ -610,31 +651,38 @@ float foc_correct_encoder(float obs_angle, float enc_angle, float speed,
 
 	return motor->m_using_encoder ? enc_angle : obs_angle;
 }
-
+/**
+ * 
+ * @param angle 当前(观测器)的角度
+ * @param dt 处理的间隔时间 s
+ * @param motor 当前选择马达的结构体
+ * @param val 当前的霍尔值
+ */
 float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall_val) {
 	mc_configuration *conf_now = motor->m_conf;
 	motor->m_hall_dt_diff_now += dt;
 
-	float rpm_abs = fabsf(RADPS2RPM_f(motor->m_pll_speed));
-	float rad_per_sec_hall = (M_PI / 3.0) / motor->m_hall_dt_diff_last;
-	float rpm_abs_hall = fabsf(RADPS2RPM_f(rad_per_sec_hall));
+	float rpm_abs = fabsf(RADPS2RPM_f(motor->m_pll_speed));	//60s(1min)转速 /2pi = 1min 多少度 弧度->角度 当前转速
+	float rad_per_sec_hall = (M_PI / 3.0) / motor->m_hall_dt_diff_last; //60度 / 上次霍尔变化的时间 得出是速度
+	float rpm_abs_hall = fabsf(RADPS2RPM_f(rad_per_sec_hall));	//上次的霍尔转速
 
 	motor->m_using_hall = rpm_abs < conf_now->foc_sl_erpm;
-	float angle_old = angle;
-
-	int ang_hall_int = conf_now->foc_hall_table[hall_val];
+	float angle_old = angle;	//观测器角度直接赋值
+	//hall table[] = 000 001 011 010 110 100 101 111
+	int ang_hall_int = conf_now->foc_hall_table[hall_val];	//当前值对应表格位置的角度值
 
 	// Only override the observer if the hall sensor value is valid.
 	if (ang_hall_int < 201) {
 		// Scale to the circle and convert to radians
-		float ang_hall_now = ((float)ang_hall_int / 200.0) * 2.0 * M_PI;
+		float ang_hall_now = ((float)ang_hall_int / 200.0) * 2.0 * M_PI; //换算出当前角度
 
 		if (motor->m_ang_hall_int_prev < 0) {
+			//上次角度不是正确值
 			// Previous angle not valid
 			motor->m_ang_hall_int_prev = ang_hall_int;
 			motor->m_ang_hall = ang_hall_now;
 		} else if (ang_hall_int != motor->m_ang_hall_int_prev) {
-			int diff = ang_hall_int - motor->m_ang_hall_int_prev;
+			int diff = ang_hall_int - motor->m_ang_hall_int_prev;	//角度变化超过一半时候自动增加一个周期
 			if (diff > 100) {
 				diff -= 200;
 			} else if (diff < -100) {
@@ -643,9 +691,9 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 
 			// This is only valid if the direction did not just change. If it did, we use the
 			// last speed together with the sign right now.
-			if (SIGN(diff) == SIGN(motor->m_hall_dt_diff_last)) {
+			if (SIGN(diff) == SIGN(motor->m_hall_dt_diff_last)) {	//与上次误差方向是否一致
 				if (diff > 0) {
-					motor->m_hall_dt_diff_last = motor->m_hall_dt_diff_now;
+					motor->m_hall_dt_diff_last = motor->m_hall_dt_diff_now;	//上前时间增量赋值 表示霍尔变化花费的时间
 				} else {
 					motor->m_hall_dt_diff_last = -motor->m_hall_dt_diff_now;
 				}
@@ -656,11 +704,11 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 			motor->m_hall_dt_diff_now = 0.0;
 
 			// A transition was just made. The angle is in the middle of the new and old angle.
-			int ang_avg = motor->m_ang_hall_int_prev + diff / 2;
+			int ang_avg = motor->m_ang_hall_int_prev + diff / 2; //取霍尔角度变化的中点值
 			ang_avg %= 200;
 
 			// Scale to the circle and convert to radians
-			motor->m_ang_hall = ((float)ang_avg / 200.0) * 2.0 * M_PI;
+			motor->m_ang_hall = ((float)ang_avg / 200.0) * 2.0 * M_PI;	//两次变化霍尔的中点角度
 		}
 
 		motor->m_ang_hall_int_prev = ang_hall_int;
@@ -669,15 +717,19 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 				fabsf(motor->m_hall_dt_diff_last))) < conf_now->foc_hall_interp_erpm) {
 			// Don't interpolate on very low speed, just use the closest hall sensor. The reason is that we might
 			// get stuck at 60 degrees off if a direction change happens between two steps.
+			// 当前速度小于插值速度阈值(foc_hall_interp_erpm) 直接用就近角度 这里是极低速度了
 			motor->m_ang_hall = ang_hall_now;
 		} else {
-			// Interpolate
+			// Interpolate 插值
 			float diff = utils_angle_difference_rad(motor->m_ang_hall, ang_hall_now);
 			if (fabsf(diff) < ((2.0 * M_PI) / 12.0) || SIGN(diff) != SIGN(rad_per_sec_hall)) {
 				// Do interpolation
+				//角度差小 或 方向不一致
+				// 正常插值：角度 = 角度 + 角速度 × 时间
 				motor->m_ang_hall += rad_per_sec_hall * dt;
 			} else {
 				// We are too far away with the interpolation
+				// 角度偏差过大：缓慢修正
 				motor->m_ang_hall -= diff * 0.01;
 			}
 		}
@@ -686,12 +738,12 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 
 		// Limit hall sensor rate of change. This will reduce current spikes in the current controllers when the angle estimation
 		// changes fast.
-		float angle_step = (fmaxf(rpm_abs_hall, conf_now->foc_hall_interp_erpm) / 60.0) * 2.0 * M_PI * dt * 1.5;
+		float angle_step = (fmaxf(rpm_abs_hall, conf_now->foc_hall_interp_erpm) / 60.0) * 2.0 * M_PI * dt * 1.5;	//本次最大角度变化
 		float angle_diff = utils_angle_difference_rad(motor->m_ang_hall, motor->m_ang_hall_rate_limited);
 		if (fabsf(angle_diff) < angle_step) {
-			motor->m_ang_hall_rate_limited = motor->m_ang_hall;
+			motor->m_ang_hall_rate_limited = motor->m_ang_hall;	//合理范围内直接赋值
 		} else {
-			motor->m_ang_hall_rate_limited += angle_step * SIGN(angle_diff);
+			motor->m_ang_hall_rate_limited += angle_step * SIGN(angle_diff);	//否则最小步长赋值 保证霍尔的连续性 不能突变
 		}
 
 		utils_norm_angle_rad((float*)&motor->m_ang_hall_rate_limited);
@@ -700,6 +752,7 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 			angle = motor->m_ang_hall_rate_limited;
 		}
 	} else {
+		//错误 完全信任观测器
 		// Invalid hall reading. Don't update angle.
 		motor->m_ang_hall_int_prev = -1;
 
@@ -713,6 +766,7 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 
 	// Map output angle between hall angle and observer angle in transition region to make
 	// a smooth transition.
+	//转速范围内 加权观测器和霍尔角度 低速完全信任霍尔
 	if (angle_old != angle) {
 		float weight_hall = utils_map(rpm_abs, conf_now->foc_sl_erpm_start, conf_now->foc_sl_erpm, 1.0, 0.0);
 		utils_truncate_number(&weight_hall, 0.0, 1.0);

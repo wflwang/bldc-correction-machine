@@ -31,11 +31,13 @@ typedef enum {
 	HW_TYPE_CUSTOM_MODULE
 } HW_TYPE;
 
+//电机的工作状态
 typedef enum {
-   MC_STATE_OFF = 0,
-   MC_STATE_DETECTING,
-   MC_STATE_RUNNING,
-   MC_STATE_FULL_BRAKE,
+   	MC_STATE_OFF = 0,
+   	MC_STATE_DETECTING,
+   	MC_STATE_RUNNING,
+   	MC_STATE_FULL_BRAKE,
+	MC_STATE_learnHall,	//霍尔学习中
 } mc_state;
 
 typedef enum {

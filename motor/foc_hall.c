@@ -51,6 +51,7 @@ void HTU_IRQHandler(void){
 void * HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
 {
     HALL_Handle_t * pHandle = ( HALL_Handle_t * ) pHandleVoid;
+    int ang_diff;   //两次有效的角度偏差
     uint8_t bPrevHallState;
     uint32_t wCaptBuf;
     uint16_t hPrscBuf;
@@ -67,6 +68,7 @@ void * HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     // 用当前的角速度 每次中断估算变化的角度
     // hall_speed 也要做一阶平滑PI控制
     //60度换向时间
+    //每次霍尔变化的时间
     m_ang60_intTime += HTU_GetWBRValue(HTU_WBR0);  //获取本次误差的时间
     if(m_ang60_intTime>MaxAng60IntTime){    //超过最长换向时间 就报错
         m_ang60_intTime = MaxAng60IntTime;
@@ -90,19 +92,42 @@ void * HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     //这里只算出当前hall切换点角度和当前hall角速度
     //不考虑角度不对情况
     if(ang_hall_int<65536){
-        if(motor->m_ang_hall_int_prev>65535){
+        if(motor->m_ang_hall_int_prev>65535){   //如果上次角度不对
             //上次是否角度不正常 不正常直接赋值正常角度
             //从误差过来计算角速度时间默认最大
             motor->angWspeed = MaxAngWSpeed; //第一次默认角速度时间最长? 基本没有补偿
-            m_ang60_intTime = 0;    //重新计时
             motor->m_ang_hall_int_prev  = ang_hall_int; //本次角度直接更新
         }else if(ang_hall_int != motor->m_ang_hall_int_prev){
             //角度变化不一样 上次和本次角度都是有效 才可以更新角度,计算出角速度
             //    ang/m_ang60_intTime   角度/时间  = 角速度
-        }else{
-        //角度变化一样 不做处理
+            //必须要检测角度变化最大 范围 不可超过最大范围
+            ang_diff = ang_hall_int - motor->m_ang_hall_int_prev;
+            //hall 变化超过一半的角度变化认识是反转 直接减去65536
+            if(ang_diff>32767){
+                ang_diff -= 65536
+            }else if(ang_diff<-32768){
+                ang_diff += 65536
+            }
+            //误差变化方向是否一致 一致时候计算变化时间才有效 否则用上次60度时间
+            if(SIGN(ang_diff) == SIGN(motor->last_ang_diff)){
+                //误差方向一致
+                if(ang_diff>0){
+                    //误差变大
+                    motor->m_ang60_intTime = m_ang60_intTime;
+                }else{
+                    //误差变小 时间增量为-
+                    motor->m_ang60_intTime = -m_ang60_intTime;
+                }
+            }else{
+                motor->last_ang_diff = ang_diff;    //更新误差
+                motor->m_ang60_intTime = -motor->m_ang60_intTime; //如果角度不同的话用上次,防止正反转误差  
+            }
         }
-        m_ang60_intTime  = 0; //角速度第一次补偿到最慢速度时间
+        motor->m_ang_hall_int_prev  = ang_hall_int; //本次角度直接更新
+        m_ang60_intTime = 0;    //重新更新下一次时间
+        //如果本次转速小于最小插值速度的阈值了,不进行插值 直接用就近角度
+        //插值直接处理还是在AD中和无感观测速度一起处理?
+        //补偿源用当前主观测器的速度
     }else{
         //角度数据不对
         m_ang60_intTime = 0;    //重新计时

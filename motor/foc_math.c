@@ -277,7 +277,7 @@ void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_bet
  * 参数说明：
  * phase：输入相位（观测器直接输出的原始角度，可能有噪声/跳变）
  * dt：控制周期（秒）
- * phase_var：输出相位（平滑后的连续角度）
+ * phase_var：输出相位（平滑后的连续角度）上次用的角度
  * speed_var：输出速度（估算的角速度）
  * conf：配置参数，包含PLL的PI控制器参数
  * // 监控这些变量来调试PLL：
@@ -293,7 +293,7 @@ void foc_pll_run(float phase, float dt, float *phase_var,
 	UTILS_NAN_ZERO(*speed_var);
 	*phase_var += (*speed_var + conf->foc_pll_kp * delta_theta) * dt;
 	utils_norm_angle_rad((float*)phase_var);
-	*speed_var += conf->foc_pll_ki * delta_theta * dt;
+	*speed_var += conf->foc_pll_ki * delta_theta * dt;	//速度 是角度变化和时间的积分 dt 是频率? 变化的角度/时间  = 速度
 }
 
 /**

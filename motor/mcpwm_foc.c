@@ -2844,7 +2844,11 @@ void mcpwm_foc_tim_sample_int_handler(void) {
 				m_motor_1.m_motor_state.v_beta);
 	}
 }
-
+/***
+ * 本程序中不用HFI 去掉 只有一个电机
+ * 
+ * 
+*/
 void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	(void)p;
 	(void)flags;
@@ -2869,78 +2873,16 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	FOC_PROFILE_LINE_FINE();
 
 	// Update modulation for V7 and collect current samples. This is used by the HFI.
-	if (motor_other->m_duty_next_set) {
-		motor_other->m_duty_next_set = false;
-		skip_interpolation = true;
 
-		float curr0 = (GET_CURRENT1() - conf_other->foc_offsets_current[0]) * FAC_CURRENT1;
-		float curr1 = (GET_CURRENT2() - conf_other->foc_offsets_current[1]) * FAC_CURRENT2;
-
-		TIMER_UPDATE_DUTY_M1(motor_other->m_duty1_next, motor_other->m_duty2_next, motor_other->m_duty3_next);
-		//clarke
-		motor_other->m_i_alpha_sample_next = curr0;
-		motor_other->m_i_beta_sample_next = ONE_BY_SQRT3 * curr0 + TWO_BY_SQRT3 * curr1;
-	}
-
-	bool do_return = false;
-
-#ifndef HW_HAS_DUAL_MOTORS
-#ifdef HW_HAS_PHASE_SHUNTS
-	if (conf_now->foc_control_sample_mode != FOC_CONTROL_SAMPLE_MODE_V0_V7 && is_v7) {
-		do_return = true;
-	}
-#else
-	if (is_v7) {
-		do_return = true;
-	}
-#endif
-#endif
 
 	FOC_PROFILE_LINE_FINE();
 
 	float fs = motor_now->p_fs;
 	float dt = motor_now->p_dt;
 
-	if (conf_other->foc_control_sample_mode == FOC_CONTROL_SAMPLE_MODE_V0_V7_INTERPOL && !skip_interpolation) {
-		float interpolated_phase = motor_other->m_motor_state.phase + motor_other->m_speed_est_fast * dt * 0.5;
-		utils_norm_angle_rad(&interpolated_phase);
-
-		float s, c;
-		utils_fast_sincos_better(interpolated_phase, &s, &c);
-
-		volatile motor_state_t *state_m = &(motor_other->m_motor_state);
-		state_m->phase_sin = s;
-		state_m->phase_cos = c;
-		state_m->mod_alpha_raw = c * state_m->mod_d - s * state_m->mod_q;
-		state_m->mod_beta_raw  = c * state_m->mod_q + s * state_m->mod_d;
-
-		uint32_t duty1, duty2, duty3, top;
-		top = TIM1->ARR;
-		foc_svm(state_m->mod_alpha_raw, state_m->mod_beta_raw, conf_now->l_max_duty,
-				top, &duty1, &duty2, &duty3, (uint32_t*)&state_m->svm_sector);
-
-#ifdef HW_HAS_DUAL_MOTORS
-		if (is_second_motor) {
-			TIMER_UPDATE_DUTY_M1(duty1, duty2, duty3);
-#ifdef HW_HAS_DUAL_PARALLEL
-			TIMER_UPDATE_DUTY_M2(duty1, duty2, duty3);
-#endif
-		} else {
-#ifndef HW_HAS_DUAL_PARALLEL
-			TIMER_UPDATE_DUTY_M2(duty1, duty2, duty3);
-#endif
-		}
-#else
-		TIMER_UPDATE_DUTY_M1(duty1, duty2, duty3);
-#endif
-	}
-
-	if (do_return) {
-		return;
-	}
-
 	FOC_PROFILE_LINE_FINE();
 
+//此处是FOC 控制环是否分频
 #if FOC_CONTROL_LOOP_FREQ_DIVIDER > 1
 	static int skip = 0;
 	if (++skip == FOC_CONTROL_LOOP_FREQ_DIVIDER) {
@@ -2968,15 +2910,10 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	float curr2 = 0;
 
 	// Get ADC readings 0-4095
-	if (is_second_motor) {
-		curr0 = GET_CURRENT1_M2();
-		curr1 = GET_CURRENT2_M2();
-		curr2 = GET_CURRENT3_M2();
-	} else {
-		curr0 = GET_CURRENT1();
-		curr1 = GET_CURRENT2();
-		curr2 = GET_CURRENT3();
-	}
+	//获取当前AD采样的值
+	curr0 = GET_CURRENT1();
+	curr1 = GET_CURRENT2();
+	curr2 = GET_CURRENT3();
 
 #ifdef HW_HAS_DUAL_PARALLEL
 	// Add both currents together
@@ -3006,20 +2943,12 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 #endif	
 
 	// Scale to AMPs using calibrated scaling factors
-	if (is_second_motor) {
-		curr0 *= FAC_CURRENT1_M2;
-		curr1 *= FAC_CURRENT2_M2;
-		curr2 *= FAC_CURRENT3_M2;
-	} else {
-		curr0 *= FAC_CURRENT1;
-		curr1 *= FAC_CURRENT2;
-		curr2 *= FAC_CURRENT3;
-	}
-
-#ifndef HW_HAS_3_SHUNTS	
+	curr0 *= FAC_CURRENT1;
+	curr1 *= FAC_CURRENT2;
+	curr2 *= FAC_CURRENT3;
+	//双电阻
 	// Calculate third current assuming they are balanced
 	curr2 = -(curr0 + curr1);
-#endif
 
 #define SHUNT_PICK_THR 900
 
@@ -3035,7 +2964,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	float ia = curr0;
 	float ib = curr1;
 	float ic = curr2;
-
+	//固定一阶滤波 VDD电压
 	UTILS_LP_FAST(state_now->v_bus, GET_INPUT_VOLTAGE(), 0.1);
 
 	volatile float enc_ang = 0;
@@ -3077,7 +3006,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 	}
 
 	FOC_PROFILE_LINE_FINE();
-
+	//马达工作的时候
 	if (motor_now->m_state == MC_STATE_RUNNING) {
 			// Clarke transform assuming balanced currents
 		state_now->i_alpha = ia;
@@ -3099,7 +3028,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 		const float vq_now = state_now->vq;
 		const float speed_fast_now = motor_now->m_pll_speed;
 
-		float id_set_tmp = motor_now->m_id_set;
+		float id_set_tmp = motor_now->m_id_set;	//目标dq值
 		float iq_set_tmp = motor_now->m_iq_set;
 		state_now->max_duty = conf_now->l_max_duty;
 

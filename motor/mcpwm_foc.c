@@ -24,8 +24,7 @@
 #include "mcpwm_foc.h"
 #include "mc_interface.h"
 #include "ch.h"
-#include "hal.h"
-#include "stm32f4xx_conf.h"
+#include "hk32m07x_conf.h"
 #include "digital_filter.h"
 #include "utils_math.h"
 #include "utils_sys.h"
@@ -39,7 +38,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "virtual_motor.h"
 #include "foc_math.h"
 
 // Private variables
@@ -129,39 +127,6 @@ static volatile bool pid_thd_stop;
 #else
 #define M_MOTOR(is_second_motor)  (((void)is_second_motor), &m_motor_1)
 #endif
-
-static void update_hfi_samples(foc_hfi_samples samples, volatile motor_all_state_t *motor) {
-	utils_sys_lock_cnt();
-
-	memset((void*)&motor->m_hfi, 0, sizeof(motor->m_hfi));
-	switch (samples) {
-	case HFI_SAMPLES_8:
-		motor->m_hfi.samples = 8;
-		motor->m_hfi.table_fact = 4;
-		motor->m_hfi.fft_bin0_func = utils_fft8_bin0;
-		motor->m_hfi.fft_bin1_func = utils_fft8_bin1;
-		motor->m_hfi.fft_bin2_func = utils_fft8_bin2;
-		break;
-
-	case HFI_SAMPLES_16:
-		motor->m_hfi.samples = 16;
-		motor->m_hfi.table_fact = 2;
-		motor->m_hfi.fft_bin0_func = utils_fft16_bin0;
-		motor->m_hfi.fft_bin1_func = utils_fft16_bin1;
-		motor->m_hfi.fft_bin2_func = utils_fft16_bin2;
-		break;
-
-	case HFI_SAMPLES_32:
-		motor->m_hfi.samples = 32;
-		motor->m_hfi.table_fact = 1;
-		motor->m_hfi.fft_bin0_func = utils_fft32_bin0;
-		motor->m_hfi.fft_bin1_func = utils_fft32_bin1;
-		motor->m_hfi.fft_bin2_func = utils_fft32_bin2;
-		break;
-	}
-
-	utils_sys_unlock_cnt();
-}
 
 #pragma GCC push_options
 #pragma GCC optimize ("Os")
@@ -340,25 +305,13 @@ static void timer_reinit(int f_zv) {
 	nvicEnableVector(TIM2_IRQn, 6);
 }
 
-static void init_audio_state(volatile mc_audio_state *s) {
-	memset((void*)s, 0, sizeof(mc_audio_state));
-
-	s->mode = MC_AUDIO_OFF;
-	for (int i = 0;i < MC_AUDIO_CHANNELS;i++) {
-		s->table[i] = utils_tab_sin_32_1;
-		s->table_len[i] = 32;
-		s->table_voltage[i] = 0.0;
-		s->table_freq[i] = 1000.0;
-		s->table_pos[i] = 0.0;
-	}
-}
-
-void mcpwm_foc_init(mc_configuration *conf_m1, mc_configuration *conf_m2) {
+/**
+ * @brief FOC init
+ * 
+ * 
+ */
+void mcpwm_foc_init(mc_configuration *conf_m1) {
 	utils_sys_lock_cnt();
-
-#ifndef HW_HAS_DUAL_MOTORS
-	(void)conf_m2;
-#endif
 
 	m_init_done = false;
 
@@ -370,25 +323,9 @@ void mcpwm_foc_init(mc_configuration *conf_m1, mc_configuration *conf_m2) {
 	m_motor_1.m_control_mode = CONTROL_MODE_NONE;
 	m_motor_1.m_hall_dt_diff_last = 1.0;
 	m_motor_1.m_hall_dt_diff_now = 1.0;
-	m_motor_1.m_ang_hall_int_prev = -1;
+	m_motor_1.m_ang_hall_int_prev = 65536;	//normal is 0-65535
+	//不要HFI 不要audio
 	foc_precalc_values((motor_all_state_t*)&m_motor_1);
-	update_hfi_samples(m_motor_1.m_conf->foc_hfi_samples, &m_motor_1);
-	init_audio_state(&m_motor_1.m_audio);
-
-#ifdef HW_HAS_DUAL_MOTORS
-	memset((void*)&m_motor_2, 0, sizeof(motor_all_state_t));
-	m_motor_2.m_conf = conf_m2;
-	m_motor_2.m_state = MC_STATE_OFF;
-	m_motor_2.m_control_mode = CONTROL_MODE_NONE;
-	m_motor_2.m_hall_dt_diff_last = 1.0;
-	m_motor_2.m_hall_dt_diff_now = 1.0;
-	m_motor_2.m_ang_hall_int_prev = -1;
-	foc_precalc_values((motor_all_state_t*)&m_motor_2);
-	update_hfi_samples(m_motor_2.m_conf->foc_hfi_samples, &m_motor_2);
-	init_audio_state(&m_motor_2.m_audio);
-#endif
-
-	virtual_motor_init(conf_m1);
 
 	TIM_DeInit(TIM1);
 	TIM_DeInit(TIM2);
@@ -401,33 +338,19 @@ void mcpwm_foc_init(mc_configuration *conf_m1, mc_configuration *conf_m2) {
 	ADC_CommonInitTypeDef ADC_CommonInitStructure;
 	DMA_InitTypeDef DMA_InitStructure;
 	ADC_InitTypeDef ADC_InitStructure;
-
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2 | RCC_AHB1Periph_GPIOA | RCC_AHB1Periph_GPIOC, ENABLE);
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1 | RCC_APB2Periph_ADC2 | RCC_APB2Periph_ADC3, ENABLE);
-
-	dmaStreamAllocate(STM32_DMA_STREAM(STM32_DMA_STREAM_ID(2, 4)),
-					  5,
-					  (stm32_dmaisr_t)mcpwm_foc_adc_int_handler,
-					  (void *)0);
-
-	DMA_InitStructure.DMA_Channel = DMA_Channel_0;
-	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)&ADC_Value;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC->CDR;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	DMA_InitStructure.DMA_BufferSize = HW_ADC_CHANNELS;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-	DMA_Init(DMA2_Stream4, &DMA_InitStructure);
-
-	DMA_Cmd(DMA2_Stream4, ENABLE);
+	/* ADC GPIO Peripheral clock enable */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_ADC, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
+	/* Configure PA3,PB3,PB9 as analog input */
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;    
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
 
 	// Note: The half transfer interrupt is used as we already have all current and voltage
 	// samples by then and we can start processing them. Entering the interrupt earlier gives

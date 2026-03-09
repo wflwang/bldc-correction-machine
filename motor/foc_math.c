@@ -23,14 +23,19 @@
 
 // See http://cas.ensmp.fr/~praly/Telechargement/Journaux/2010-IEEE_TPEL-Lee-Hong-Nam-Ortega-Praly-Astolfi.pdf
 //暂时只用MXlemming 观测方法 适用于M0
-void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta,
-		float dt, observer_state *state, float *phase, motor_all_state_t *motor) {
+//void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta,
+//		float dt, observer_state *state, float *phase, motor_all_state_t *motor) {
+void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16_t i_beta,
+		int16_t dt, observer_state *state, int16_t *phase, motor_all_state_t *motor) {
 
 	mc_configuration *conf_now = motor->m_conf;
 
-	float R = conf_now->foc_motor_r;	//马达的电阻
-	float L = conf_now->foc_motor_l;	//马达的电感
-	float lambda = conf_now->foc_motor_flux_linkage;	//电机的磁链
+	//float R = conf_now->foc_motor_r;	//马达的电阻
+	//float L = conf_now->foc_motor_l;	//马达的电感
+	//float lambda = conf_now->foc_motor_flux_linkage;	//电机的磁链
+	int16_t R = conf_now->foc_motor_r;	//马达的电阻
+	int16_t L = conf_now->foc_motor_l;	//马达的电感
+	int16_t lambda = conf_now->foc_motor_flux_linkage;	//电机的磁链
 
 	// Saturation compensation	磁饱和补偿 选择不同德补偿方法
 	//首选：SAT_COMP_FACTOR mxlemming 带 lambda 版本下 sat_comp_lambda才有效
@@ -46,57 +51,59 @@ void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_bet
 	//使用示波器：观察电流波形，过补偿会导致电流波形畸变。
 	//性能指标：关注电机效率、温升、噪音。
 	//最终建议：从 SAT_COMP_FACTOR​ 开始，foc_sat_comp设为 0.3-0.5，这是最稳妥、最可预测的方法。除非你有特殊需求或深入了解电机饱和特性，否则避免使用过于复杂的补偿模式。
-	switch(conf_now->foc_sat_comp_mode) {
-	case SAT_COMP_LAMBDA:	//基于磁链估计的补偿
-		//原理：假设电感L的下降比例与磁链λ的下降比例相同。也就是说，当磁饱和时，磁链λ会下降，电感L也按相同比例下降。
-		//实现：如果观测器类型是带有LAMBDA_COMP的（即能够估算磁链lambda_est），那么用估算的磁链state->lambda_est与初始（或额定）磁链lambda的比值来调整电感L：L =L * (state->lambda_est/ lambda)。注意：代码注释中提到，作者不确定这个假设是否有效或合理。
-		// Here we assume that the inductance drops by the same amount as the flux linkage. I have
-		// no idea if this is a valid or even a reasonable assumption.
-		if (conf_now->foc_observer_type >= FOC_OBSERVER_ORTEGA_LAMBDA_COMP ||
-				conf_now->foc_observer_type >= FOC_OBSERVER_MXLEMMING_LAMBDA_COMP ||
-				conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP ||
-				conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
-			L = L * (state->lambda_est / lambda);
-		}
-		break;
+	//switch(conf_now->foc_sat_comp_mode) {
+	//case SAT_COMP_LAMBDA:	//基于磁链估计的补偿
+	//	//原理：假设电感L的下降比例与磁链λ的下降比例相同。也就是说，当磁饱和时，磁链λ会下降，电感L也按相同比例下降。
+	//	//实现：如果观测器类型是带有LAMBDA_COMP的（即能够估算磁链lambda_est），那么用估算的磁链state->lambda_est与初始（或额定）磁链lambda的比值来调整电感L：L =L * (state->lambda_est/ lambda)。注意：代码注释中提到，作者不确定这个假设是否有效或合理。
+	//	// Here we assume that the inductance drops by the same amount as the flux linkage. I have
+	//	// no idea if this is a valid or even a reasonable assumption.
+	//	if (conf_now->foc_observer_type >= FOC_OBSERVER_ORTEGA_LAMBDA_COMP ||
+	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXLEMMING_LAMBDA_COMP ||
+	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP ||
+	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
+	//		L = L * (state->lambda_est / lambda);
+	//	}
+	//	break;
 
-	case SAT_COMP_FACTOR: {	//基于电流因子的补偿
+	//case SAT_COMP_FACTOR: {	//基于电流因子的补偿
 		//原理：使用一个用户可配置的补偿系数foc_sat_comp，乘以当前电流与最大电流的比值，得到一个补偿因子comp_fact。然后用这个补偿因子同时减小电感L和磁链lambda。
 		//实现：comp_fact= conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter/ conf_now->l_current_max);
 		//然后：L -=L * comp_fact;lambda -= lambda* comp_fact;这意味着，随着电流增大，补偿因子增大，L和λ按比例减小。foc_sat_comp系数允许用户调整补偿的强度。
-		const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
-		L -= L * comp_fact;
-		lambda -= lambda * comp_fact;
-	} break;
+	int16_t i_abs_filter = get_i_abs_filter();	//滤波后电流绝对值
+	int16_t comp_fact = ((int32_t)conf_now->foc_sat_comp*i_abs_filter/conf_now->l_current_max);
+	//const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
+	L -= (((int32_t)L * comp_fact)>>15);
+	lambda -= lambda * comp_fact;
+	//} break;
 
-	case SAT_COMP_LAMBDA_AND_FACTOR: {
-		//原理：结合了前两种方法。首先，如果观测器类型是带有LAMBDA_COMP的，则用磁链估算值调整电感L（同第一种方法）。然后，再用电流因子补偿进一步调整电感L（但注意，这里只调整了L，没有调整lambda）。
-		//实现：先进行SAT_COMP_LAMBDA的调整（如果条件满足），然后计算comp_fact，并仅对L进行补偿：L-= L *comp_fact;
-		//选择建议：对于MXLemming观测法，它本身有一个磁链估算的补偿（即state->lambda_est的自适应调整）。因此，如果使用SAT_COMP_LAMBDA，
-		//则会根据估算的磁链来调整电感L，这可能会与观测器内部的磁链自适应产生耦合，需要小心调整。
-		if (conf_now->foc_observer_type >= FOC_OBSERVER_ORTEGA_LAMBDA_COMP ||
-				conf_now->foc_observer_type >= FOC_OBSERVER_MXLEMMING_LAMBDA_COMP ||
-				conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP ||
-				conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
-			L = L * (state->lambda_est / lambda);
-		}
-		const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
-		L -= L * comp_fact;
-	} break;
-
-	default:
-		break;
-	}
+	//case SAT_COMP_LAMBDA_AND_FACTOR: {
+	//	//原理：结合了前两种方法。首先，如果观测器类型是带有LAMBDA_COMP的，则用磁链估算值调整电感L（同第一种方法）。然后，再用电流因子补偿进一步调整电感L（但注意，这里只调整了L，没有调整lambda）。
+	//	//实现：先进行SAT_COMP_LAMBDA的调整（如果条件满足），然后计算comp_fact，并仅对L进行补偿：L-= L *comp_fact;
+	//	//选择建议：对于MXLemming观测法，它本身有一个磁链估算的补偿（即state->lambda_est的自适应调整）。因此，如果使用SAT_COMP_LAMBDA，
+	//	//则会根据估算的磁链来调整电感L，这可能会与观测器内部的磁链自适应产生耦合，需要小心调整。
+	//	if (conf_now->foc_observer_type >= FOC_OBSERVER_ORTEGA_LAMBDA_COMP ||
+	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXLEMMING_LAMBDA_COMP ||
+	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP ||
+	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
+	//		L = L * (state->lambda_est / lambda);
+	//	}
+	//	const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
+	//	L -= L * comp_fact;
+	//} break;
+//
+	//default:
+	//	break;
+	//}
 
 	// Temperature compensation
-	if (conf_now->foc_temp_comp) {
+	if (conf_now->foc_temp_comp) {	//电阻的温度补偿是否打开
 		R = motor->m_res_temp_comp;	//电机阻值温度补偿
 	}
 
 	float ld_lq_diff = conf_now->foc_motor_ld_lq_diff;
 	float id = motor->m_motor_state.id;
 	float iq = motor->m_motor_state.iq;
-
+	//-->>> 凸极效应补偿
 	//目的：避免在电流极小时进行除法运算，防止数值不稳定（除以接近0的数）。
 	//阈值 0.1A：是经验值，当电流小于此值时，认为凸极效应可以忽略，使用平均电感即可。
 	//Ld = // 从电机参数获取（单位：H）
@@ -113,143 +120,72 @@ void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_bet
 	const float R_ia = R * i_alpha;
 	const float R_ib = R * i_beta;
 	const float gamma_half = motor->m_gamma_now * 0.5;
-
-	switch (conf_now->foc_observer_type) {
-	case FOC_OBSERVER_ORTEGA_ORIGINAL: {
-		float err = SQ(lambda) - (SQ(state->x1 - L_ia) + SQ(state->x2 - L_ib));
-
-		// Forcing this term to stay negative helps convergence according to
-		//
-		// http://cas.ensmp.fr/Publications/Publications/Papers/ObserverPermanentMagnet.pdf
-		// and
-		// https://arxiv.org/pdf/1905.00833.pdf
-		if (err > 0.0) {
-			err = 0.0;
-		}
-
-		float x1_dot = v_alpha - R_ia + gamma_half * (state->x1 - L_ia) * err;
-		float x2_dot = v_beta - R_ib + gamma_half * (state->x2 - L_ib) * err;
-
-		state->x1 += x1_dot * dt;
-		state->x2 += x2_dot * dt;
-	} break;
-
-	case FOC_OBSERVER_MXLEMMING:
-	case FOC_OBSERVER_MXLEMMING_LAMBDA_COMP:
-		// LICENCE NOTE:
-		// This function deviates slightly from the BSD 3 clause licence.
-		// The work here is entirely original to the MESC FOC project, and not based
-		// on any appnotes, or borrowed from another project. This work is free to
-		// use, as granted in BSD 3 clause, with the exception that this note must
-		// be included in where this code is implemented/modified to use your
-		// variable names, structures containing variables or other minor
-		// rearrangements in place of the original names I have chosen, and credit
-		// to David Molony as the original author must be noted.
-
-		//(v_alpha - R_ia) * dt：电压减去电阻压降后对时间的积分，这是磁链的主要变化量。
-		//L * (i_alpha - state->i_alpha_last)：电感项，补偿电流变化引起的磁链变化
-		state->x1 += (v_alpha - R_ia) * dt - L * (i_alpha - state->i_alpha_last);
-		state->x2 += (v_beta - R_ib) * dt - L * (i_beta - state->i_beta_last);
-
-		if (conf_now->foc_observer_type == FOC_OBSERVER_MXLEMMING_LAMBDA_COMP) {
-			//λ_est是观测器维护的磁链幅值估算
-			//(x1² + x2²)是当前开环估算的磁链幅值平方
-			float err = SQ(state->lambda_est) - (SQ(state->x1) + SQ(state->x2));
-			//gamma_half：控制自适应速度
-			//太小 → 自适应慢，对参数变化不敏感
-			//太大 → 可能振荡
-			//建议：从0.1开始，逐步增大直到响应足够快但不振荡
-			// 调试时可以监控这些变量：
-			//float mag_sq = SQ(state->x1) + SQ(state->x2);  // 开环估算的磁链幅值平方
-			//float lambda_sq = SQ(state->lambda_est);       // 自适应估算的磁链幅值平方
-			//float error = lambda_sq - mag_sq;              // 两者之间的误差
-			//稳态测试：在恒定速度下，lambda_est应稳定在标称值附近
-			//动态测试：加速/减速时，观测器应快速跟踪
-			//满载测试：大电流时，lambda_est应适当下降（反映饱和效应）
-			//. 故障排查
-			//如果观测器发散：
-			//检查电压/电流测量是否准确
-			//检查电阻R和电感L参数是否正确
-			//减小 gamma_half或增加限幅范围
-			//如果响应太慢：
-			//适当增大 gamma_half
-			//检查控制周期 dt是否太大
-			state->lambda_est += 0.1 * gamma_half * state->lambda_est * -err * dt;
-			utils_truncate_number(&(state->lambda_est), lambda * 0.3, lambda * 2.5);
-
-			utils_truncate_number_abs(&(state->x1), state->lambda_est);
-			utils_truncate_number_abs(&(state->x2), state->lambda_est);
-		} else {
-			utils_truncate_number_abs(&(state->x1), lambda);
-			utils_truncate_number_abs(&(state->x2), lambda);
-		}
-
-		// Set these to 0 to allow using the same atan2-code as for Ortega
-		L_ia = 0.0;
-		L_ib = 0.0;
-		break;
-
-	case FOC_OBSERVER_ORTEGA_LAMBDA_COMP: {
-		float err = SQ(state->lambda_est) - (SQ(state->x1 - L_ia) + SQ(state->x2 - L_ib));
-
-		// FLux linkage observer. See:
-		// https://cas.mines-paristech.fr/~praly/Telechargement/Conferences/2017_IFAC_Bernard-Praly.pdf
-		state->lambda_est += 0.2 * gamma_half * state->lambda_est * -err * dt;
-
-		// Clamp the observed flux linkage (not sure if this is needed)
+	//这里观测器我们只考虑MXlemming
+	// LICENCE NOTE:
+	// This function deviates slightly from the BSD 3 clause licence.
+	// The work here is entirely original to the MESC FOC project, and not based
+	// on any appnotes, or borrowed from another project. This work is free to
+	// use, as granted in BSD 3 clause, with the exception that this note must
+	// be included in where this code is implemented/modified to use your
+	// variable names, structures containing variables or other minor
+	// rearrangements in place of the original names I have chosen, and credit
+	// to David Molony as the original author must be noted.
+	//(v_alpha - R_ia) * dt：电压减去电阻压降后对时间的积分，这是磁链的主要变化量。
+	//L * (i_alpha - state->i_alpha_last)：电感项，补偿电流变化引起的磁链变化
+	//x1和x2是观测到的αβ轴磁链。
+	//第一项(v-R*i)*dt是电压积分项，第二项L*Δi是电感压降补偿
+	//(v_alpha - R_ia) * dt：电压减去电阻压降，积分得到总磁链变化
+	//L * (i_alpha - state->i_alpha_last)：减去电流变化引起的电感磁链
+	//结果：得到永磁体磁链的αβ分量
+	//数学推导：
+	//永磁体磁链：λ_pm = ∫(v - Ri)dt - L * i
+	state->x1 += (v_alpha - R_ia) * dt - L * (i_alpha - state->i_alpha_last);
+	state->x2 += (v_beta - R_ib) * dt - L * (i_beta - state->i_beta_last);
+	//带磁链补偿执行这里
+	//如果使能了OBServerMXlemming_LambdaCompEn，则进行磁链幅值自适应。
+	//误差：err = λ_est² - (x1²+x2²)
+	//更新：λ_est += 0.1 * gamma_half * λ_est * (-err) * dt
+	//然后对λ_est进行限幅，并对x1、x2进行限幅（限制在±λ_est内）。
+	//如果磁链幅值低于0.5*λ，则适当放大（乘以1.1），以避免角度计算不稳定
+	#ifdef OBServerMXlemming_LambdaCompEn
+	//if (conf_now->foc_observer_type == FOC_OBSERVER_MXLEMMING_LAMBDA_COMP) {
+		//λ_est是观测器维护的磁链幅值估算
+		//(x1² + x2²)是当前开环估算的磁链幅值平方
+		float err = SQ(state->lambda_est) - (SQ(state->x1) + SQ(state->x2));
+		//gamma_half：控制自适应速度
+		//太小 → 自适应慢，对参数变化不敏感
+		//太大 → 可能振荡
+		//建议：从0.1开始，逐步增大直到响应足够快但不振荡
+		// 调试时可以监控这些变量：
+		//float mag_sq = SQ(state->x1) + SQ(state->x2);  // 开环估算的磁链幅值平方
+		//float lambda_sq = SQ(state->lambda_est);       // 自适应估算的磁链幅值平方
+		//float error = lambda_sq - mag_sq;              // 两者之间的误差
+		//稳态测试：在恒定速度下，lambda_est应稳定在标称值附近
+		//动态测试：加速/减速时，观测器应快速跟踪
+		//满载测试：大电流时，lambda_est应适当下降（反映饱和效应）
+		//. 故障排查
+		//如果观测器发散：
+		//检查电压/电流测量是否准确
+		//检查电阻R和电感L参数是否正确
+		//减小 gamma_half或增加限幅范围
+		//如果响应太慢：
+		//适当增大 gamma_half
+		//检查控制周期 dt是否太大
+		state->lambda_est += 0.1 * gamma_half * state->lambda_est * -err * dt;
 		utils_truncate_number(&(state->lambda_est), lambda * 0.3, lambda * 2.5);
+		utils_truncate_number_abs(&(state->x1), state->lambda_est);
+		utils_truncate_number_abs(&(state->x2), state->lambda_est);
+	//} else {
+	#else
+		//不带磁链补偿
+		utils_truncate_number_abs(&(state->x1), lambda);
+		utils_truncate_number_abs(&(state->x2), lambda);
+	//}
+	#endif
 
-		if (err > 0.0) {
-			err = 0.0;
-		}
-
-		float x1_dot = v_alpha - R_ia + gamma_half * (state->x1 - L_ia) * err;
-		float x2_dot = v_beta - R_ib + gamma_half * (state->x2 - L_ib) * err;
-
-		state->x1 += x1_dot * dt;
-		state->x2 += x2_dot * dt;
-	} break;
-
-	case FOC_OBSERVER_MXV:
-	case FOC_OBSERVER_MXV_LAMBDA_COMP:
-	case FOC_OBSERVER_MXV_LAMBDA_COMP_LIN:
-		state->x1 += (v_alpha - R_ia) * dt;
-		state->x2 += (v_beta - R_ib) * dt;
-
-		if (conf_now->foc_observer_type == FOC_OBSERVER_MXV_LAMBDA_COMP ||
-				conf_now->foc_observer_type == FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
-			if (conf_now->foc_observer_type == FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
-				float mag = NORM2_f(state->x1 - L_ia, state->x2 - L_ib);
-				UTILS_LP_FAST(state->lambda_est, mag, 0.1 * gamma_half * dt * SQ(state->lambda_est));
-				utils_truncate_number(&(state->lambda_est), lambda * 0.3, lambda * 2.5);
-
-				if (mag > state->lambda_est) {
-					state->x1 = (state->x1 / mag) * state->lambda_est;
-					state->x2 = (state->x2 / mag) * state->lambda_est;
-				}
-			} else if (conf_now->foc_observer_type == FOC_OBSERVER_MXV_LAMBDA_COMP) {
-				float err = SQ(state->lambda_est) - (SQ(state->x1 - L_ia) + SQ(state->x2 - L_ib));
-				state->lambda_est += 0.2 * gamma_half * state->lambda_est * -err * dt;
-				utils_truncate_number(&(state->lambda_est), lambda * 0.3, lambda * 2.5);
-
-				float mag = NORM2_f(state->x1 - L_ia, state->x2 - L_ib);
-				if (mag > state->lambda_est) {
-					state->x1 = (state->x1 / mag) * state->lambda_est;
-					state->x2 = (state->x2 / mag) * state->lambda_est;
-				}
-			}
-		} else {
-			float mag = NORM2_f(state->x1 - L_ia, state->x2 - L_ib);
-			if (mag > lambda) {
-				state->x1 = (state->x1 / mag) * lambda;
-				state->x2 = (state->x2 / mag) * lambda;
-			}
-		}
-		break;
-
-	default:
-		break;
-	}
+	// Set these to 0 to allow using the same atan2-code as for Ortega
+	L_ia = 0.0;
+	L_ib = 0.0;
 
 	state->i_alpha_last = i_alpha;
 	state->i_beta_last = i_beta;
@@ -831,24 +767,37 @@ void foc_hfi_adjust_angle(float ang_err, motor_all_state_t *motor, float dt) {
 	utils_norm_angle_rad((float*)&motor->m_hfi.angle);
 	motor->m_hfi.ready = true;
 }
-
+/**
+ * @brief FOC 参数初始化
+ * 
+ * 
+ */
 void foc_precalc_values(motor_all_state_t *motor) {
 	const mc_configuration *conf_now = motor->m_conf;
 	motor->p_lq = conf_now->foc_motor_l + conf_now->foc_motor_ld_lq_diff * 0.5;
 	motor->p_ld = conf_now->foc_motor_l - conf_now->foc_motor_ld_lq_diff * 0.5;
+	//凸极补偿相关参数
+	//物理意义：计算(1/Lq - 1/Ld)，用于：
+	//转矩方程：Te = 1.5 * P * [λ*iq + (Ld - Lq)*id*iq]
+	//电流解耦：在dq坐标系中实现电流解耦控制
+	//磁饱和补偿：考虑电感变化的影响
 	motor->p_inv_ld_lq = (1.0 / motor->p_lq - 1.0 / motor->p_ld);
+	//电压限制计算
+	//物理意义：
+	//(0.5/Lq + 0.5/Ld)是电感倒数的平均值
+	//乘以0.9是安全系数，补偿参数识别误差
+	//用于计算电压极限圆，决定最大可用电压
+	//Vmax = ω * λ + ω * Ld * Id
+	//其中 ω 是电角速度
 	motor->p_v2_v3_inv_avg_half = (0.5 / motor->p_lq + 0.5 / motor->p_ld) * 0.9; // With the 0.9 we undo the adjustment from the detection
+	//将观测器的磁链估计初始化为电机的额定磁链
 	motor->m_observer_state.lambda_est = conf_now->foc_motor_flux_linkage;
+	//数学原理：
+	//TWO_BY_SQRT3= 2/√3 ≈ 1.1547
+	//这是空间矢量调制（SVPWM）​ 的最大调制系数
+	//foc_overmod_factor是过调制因子，允许超过六边形调制区域
 	motor->p_duty_norm = TWO_BY_SQRT3 / conf_now->foc_overmod_factor;
 
-#ifdef HW_HAS_PHASE_SHUNTS
-	if (conf_now->foc_control_sample_mode == FOC_CONTROL_SAMPLE_MODE_V0_V7) {
-		motor->p_fs = conf_now->foc_f_zv;
-	} else {
-		motor->p_fs = conf_now->foc_f_zv * 0.5;
-	}
-#else
-	motor->p_fs = conf_now->foc_f_zv * 0.5;
-#endif
-	motor->p_dt = 1.0 / motor->p_fs;
+	motor->p_fs = conf_now->foc_f_zv * 0.5;	//零矢量采样频率
+	motor->p_dt = 1.0 / motor->p_fs;	//=> 得出每次中断的时间
 }

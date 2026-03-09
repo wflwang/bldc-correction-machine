@@ -104,11 +104,11 @@ typedef struct {
 
 //all data >>32 定点数
 typedef struct {
-	int x1;
-	int x2;
-	int lambda_est;
-	int i_alpha_last;
-	int i_beta_last;
+    int32_t x1;             // α轴磁链估计 (Q12.8)
+    int32_t x2;             // β轴磁链估计 (Q12.8)
+    int32_t lambda_est;     // 估计磁链幅值 (Q12.8)
+    int16_t i_alpha_last;   // 上次α电流 (Q4.12)
+    int16_t i_beta_last;    // 上次β电流 (Q4.12)
 } observer_state_int32;
 
 #define MC_AUDIO_CHANNELS	4
@@ -243,7 +243,7 @@ typedef struct {
 	float m_r_est_state;
 
 	// Temperature-compensated parameters
-	float m_res_temp_comp;
+	float m_res_temp_comp;	//温度补偿后的电阻
 	float m_current_ki_temp_comp;
 
 	// Pre-calculated values

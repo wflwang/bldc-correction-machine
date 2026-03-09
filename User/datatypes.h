@@ -386,6 +386,10 @@ typedef enum {
 	SAT_COMP_LAMBDA_AND_FACTOR
 } SAT_COMP_MODE;
 
+typedef struct{
+	int32_t l_current_max;
+}mc_configuration_Q31;
+
 typedef struct {
 	// Limits
 	float l_current_max;
@@ -432,16 +436,16 @@ typedef struct {
 	mc_sensor_mode sensor_mode;
 
 	// Sensorless (bldc)
-	float sl_min_erpm;
-	float sl_min_erpm_cycle_int_limit;
-	float sl_max_fullbreak_current_dir_change;
-	float sl_cycle_int_limit;
-	float sl_phase_advance_at_br;
-	float sl_cycle_int_rpm_br;
-	float sl_bemf_coupling_k;
+	//float sl_min_erpm;
+	//float sl_min_erpm_cycle_int_limit;
+	//float sl_max_fullbreak_current_dir_change;
+	//float sl_cycle_int_limit;
+	//float sl_phase_advance_at_br;
+	//float sl_cycle_int_rpm_br;
+	//float sl_bemf_coupling_k;
 	// Hall sensor
-	int8_t hall_table[8];
-	float hall_sl_erpm;
+	//int8_t hall_table[8];
+	//float hall_sl_erpm;
 
 	// FOC
 	float foc_current_kp;
@@ -451,10 +455,10 @@ typedef struct {
 	float foc_encoder_offset;
 	bool foc_encoder_inverted;
 	float foc_encoder_ratio;
-	float foc_motor_l;
-	float foc_motor_ld_lq_diff;
-	float foc_motor_r;
-	float foc_motor_flux_linkage;
+	float foc_motor_l;		//电机电感
+	float foc_motor_ld_lq_diff;	//电机Ld-Lq
+	float foc_motor_r;	//电机电阻
+	float foc_motor_flux_linkage;	//电机磁链
 	float foc_observer_gain;
 	float foc_observer_gain_slow;
 	float foc_observer_offset;
@@ -473,7 +477,10 @@ typedef struct {
 	float foc_sl_openloop_boost_q;
 	float foc_sl_openloop_max_q;
 	mc_foc_sensor_mode foc_sensor_mode;
-	uint8_t foc_hall_table[8];
+	//uint8_t foc_hall_table[8];
+	int32_t foc_hall_table[8];
+	int32_t foc_hall_posTab[8];
+	int32_t foc_hall_negTab[8];
 	float foc_hall_interp_erpm;
 	float foc_sl_erpm_start;
 	float foc_sl_erpm;

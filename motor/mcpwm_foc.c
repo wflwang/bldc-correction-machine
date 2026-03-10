@@ -349,18 +349,34 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;    
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9 | GPIO_Pin_2 | GPIO_Pin_1 | GPIO_Pin_0;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-	// Note: The half transfer interrupt is used as we already have all current and voltage
-	// samples by then and we can start processing them. Entering the interrupt earlier gives
-	// more cycles to finish it and update the timer before the next zero vector. This helps
-	// at higher f_zv. Only use this if the three first samples are current samples.
-#if ADC_IND_CURR1 < 3 && ADC_IND_CURR2 < 3 && ADC_IND_CURR3 < 3
-	DMA_ITConfig(DMA2_Stream4, DMA_IT_HT, ENABLE);
-#else
-	DMA_ITConfig(DMA2_Stream4, DMA_IT_TC, ENABLE);
-#endif
+	/* Configure groupA */
+    Group_InitStructure.ADC_Group  = GROUP_A; /* Select Configure GROUP A */
+    Group_InitStructure.ADC_GroupChannel[ASCS_0] = ADC_CHANNEL_PGA1_OUTA; /* Select the input source for the group channel */
+    Group_InitStructure.ADC_GroupChNumber = 1;                    /* Select the number of channels sampled by group */
+    Group_InitStructure.ADC_GroupSampleMode = ADC_SAMPLE_MODE_SINGLE; /* Select the sampling mode for group */
+    Group_InitStructure.ADC_GroupExtTrigCtrl = ENABLE;        /* group's hardware triggers control */
+    Group_InitStructure.ADC_GroupExtTrigSourse = ADC_EXT_TRIG_ATU_TRG0;/* Select the hardware trigger source for group */
+    Group_InitStructure.ADC_GroupTrigSkip = ADC_TRIG_SKIP_NONE;  /* Select the number of times the group trigger signal is omitted */
+    Group_InitStructure.ADC_GroupDoubleSampleCtrl = ENABLE;   /* Double sampling control */
+    ADC_GroupInit(ADC, &Group_InitStructure);
+    
+    /* Configure groupB */
+    Group_InitStructure.ADC_Group  = GROUP_B; /* Select Configure GROUP B */
+    Group_InitStructure.ADC_GroupChannel[ASCS_0] = ADC_CHANNEL_PGA1_OUTB; /* Select the input source for the group channel */
+    Group_InitStructure.ADC_GroupChannel[ASCS_1] = ADC_CHANNEL_PGA2_OUT; /* PGA2_OUT(Ibus) */
+    Group_InitStructure.ADC_GroupChannel[ASCS_2] = ADC_CHANNEL_11; /* VR */
+    Group_InitStructure.ADC_GroupChannel[ASCS_3] = ADC_CHANNEL_12; /* Vbus */
+    Group_InitStructure.ADC_GroupChannel[ASCS_4] = ADC_CHANNEL_13; /* Temp */     
+    Group_InitStructure.ADC_GroupChNumber = 5;                    /* Select the number of channels sampled by group */
+    Group_InitStructure.ADC_GroupSampleMode = ADC_SAMPLE_MODE_SINGLE; /* Select the sampling mode for group */
+    Group_InitStructure.ADC_GroupExtTrigCtrl = ENABLE;        /* group's hardware triggers control */
+    Group_InitStructure.ADC_GroupExtTrigSourse = ADC_EXT_TRIG_ATU_TRG1;/* Select the hardware trigger source for group */
+    Group_InitStructure.ADC_GroupTrigSkip = ADC_TRIG_SKIP_NONE;  /* Select the number of times the group trigger signal is omitted */
+    Group_InitStructure.ADC_GroupDoubleSampleCtrl = ENABLE;   /* Double sampling control */
+    ADC_GroupInit(ADC, &Group_InitStructure);
 
 	// Note that the ADC is running at 42MHz, which is higher than the
 	// specified 36MHz in the data sheet, but it works.
@@ -369,6 +385,7 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
 	ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_1;
 	ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
 	ADC_CommonInit(&ADC_CommonInitStructure);
+
 
 	ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
 	ADC_InitStructure.ADC_ScanConvMode = ENABLE;

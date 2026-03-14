@@ -22,7 +22,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "ch.h"
+
+// ChibiOS replacement definitions
+typedef uint32_t systime_t;
+#define chThdSleepMilliseconds(ms) delay_ms(ms)
+#define chThdSleep(ms) delay_ms(ms)
+
+// Simple delay function
+void delay_ms(uint32_t ms);
 
 // Data types
 typedef enum {
@@ -113,9 +120,7 @@ typedef enum {
 } temp_sensor_type;
 
 typedef enum {
-	MOTOR_TYPE_BLDC = 0,
-	MOTOR_TYPE_DC,
-	MOTOR_TYPE_FOC
+	MOTOR_TYPE_FOC = 0
 } mc_motor_type;
 
 // FOC current controller decoupling mode.
@@ -136,11 +141,7 @@ typedef enum {
 	FOC_OBSERVER_MXV_LAMBDA_COMP_LIN,
 } mc_foc_observer_type;
 
-typedef enum {
-	FOC_AMB_MODE_SIX_VECTOR = 0,
-	FOC_AMB_MODE_D_SINGLE_PULSE,
-	FOC_AMB_MODE_D_DOUBLE_PULSE
-} mc_foc_hfi_amb_mode;
+
 
 typedef enum {
 	FAULT_CODE_NONE = 0,
@@ -267,11 +268,7 @@ typedef enum {
 	BATTERY_TYPE_LEAD_ACID
 } BATTERY_TYPE;
 
-typedef enum {
-	HFI_SAMPLES_8 = 0,
-	HFI_SAMPLES_16,
-	HFI_SAMPLES_32
-} foc_hfi_samples;
+
 
 typedef enum {
 	BMS_TYPE_NONE = 0,
@@ -429,23 +426,8 @@ typedef struct {
 	float lo_in_current_max;
 	float lo_in_current_min;
 
-	// BLDC switching and drive
-	mc_pwm_mode pwm_mode;
-	mc_comm_mode comm_mode;
+	// FOC drive
 	mc_motor_type motor_type;
-	mc_sensor_mode sensor_mode;
-
-	// Sensorless (bldc)
-	//float sl_min_erpm;
-	//float sl_min_erpm_cycle_int_limit;
-	//float sl_max_fullbreak_current_dir_change;
-	//float sl_cycle_int_limit;
-	//float sl_phase_advance_at_br;
-	//float sl_cycle_int_rpm_br;
-	//float sl_bemf_coupling_k;
-	// Hall sensor
-	//int8_t hall_table[8];
-	//float hall_sl_erpm;
 
 	// FOC
 	float foc_current_kp;
@@ -493,20 +475,7 @@ typedef struct {
 	float foc_current_filter_const;
 	mc_foc_cc_decoupling_mode foc_cc_decoupling;
 	mc_foc_observer_type foc_observer_type;
-	mc_foc_hfi_amb_mode foc_hfi_amb_mode;
-	float foc_hfi_amb_current;
-	uint8_t foc_hfi_amb_tres;
-	float foc_hfi_voltage_start;
-	float foc_hfi_voltage_run;
-	float foc_hfi_voltage_max;
-	float foc_hfi_gain;
-	float foc_hfi_max_err;
-	float foc_hfi_hyst;
-	float foc_sl_erpm_hfi;
-	float foc_hfi_reset_erpm;
-	uint16_t foc_hfi_start_samples;
-	float foc_hfi_obs_ovr_sec;
-	foc_hfi_samples foc_hfi_samples;
+
 	uint8_t foc_offsets_cal_mode;
 	float foc_offsets_current[3];
 	float foc_offsets_voltage[3];
@@ -567,9 +536,6 @@ typedef struct {
 	bool m_invert_direction;
 	drv8301_oc_mode m_drv8301_oc_mode;
 	int m_drv8301_oc_adj;
-	float m_bldc_f_sw_min;
-	float m_bldc_f_sw_max;
-	float m_dc_f_sw;
 	float m_ntc_motor_beta;
 	out_aux_mode m_out_aux_mode;
 	temp_sensor_type m_motor_temp_sens_type;
@@ -1463,5 +1429,7 @@ typedef struct __attribute__((packed)) {
 
 	uint8_t dummy;
 } backup_data;
+
+
 
 #endif /* DATATYPES_H_ */

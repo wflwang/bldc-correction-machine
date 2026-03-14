@@ -22,191 +22,132 @@
 #include <math.h>
 
 // See http://cas.ensmp.fr/~praly/Telechargement/Journaux/2010-IEEE_TPEL-Lee-Hong-Nam-Ortega-Praly-Astolfi.pdf
-//暂时只用MXlemming 观测方法 适用于M0
-//void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta,
-//		float dt, observer_state *state, float *phase, motor_all_state_t *motor) {
-void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16_t i_beta,
-		int16_t dt, observer_state *state, int16_t *phase, motor_all_state_t *motor) {
+// MXlemming 观测方法（定点数版本），适用于M0内核
+void foc_observer_update(int32_t v_alpha, int32_t v_beta, int32_t i_alpha, int32_t i_beta,
+		int32_t dt, observer_state *state, int32_t *phase, motor_all_state_t *motor) {
 
 	mc_configuration *conf_now = motor->m_conf;
 
-	//float R = conf_now->foc_motor_r;	//马达的电阻
-	//float L = conf_now->foc_motor_l;	//马达的电感
-	//float lambda = conf_now->foc_motor_flux_linkage;	//电机的磁链
-	int16_t R = conf_now->foc_motor_r;	//马达的电阻
-	int16_t L = conf_now->foc_motor_l;	//马达的电感
-	int16_t lambda = conf_now->foc_motor_flux_linkage;	//电机的磁链
+	// 定点数实现 - 使用Q12.8格式
+	int32_t R = FLOAT_TO_Q12(conf_now->foc_motor_r); 	//马达的电阻 (Q12.8)
+	int32_t L = FLOAT_TO_Q12(conf_now->foc_motor_l); 	//马达的电感 (Q12.8)
+	int32_t lambda = FLOAT_TO_Q12(conf_now->foc_motor_flux_linkage); 	//电机的磁链 (Q12.8)
 
-	// Saturation compensation	磁饱和补偿 选择不同德补偿方法
-	//首选：SAT_COMP_FACTOR mxlemming 带 lambda 版本下 sat_comp_lambda才有效
-	//理由：最简单、最可控、最容易调试。	
-	//调试方法：
-	//从 foc_sat_comp = 0.3开始（30%的补偿强度）。
-	//在满载条件下测试，观察电机性能。
-	//如果高温下仍有控制不稳，逐步增大到 0.5-0.7。
-	//如果过补偿（轻载时性能变差），则减小参数。
-	//调试技巧：
-	//空载到满载阶梯测试：逐步增加负载，观察电流环是否稳定。
-	//关注高温性能：饱和效应在高温下更明显，要在热机后测试。
-	//使用示波器：观察电流波形，过补偿会导致电流波形畸变。
-	//性能指标：关注电机效率、温升、噪音。
-	//最终建议：从 SAT_COMP_FACTOR​ 开始，foc_sat_comp设为 0.3-0.5，这是最稳妥、最可预测的方法。除非你有特殊需求或深入了解电机饱和特性，否则避免使用过于复杂的补偿模式。
-	//switch(conf_now->foc_sat_comp_mode) {
-	//case SAT_COMP_LAMBDA:	//基于磁链估计的补偿
-	//	//原理：假设电感L的下降比例与磁链λ的下降比例相同。也就是说，当磁饱和时，磁链λ会下降，电感L也按相同比例下降。
-	//	//实现：如果观测器类型是带有LAMBDA_COMP的（即能够估算磁链lambda_est），那么用估算的磁链state->lambda_est与初始（或额定）磁链lambda的比值来调整电感L：L =L * (state->lambda_est/ lambda)。注意：代码注释中提到，作者不确定这个假设是否有效或合理。
-	//	// Here we assume that the inductance drops by the same amount as the flux linkage. I have
-	//	// no idea if this is a valid or even a reasonable assumption.
-	//	if (conf_now->foc_observer_type >= FOC_OBSERVER_ORTEGA_LAMBDA_COMP ||
-	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXLEMMING_LAMBDA_COMP ||
-	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP ||
-	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
-	//		L = L * (state->lambda_est / lambda);
-	//	}
-	//	break;
+	// 磁饱和补偿 (Q12.8)
+	int32_t i_abs_filter = motor->m_motor_state.i_abs_filter; 	//滤波后电流绝对值 (Q12.8)
+	int32_t sat_comp = FLOAT_TO_Q12(conf_now->foc_sat_comp);
+	int32_t l_current_max = FLOAT_TO_Q12(conf_now->l_current_max);
+	
+	// comp_fact = sat_comp * i_abs_filter / l_current_max
+	int32_t comp_fact = Q12_DIV(Q12_MUL(sat_comp, i_abs_filter), l_current_max);
+	
+	// L -= L * comp_fact
+	L = L - Q12_MUL(L, comp_fact);
+	lambda = lambda - Q12_MUL(lambda, comp_fact);
 
-	//case SAT_COMP_FACTOR: {	//基于电流因子的补偿
-		//原理：使用一个用户可配置的补偿系数foc_sat_comp，乘以当前电流与最大电流的比值，得到一个补偿因子comp_fact。然后用这个补偿因子同时减小电感L和磁链lambda。
-		//实现：comp_fact= conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter/ conf_now->l_current_max);
-		//然后：L -=L * comp_fact;lambda -= lambda* comp_fact;这意味着，随着电流增大，补偿因子增大，L和λ按比例减小。foc_sat_comp系数允许用户调整补偿的强度。
-	int16_t i_abs_filter = get_i_abs_filter();	//滤波后电流绝对值
-	int16_t comp_fact = ((int32_t)conf_now->foc_sat_comp*i_abs_filter/conf_now->l_current_max);
-	//const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
-	L -= (((int32_t)L * comp_fact)>>15);
-	lambda -= lambda * comp_fact;
-	//} break;
-
-	//case SAT_COMP_LAMBDA_AND_FACTOR: {
-	//	//原理：结合了前两种方法。首先，如果观测器类型是带有LAMBDA_COMP的，则用磁链估算值调整电感L（同第一种方法）。然后，再用电流因子补偿进一步调整电感L（但注意，这里只调整了L，没有调整lambda）。
-	//	//实现：先进行SAT_COMP_LAMBDA的调整（如果条件满足），然后计算comp_fact，并仅对L进行补偿：L-= L *comp_fact;
-	//	//选择建议：对于MXLemming观测法，它本身有一个磁链估算的补偿（即state->lambda_est的自适应调整）。因此，如果使用SAT_COMP_LAMBDA，
-	//	//则会根据估算的磁链来调整电感L，这可能会与观测器内部的磁链自适应产生耦合，需要小心调整。
-	//	if (conf_now->foc_observer_type >= FOC_OBSERVER_ORTEGA_LAMBDA_COMP ||
-	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXLEMMING_LAMBDA_COMP ||
-	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP ||
-	//			conf_now->foc_observer_type >= FOC_OBSERVER_MXV_LAMBDA_COMP_LIN) {
-	//		L = L * (state->lambda_est / lambda);
-	//	}
-	//	const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
-	//	L -= L * comp_fact;
-	//} break;
-//
-	//default:
-	//	break;
-	//}
-
-	// Temperature compensation
-	if (conf_now->foc_temp_comp) {	//电阻的温度补偿是否打开
-		R = motor->m_res_temp_comp;	//电机阻值温度补偿
+	// 温度补偿
+	if (conf_now->foc_temp_comp) { 	//电阻的温度补偿是否打开
+		R = motor->m_res_temp_comp; 	//电机阻值温度补偿 (Q12.8)
 	}
 
-	float ld_lq_diff = conf_now->foc_motor_ld_lq_diff;
-	float id = motor->m_motor_state.id;
-	float iq = motor->m_motor_state.iq;
-	//-->>> 凸极效应补偿
-	//目的：避免在电流极小时进行除法运算，防止数值不稳定（除以接近0的数）。
-	//阈值 0.1A：是经验值，当电流小于此值时，认为凸极效应可以忽略，使用平均电感即可。
-	//Ld = // 从电机参数获取（单位：H）
-	//Lq = // 从电机参数获取（单位：H）
-	//ld_lq_diff = Lq - Ld;           // 电感差值
-	//L = (Ld + Lq) / 2.0;           // 平均电感作为基准
-	// Adjust inductance for saliency.
-	if (fabsf(id) > 0.1 || fabsf(iq) > 0.1) {
-		L = L - ld_lq_diff / 2.0 + ld_lq_diff * SQ(iq) / (SQ(id) + SQ(iq));
+	// 凸极效应补偿（简化实现）
+	int32_t ld_lq_diff = FLOAT_TO_Q12(conf_now->foc_motor_ld_lq_diff);
+	int32_t id = motor->m_motor_state.id;
+	int32_t iq = motor->m_motor_state.iq;
+	
+	// 0.1A阈值 (Q12.8)
+	int32_t threshold = FLOAT_TO_Q12(0.1f);
+	if (ABS(id) > threshold || ABS(iq) > threshold) {
+		int32_t iq_sq = Q12_MUL(iq, iq);
+		int32_t id_sq = Q12_MUL(id, id);
+		int32_t denom = id_sq + iq_sq;
+		
+		if (denom > 0) {
+			// saliency = ld_lq_diff * iq_sq / denom
+			int32_t saliency = Q12_DIV(Q12_MUL(ld_lq_diff, iq_sq), denom);
+			
+			// L = L - ld_lq_diff * 0.5 + saliency * 0.5
+			int32_t half_ld_lq = ld_lq_diff >> 1;
+			int32_t half_saliency = saliency >> 1;
+			L = L - half_ld_lq + half_saliency;
+		}
 	}
 
-	float L_ia = L * i_alpha;
-	float L_ib = L * i_beta;
-	const float R_ia = R * i_alpha;
-	const float R_ib = R * i_beta;
-	const float gamma_half = motor->m_gamma_now * 0.5;
-	//这里观测器我们只考虑MXlemming
-	// LICENCE NOTE:
-	// This function deviates slightly from the BSD 3 clause licence.
-	// The work here is entirely original to the MESC FOC project, and not based
-	// on any appnotes, or borrowed from another project. This work is free to
-	// use, as granted in BSD 3 clause, with the exception that this note must
-	// be included in where this code is implemented/modified to use your
-	// variable names, structures containing variables or other minor
-	// rearrangements in place of the original names I have chosen, and credit
-	// to David Molony as the original author must be noted.
-	//(v_alpha - R_ia) * dt：电压减去电阻压降后对时间的积分，这是磁链的主要变化量。
-	//L * (i_alpha - state->i_alpha_last)：电感项，补偿电流变化引起的磁链变化
-	//x1和x2是观测到的αβ轴磁链。
-	//第一项(v-R*i)*dt是电压积分项，第二项L*Δi是电感压降补偿
-	//(v_alpha - R_ia) * dt：电压减去电阻压降，积分得到总磁链变化
-	//L * (i_alpha - state->i_alpha_last)：减去电流变化引起的电感磁链
-	//结果：得到永磁体磁链的αβ分量
-	//数学推导：
-	//永磁体磁链：λ_pm = ∫(v - Ri)dt - L * i
-	state->x1 += (v_alpha - R_ia) * dt - L * (i_alpha - state->i_alpha_last);
-	state->x2 += (v_beta - R_ib) * dt - L * (i_beta - state->i_beta_last);
-	//带磁链补偿执行这里
-	//如果使能了OBServerMXlemming_LambdaCompEn，则进行磁链幅值自适应。
-	//误差：err = λ_est² - (x1²+x2²)
-	//更新：λ_est += 0.1 * gamma_half * λ_est * (-err) * dt
-	//然后对λ_est进行限幅，并对x1、x2进行限幅（限制在±λ_est内）。
-	//如果磁链幅值低于0.5*λ，则适当放大（乘以1.1），以避免角度计算不稳定
+	// MXlemming观测器核心算法（定点数实现）
+	// v_alpha_R_ia = v_alpha - R * i_alpha
+	int32_t v_alpha_R_ia = v_alpha - Q12_MUL(R, i_alpha);
+	// v_beta_R_ib = v_beta - R * i_beta
+	int32_t v_beta_R_ib = v_beta - Q12_MUL(R, i_beta);
+	
+	// delta_i_alpha = i_alpha - state->i_alpha_last
+	int32_t delta_i_alpha = i_alpha - state->i_alpha_last;
+	// delta_i_beta = i_beta - state->i_beta_last
+	int32_t delta_i_beta = i_beta - state->i_beta_last;
+
+	// 更新磁链观测值
+	// state->x1 += v_alpha_R_ia * dt - L * delta_i_alpha
+	state->x1 += Q12_MUL(v_alpha_R_ia, dt) - Q12_MUL(L, delta_i_alpha);
+	// state->x2 += v_beta_R_ib * dt - L * delta_i_beta
+	state->x2 += Q12_MUL(v_beta_R_ib, dt) - Q12_MUL(L, delta_i_beta);
+
+	// 磁链幅值自适应
 	#ifdef OBServerMXlemming_LambdaCompEn
-	//if (conf_now->foc_observer_type == FOC_OBSERVER_MXLEMMING_LAMBDA_COMP) {
-		//λ_est是观测器维护的磁链幅值估算
-		//(x1² + x2²)是当前开环估算的磁链幅值平方
-		float err = SQ(state->lambda_est) - (SQ(state->x1) + SQ(state->x2));
-		//gamma_half：控制自适应速度
-		//太小 → 自适应慢，对参数变化不敏感
-		//太大 → 可能振荡
-		//建议：从0.1开始，逐步增大直到响应足够快但不振荡
-		// 调试时可以监控这些变量：
-		//float mag_sq = SQ(state->x1) + SQ(state->x2);  // 开环估算的磁链幅值平方
-		//float lambda_sq = SQ(state->lambda_est);       // 自适应估算的磁链幅值平方
-		//float error = lambda_sq - mag_sq;              // 两者之间的误差
-		//稳态测试：在恒定速度下，lambda_est应稳定在标称值附近
-		//动态测试：加速/减速时，观测器应快速跟踪
-		//满载测试：大电流时，lambda_est应适当下降（反映饱和效应）
-		//. 故障排查
-		//如果观测器发散：
-		//检查电压/电流测量是否准确
-		//检查电阻R和电感L参数是否正确
-		//减小 gamma_half或增加限幅范围
-		//如果响应太慢：
-		//适当增大 gamma_half
-		//检查控制周期 dt是否太大
-		state->lambda_est += 0.1 * gamma_half * state->lambda_est * -err * dt;
-		utils_truncate_number(&(state->lambda_est), lambda * 0.3, lambda * 2.5);
-		utils_truncate_number_abs(&(state->x1), state->lambda_est);
-		utils_truncate_number_abs(&(state->x2), state->lambda_est);
-	//} else {
+	int32_t x1_sq = Q12_MUL(state->x1, state->x1);
+	int32_t x2_sq = Q12_MUL(state->x2, state->x2);
+	int32_t lambda_est_sq = Q12_MUL(state->lambda_est, state->lambda_est);
+	int32_t err = lambda_est_sq - (x1_sq + x2_sq);
+	
+	int32_t gamma_half = motor->m_gamma_now >> 1;
+	int32_t update = Q12_MUL(Q12_MUL(Q12_MUL(FLOAT_TO_Q12(0.1f), gamma_half), state->lambda_est), -err);
+	update = Q12_MUL(update, dt);
+	state->lambda_est += update;
+	
+	// 限幅
+	int32_t lambda_min = Q12_MUL(lambda, FLOAT_TO_Q12(0.3f));
+	int32_t lambda_max = Q12_MUL(lambda, FLOAT_TO_Q12(2.5f));
+	if (state->lambda_est < lambda_min) state->lambda_est = lambda_min;
+	if (state->lambda_est > lambda_max) state->lambda_est = lambda_max;
+	
+	// 磁链限幅
+	if (state->x1 > state->lambda_est) state->x1 = state->lambda_est;
+	if (state->x1 < -state->lambda_est) state->x1 = -state->lambda_est;
+	if (state->x2 > state->lambda_est) state->x2 = state->lambda_est;
+	if (state->x2 < -state->lambda_est) state->x2 = -state->lambda_est;
 	#else
-		//不带磁链补偿
-		utils_truncate_number_abs(&(state->x1), lambda);
-		utils_truncate_number_abs(&(state->x2), lambda);
-	//}
+	// 不带磁链补偿的限幅
+	if (state->x1 > lambda) state->x1 = lambda;
+	if (state->x1 < -lambda) state->x1 = -lambda;
+	if (state->x2 > lambda) state->x2 = lambda;
+	if (state->x2 < -lambda) state->x2 = -lambda;
 	#endif
 
-	// Set these to 0 to allow using the same atan2-code as for Ortega
-	L_ia = 0.0;
-	L_ib = 0.0;
-
+	// 保存电流值
 	state->i_alpha_last = i_alpha;
 	state->i_beta_last = i_beta;
 
-	UTILS_NAN_ZERO(state->x1);
-	UTILS_NAN_ZERO(state->x2);
-
-	// Prevent the magnitude from getting too low, as that makes the angle very unstable.
-	float mag = NORM2_f(state->x1, state->x2);
-	if (mag < (lambda * 0.5)) {
-		state->x1 *= 1.1;
-		state->x2 *= 1.1;
+	// 防止磁链幅值过低
+	int32_t mag_sq = Q12_MUL(state->x1, state->x1) + Q12_MUL(state->x2, state->x2);
+	
+	// 使用快速开方函数
+	int32_t mag = utils_sqrt(mag_sq);
+	
+	int32_t half_lambda = lambda >> 1;
+	if (mag < half_lambda) {
+		// 适当放大 1.1倍 (Q12.8格式)
+		int32_t scale = FLOAT_TO_Q12(1.1f);
+		state->x1 = Q12_MUL(state->x1, scale);
+		state->x2 = Q12_MUL(state->x2, scale);
 	}
 
+	// 计算相位 - 使用快速反正切函数
 	if (phase) {
-		*phase = utils_fast_atan2(state->x2 - L_ib, state->x1 - L_ia);
+		*phase = utils_fast_atan2(state->x2, state->x1);
 	}
 
-	// Can we clamp the flux in dq with q flux = 0 and d flux is lambda
-	// Then the state->x1 and state->x2 (which are the alpha and beta fluxes) are set as lambda*sin and lambda*cos
-	// The d flux each time would have a residual after transform from ab to dq. This can be used as an input to the flux estimator
+	// 保存观测器角度
+	if (motor) {
+		motor->m_phase_now_observer = *phase;
+	}
 }
 /**
  * 
@@ -217,19 +158,34 @@ void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16
  * speed_var：输出速度（估算的角速度）
  * conf：配置参数，包含PLL的PI控制器参数
  * // 监控这些变量来调试PLL：
- * float phase_error = delta_theta;      // 相位误差，应趋近于0
- * float pll_bandwidth = conf->foc_pll_kp / (2*π);  // 近似带宽(Hz)
+ * int32_t phase_error = delta_theta;      // 相位误差，应趋近于0
+ * int32_t pll_bandwidth = Q12_DIV(conf->foc_pll_kp, FLOAT_TO_Q12(2.0f * 3.1415926f));  // 近似带宽(Hz)
  * PLL的-3dB带宽 ≈ Kp/(2π)，积分时间常数 ≈ Kp/Ki
  */
-void foc_pll_run(float phase, float dt, float *phase_var,
-					float *speed_var, mc_configuration *conf) {
-	UTILS_NAN_ZERO(*phase_var);
-	float delta_theta = phase - *phase_var;
-	utils_norm_angle_rad(&delta_theta);
-	UTILS_NAN_ZERO(*speed_var);
-	*phase_var += (*speed_var + conf->foc_pll_kp * delta_theta) * dt;
-	utils_norm_angle_rad((float*)phase_var);
-	*speed_var += conf->foc_pll_ki * delta_theta * dt;	//速度 是角度变化和时间的积分 dt 是频率? 变化的角度/时间  = 速度
+void foc_pll_run(int32_t phase, int32_t dt, int32_t *phase_var,
+					int32_t *speed_var, mc_configuration *conf) {
+	// 定点数版本 (Q12.8格式)
+	int32_t delta_theta = phase - *phase_var;
+	
+	// 归一化角度 (Q12.8格式)
+	// 2π弧度 = 6.2831853 = FLOAT_TO_Q12(6.2831853f)
+	int32_t two_pi = FLOAT_TO_Q12(2.0f * 3.1415926535f);
+	while (delta_theta < -two_pi / 2) delta_theta += two_pi;
+	while (delta_theta >= two_pi / 2) delta_theta -= two_pi;
+	
+	// 转换KP和KI到Q12.8格式
+	int32_t kp = FLOAT_TO_Q12(conf->foc_pll_kp);
+	int32_t ki = FLOAT_TO_Q12(conf->foc_pll_ki);
+	
+	// *phase_var += (*speed_var + conf->foc_pll_kp * delta_theta) * dt
+	*phase_var += Q12_MUL(*speed_var + Q12_MUL(kp, delta_theta), dt);
+	
+	// 归一化相位
+	while (*phase_var < -two_pi / 2) *phase_var += two_pi;
+	while (*phase_var >= two_pi / 2) *phase_var -= two_pi;
+	
+	// *speed_var += conf->foc_pll_ki * delta_theta * dt
+	*speed_var += Q12_MUL(Q12_MUL(ki, delta_theta), dt);
 }
 
 /**
@@ -242,37 +198,37 @@ void foc_pll_run(float phase, float dt, float *phase_var,
  * @param tBout PWM duty cycle phase B
  * @param tCout PWM duty cycle phase C
  */
-void foc_svm(float alpha, float beta, float max_mod, uint32_t PWMFullDutyCycle,
-				uint32_t* tAout, uint32_t* tBout, uint32_t* tCout, uint32_t *svm_sector) {
+void foc_svm(int32_t alpha, int32_t beta, int32_t max_mod, uint32_t PWMFullDutyCycle,
+			uint32_t* tAout, uint32_t* tBout, uint32_t* tCout, uint32_t *svm_sector) {
 	uint32_t sector;
 
-	if (beta >= 0.0f) {
-		if (alpha >= 0.0f) {
+	if (beta >= 0) {
+		if (alpha >= 0) {
 			//quadrant I
-			if (ONE_BY_SQRT3 * beta > alpha) {
+			if (Q12_MUL(FLOAT_TO_Q12(ONE_BY_SQRT3), beta) > alpha) {
 				sector = 2;
 			} else {
 				sector = 1;
 			}
 		} else {
 			//quadrant II
-			if (-ONE_BY_SQRT3 * beta > alpha) {
+			if (Q12_MUL(FLOAT_TO_Q12(-ONE_BY_SQRT3), beta) > alpha) {
 				sector = 3;
 			} else {
 				sector = 2;
 			}
 		}
 	} else {
-		if (alpha >= 0.0f) {
+		if (alpha >= 0) {
 			//quadrant IV5
-			if (-ONE_BY_SQRT3 * beta > alpha) {
+			if (Q12_MUL(FLOAT_TO_Q12(-ONE_BY_SQRT3), beta) > alpha) {
 				sector = 5;
 			} else {
 				sector = 6;
 			}
 		} else {
 			//quadrant III
-			if (ONE_BY_SQRT3 * beta > alpha) {
+			if (Q12_MUL(FLOAT_TO_Q12(ONE_BY_SQRT3), beta) > alpha) {
 				sector = 4;
 			} else {
 				sector = 5;
@@ -288,8 +244,8 @@ void foc_svm(float alpha, float beta, float max_mod, uint32_t PWMFullDutyCycle,
 	// sector 1-2
 	case 1: {
 		// Vector on-times
-		int t1 = (alpha - ONE_BY_SQRT3 * beta) * PWMFullDutyCycle;
-		int t2 = (TWO_BY_SQRT3 * beta) * PWMFullDutyCycle;
+		int t1 = Q12_TO_FLOAT(alpha - Q12_MUL(FLOAT_TO_Q12(ONE_BY_SQRT3), beta)) * PWMFullDutyCycle;
+		int t2 = Q12_TO_FLOAT(Q12_MUL(FLOAT_TO_Q12(TWO_BY_SQRT3), beta)) * PWMFullDutyCycle;
 
 		// PWM timings
 		tA = (PWMFullDutyCycle + t1 + t2) / 2;
@@ -302,8 +258,8 @@ void foc_svm(float alpha, float beta, float max_mod, uint32_t PWMFullDutyCycle,
 	// sector 2-3
 	case 2: {
 		// Vector on-times
-		int t2 = (alpha + ONE_BY_SQRT3 * beta) * PWMFullDutyCycle;
-		int t3 = (-alpha + ONE_BY_SQRT3 * beta) * PWMFullDutyCycle;
+		int t2 = Q12_TO_FLOAT(alpha + Q12_MUL(FLOAT_TO_Q12(ONE_BY_SQRT3), beta)) * PWMFullDutyCycle;
+		int t3 = Q12_TO_FLOAT(-alpha + Q12_MUL(FLOAT_TO_Q12(ONE_BY_SQRT3), beta)) * PWMFullDutyCycle;
 
 		// PWM timings
 		tB = (PWMFullDutyCycle + t2 + t3) / 2;
@@ -381,7 +337,7 @@ void foc_svm(float alpha, float beta, float max_mod, uint32_t PWMFullDutyCycle,
 	*svm_sector = sector;
 }
 
-void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *motor) {
+void foc_run_pid_control_pos(bool index_found, int32_t dt, motor_all_state_t *motor) {
 	mc_configuration *conf_now = motor->m_conf;
 
 	float angle_now = motor->m_pos_pid_now;
@@ -432,7 +388,8 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	}
 
 	p_term = error * kp;
-	motor->m_pos_i_term += error * (ki * dt);
+	float pos_i_term = motor->m_pos_i_term;
+	pos_i_term += error * (ki * (float)dt);
 
 	// Average DT for the D term when the error does not change. This likely
 	// happens at low speed when the position resolution is low and several
@@ -442,7 +399,7 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	if (error == motor->m_pos_prev_error) {
 		d_term = 0.0;
 	} else {
-		d_term = (error - motor->m_pos_prev_error) * (kd / motor->m_pos_dt_int);
+		d_term = (error - motor->m_pos_prev_error) * (kd / (float)motor->m_pos_dt_int);
 		motor->m_pos_dt_int = 0.0;
 	}
 
@@ -455,7 +412,7 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	if (angle_now == motor->m_pos_prev_proc) {
 		d_term_proc = 0.0;
 	} else {
-		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / motor->m_pos_dt_int_proc);
+		d_term_proc = -utils_angle_difference(angle_now, motor->m_pos_prev_proc) * error_sign * (kd_proc / (float)motor->m_pos_dt_int_proc);
 		motor->m_pos_dt_int_proc = 0.0;
 	}
 
@@ -466,7 +423,8 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	// I-term wind-up protection
 	float p_tmp = p_term;
 	utils_truncate_number_abs(&p_tmp, 1.0);
-	utils_truncate_number_abs((float*)&motor->m_pos_i_term, 1.0 - fabsf(p_tmp));
+	utils_truncate_number_abs(&pos_i_term, 1.0 - fabsf(p_tmp));
+	motor->m_pos_i_term = pos_i_term;
 
 	// Store previous error
 	motor->m_pos_prev_error = error;
@@ -488,7 +446,7 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	}
 }
 
-void foc_run_pid_control_speed(bool index_found, float dt, motor_all_state_t *motor) {
+void foc_run_pid_control_speed(bool index_found, int32_t dt, motor_all_state_t *motor) {
 	mc_configuration *conf_now = motor->m_conf;
 	float p_term;
 	float d_term;
@@ -502,11 +460,13 @@ void foc_run_pid_control_speed(bool index_found, float dt, motor_all_state_t *mo
 	}
 
 	if (conf_now->s_pid_ramp_erpms_s > 0.0) {
-		utils_step_towards((float*)&motor->m_speed_pid_set_rpm, motor->m_speed_command_rpm, conf_now->s_pid_ramp_erpms_s * dt);
+		float speed_set = motor->m_speed_pid_set_rpm;
+		utils_step_towards(&speed_set, motor->m_speed_command_rpm, conf_now->s_pid_ramp_erpms_s * dt);
 		if (!index_found) {
-			utils_truncate_number_abs(&motor->m_speed_pid_set_rpm, conf_now->foc_openloop_rpm);
+			utils_truncate_number_abs(&speed_set, conf_now->foc_openloop_rpm);
 		}
-		utils_truncate_number(&motor->m_speed_pid_set_rpm, conf_now->l_min_erpm, conf_now->l_max_erpm);
+		utils_truncate_number(&speed_set, conf_now->l_min_erpm, conf_now->l_max_erpm);
+		motor->m_speed_pid_set_rpm = speed_set;
 	}
 
 	float rpm = 0.0;
@@ -534,7 +494,7 @@ void foc_run_pid_control_speed(bool index_found, float dt, motor_all_state_t *mo
 
 	// Compute parameters
 	p_term = error * conf_now->s_pid_kp * (1.0 / 20.0);
-	d_term = (error - motor->m_speed_prev_error) * (conf_now->s_pid_kd / dt) * (1.0 / 20.0);
+	d_term = (error - motor->m_speed_prev_error) * (conf_now->s_pid_kd / (float)dt) * (1.0 / 20.0);
 
 	// Filter D
 	UTILS_LP_FAST(motor->m_speed_d_filter, d_term, conf_now->s_pid_kd_filter);
@@ -544,12 +504,14 @@ void foc_run_pid_control_speed(bool index_found, float dt, motor_all_state_t *mo
 	motor->m_speed_prev_error = error;
 
 	// Calculate output
-	float output = p_term + motor->m_speed_i_term + d_term;
+	float speed_i_term = motor->m_speed_i_term;
+	float output = p_term + speed_i_term + d_term;
 	utils_truncate_number_abs(&output, 1.0);
 
 	// Integrator windup protection
-	motor->m_speed_i_term += error * conf_now->s_pid_ki * dt * (1.0 / 20.0);
-	utils_truncate_number_abs(&motor->m_speed_i_term, 1.0);
+	speed_i_term += error * conf_now->s_pid_ki * (float)dt * (1.0 / 20.0);
+	utils_truncate_number_abs(&speed_i_term, 1.0);
+	motor->m_speed_i_term = speed_i_term;
 
 	if (conf_now->s_pid_ki < 1e-9) {
 		motor->m_speed_i_term = 0.0;
@@ -569,18 +531,21 @@ void foc_run_pid_control_speed(bool index_found, float dt, motor_all_state_t *mo
 	motor->m_iq_set = output * conf_now->lo_current_max * conf_now->l_current_max_scale;
 }
 
-float foc_correct_encoder(float obs_angle, float enc_angle, float speed,
-							 float sl_erpm, motor_all_state_t *motor) {
-	float rpm_abs = fabsf(RADPS2RPM_f(speed));
+int32_t foc_correct_encoder(int32_t obs_angle, int32_t enc_angle, int32_t speed,
+							 int32_t sl_erpm, motor_all_state_t *motor) {
+	// 定点数版本 (Q12.8格式)
+	// 将speed从rad/s转换为rpm
+	int32_t radps2rpm = FLOAT_TO_Q12(9.54929658551f);
+	int32_t rpm_abs = ABS(Q12_MUL(speed, radps2rpm));
 
-	// Hysteresis 5 % of total speed
-	float hyst = sl_erpm * 0.05;
+	// Hysteresis 5 % of total speed (Q12.8)
+	int32_t hyst = Q12_MUL(sl_erpm, FLOAT_TO_Q12(0.05f));
 	if (motor->m_using_encoder) {
 		if (rpm_abs > (sl_erpm + hyst)) {
 			motor->m_using_encoder = false;
 		}
 	} else {
-		if (rpm_abs < (sl_erpm- hyst)) {
+		if (rpm_abs < (sl_erpm - hyst)) {
 			motor->m_using_encoder = true;
 		}
 	}
@@ -594,23 +559,38 @@ float foc_correct_encoder(float obs_angle, float enc_angle, float speed,
  * @param motor 当前选择马达的结构体
  * @param val 当前的霍尔值
  */
-float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall_val) {
+int32_t foc_correct_hall(int32_t angle, int32_t dt, motor_all_state_t *motor, int hall_val) {
 	mc_configuration *conf_now = motor->m_conf;
 	motor->m_hall_dt_diff_now += dt;
 
-	float rpm_abs = fabsf(RADPS2RPM_f(motor->m_pll_speed));	//60s(1min)转速 /2pi = 1min 多少度 弧度->角度 当前转速
-	float rad_per_sec_hall = (M_PI / 3.0) / motor->m_hall_dt_diff_last; //60度 / 上次霍尔变化的时间 得出是速度
-	float rpm_abs_hall = fabsf(RADPS2RPM_f(rad_per_sec_hall));	//上次的霍尔转速
+	// 将speed从rad/s转换为rpm (Q12.8)
+	int32_t radps2rpm = FLOAT_TO_Q12(9.54929658551f);
+	int32_t rpm_abs = ABS(Q12_MUL(motor->m_pll_speed, radps2rpm));
 
-	motor->m_using_hall = rpm_abs < conf_now->foc_sl_erpm;
-	float angle_old = angle;	//观测器角度直接赋值
+	// rad_per_sec_hall = (π/3) / m_hall_dt_diff_last (Q12.8)
+	int32_t pi_div_3 = FLOAT_TO_Q12(3.1415926535f / 3.0f);
+	int32_t rad_per_sec_hall = Q12_DIV(pi_div_3, motor->m_hall_dt_diff_last);
+	
+	// rpm_abs_hall = abs(RADPS2RPM_f(rad_per_sec_hall)) (Q12.8)
+	int32_t rpm_abs_hall = ABS(Q12_MUL(rad_per_sec_hall, radps2rpm));
+
+	// 检测霍尔错误
+	if ((hall_val == 0) || (hall_val == 7)) {
+		// 霍尔错误，切换到观测器
+		motor->m_using_hall = false;
+		return angle;
+	}
+
 	//hall table[] = 000 001 011 010 110 100 101 111
 	int ang_hall_int = conf_now->foc_hall_table[hall_val];	//当前值对应表格位置的角度值
 
 	// Only override the observer if the hall sensor value is valid.
 	if (ang_hall_int < 201) {
-		// Scale to the circle and convert to radians
-		float ang_hall_now = ((float)ang_hall_int / 200.0) * 2.0 * M_PI; //换算出当前角度
+		// Scale to the circle and convert to radians (Q12.8)
+		// ang_hall_now = (ang_hall_int / 200.0) * 2π
+		int32_t scale = Q12_DIV(ang_hall_int << Q12_SHIFT, 200);
+		int32_t two_pi = FLOAT_TO_Q12(2.0f * 3.1415926535f);
+		int32_t ang_hall_now = Q12_MUL(scale, two_pi);
 
 		if (motor->m_ang_hall_int_prev < 0) {
 			//上次角度不是正确值
@@ -618,7 +598,7 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 			motor->m_ang_hall_int_prev = ang_hall_int;
 			motor->m_ang_hall = ang_hall_now;
 		} else if (ang_hall_int != motor->m_ang_hall_int_prev) {
-			int diff = ang_hall_int - motor->m_ang_hall_int_prev;	//角度变化超过一半时候自动增加一个周期
+			int diff = ang_hall_int - motor->m_ang_hall_int_prev; 	//角度变化超过一半时候自动增加一个周期
 			if (diff > 100) {
 				diff -= 200;
 			} else if (diff < -100) {
@@ -627,9 +607,12 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 
 			// This is only valid if the direction did not just change. If it did, we use the
 			// last speed together with the sign right now.
-			if (SIGN(diff) == SIGN(motor->m_hall_dt_diff_last)) {	//与上次误差方向是否一致
+			int sign_diff = (diff >= 0) ? 1 : -1;
+			int sign_last = (motor->m_hall_dt_diff_last >= 0) ? 1 : -1;
+			
+			if (sign_diff == sign_last) {	//与上次误差方向是否一致
 				if (diff > 0) {
-					motor->m_hall_dt_diff_last = motor->m_hall_dt_diff_now;	//上前时间增量赋值 表示霍尔变化花费的时间
+					motor->m_hall_dt_diff_last = motor->m_hall_dt_diff_now; 	//上前时间增量赋值 表示霍尔变化花费的时间
 				} else {
 					motor->m_hall_dt_diff_last = -motor->m_hall_dt_diff_now;
 				}
@@ -637,136 +620,173 @@ float foc_correct_hall(float angle, float dt, motor_all_state_t *motor, int hall
 				motor->m_hall_dt_diff_last = -motor->m_hall_dt_diff_last;
 			}
 
-			motor->m_hall_dt_diff_now = 0.0;
+			motor->m_hall_dt_diff_now = 0;
 
 			// A transition was just made. The angle is in the middle of the new and old angle.
 			int ang_avg = motor->m_ang_hall_int_prev + diff / 2; //取霍尔角度变化的中点值
 			ang_avg %= 200;
+			if (ang_avg < 0) ang_avg += 200;
 
-			// Scale to the circle and convert to radians
-			motor->m_ang_hall = ((float)ang_avg / 200.0) * 2.0 * M_PI;	//两次变化霍尔的中点角度
+			// Scale to the circle and convert to radians (Q12.8)
+			scale = Q12_DIV(ang_avg << Q12_SHIFT, 200);
+			motor->m_ang_hall = Q12_MUL(scale, two_pi);
 		}
 
 		motor->m_ang_hall_int_prev = ang_hall_int;
 
-		if (RADPS2RPM_f((M_PI / 3.0) / fmaxf(fabsf(motor->m_hall_dt_diff_now),
-				fabsf(motor->m_hall_dt_diff_last))) < conf_now->foc_hall_interp_erpm) {
-			// Don't interpolate on very low speed, just use the closest hall sensor. The reason is that we might
-			// get stuck at 60 degrees off if a direction change happens between two steps.
-			// 当前速度小于插值速度阈值(foc_hall_interp_erpm) 直接用就近角度 这里是极低速度了
+		// 计算当前速度并比较
+		int32_t max_dt = (ABS(motor->m_hall_dt_diff_now) > ABS(motor->m_hall_dt_diff_last)) ? 
+						motor->m_hall_dt_diff_now : motor->m_hall_dt_diff_last;
+		int32_t current_rpm = ABS(Q12_MUL(Q12_DIV(pi_div_3, max_dt), radps2rpm));
+		
+		int32_t hall_interp_erpm = FLOAT_TO_Q12(conf_now->foc_hall_interp_erpm);
+		
+		if (current_rpm < hall_interp_erpm) {
+			// Don't interpolate on very low speed, just use the closest hall sensor.
 			motor->m_ang_hall = ang_hall_now;
 		} else {
 			// Interpolate 插值
-			float diff = utils_angle_difference_rad(motor->m_ang_hall, ang_hall_now);
-			if (fabsf(diff) < ((2.0 * M_PI) / 12.0) || SIGN(diff) != SIGN(rad_per_sec_hall)) {
-				// Do interpolation
-				//角度差小 或 方向不一致
+			// 计算角度差
+			int32_t diff = motor->m_ang_hall - ang_hall_now;
+			
+			// 归一化角度差
+			while (diff < -two_pi / 2) diff += two_pi;
+			while (diff >= two_pi / 2) diff -= two_pi;
+			
+			int32_t pi_div_6 = FLOAT_TO_Q12(3.1415926535f / 6.0f);
+			int sign_rad = (rad_per_sec_hall >= 0) ? 1 : -1;
+			int sign_diff = (diff >= 0) ? 1 : -1;
+			
+			if (ABS(diff) < pi_div_6 || sign_diff != sign_rad) {
 				// 正常插值：角度 = 角度 + 角速度 × 时间
-				motor->m_ang_hall += rad_per_sec_hall * dt;
+				motor->m_ang_hall += Q12_MUL(rad_per_sec_hall, dt);
 			} else {
-				// We are too far away with the interpolation
-				// 角度偏差过大：缓慢修正
-				motor->m_ang_hall -= diff * 0.01;
+				// 角度偏差过大：缓慢修正 (0.01倍)
+				int32_t correction = Q12_MUL(diff, FLOAT_TO_Q12(0.01f));
+				motor->m_ang_hall -= correction;
 			}
 		}
 
-		utils_norm_angle_rad((float*)&motor->m_ang_hall);
+		// 归一化角度
+		while (motor->m_ang_hall < -two_pi / 2) motor->m_ang_hall += two_pi;
+		while (motor->m_ang_hall >= two_pi / 2) motor->m_ang_hall -= two_pi;
 
-		// Limit hall sensor rate of change. This will reduce current spikes in the current controllers when the angle estimation
-		// changes fast.
-		float angle_step = (fmaxf(rpm_abs_hall, conf_now->foc_hall_interp_erpm) / 60.0) * 2.0 * M_PI * dt * 1.5;	//本次最大角度变化
-		float angle_diff = utils_angle_difference_rad(motor->m_ang_hall, motor->m_ang_hall_rate_limited);
-		if (fabsf(angle_diff) < angle_step) {
-			motor->m_ang_hall_rate_limited = motor->m_ang_hall;	//合理范围内直接赋值
+		// Limit hall sensor rate of change.
+		// angle_step = (max(rpm_abs_hall, foc_hall_interp_erpm) / 60.0) * 2π * dt * 1.5
+		int32_t max_rpm = (rpm_abs_hall > hall_interp_erpm) ? rpm_abs_hall : hall_interp_erpm;
+		int32_t rpm_div_60 = Q12_DIV(max_rpm, FLOAT_TO_Q12(60.0f));
+		int32_t angle_step = Q12_MUL(Q12_MUL(Q12_MUL(rpm_div_60, two_pi), dt), FLOAT_TO_Q12(1.5f));
+		
+		// 计算角度差
+		int32_t angle_diff = motor->m_ang_hall - motor->m_ang_hall_rate_limited;
+		while (angle_diff < -two_pi / 2) angle_diff += two_pi;
+		while (angle_diff >= two_pi / 2) angle_diff -= two_pi;
+		
+		if (ABS(angle_diff) < angle_step) {
+			motor->m_ang_hall_rate_limited = motor->m_ang_hall;
 		} else {
-			motor->m_ang_hall_rate_limited += angle_step * SIGN(angle_diff);	//否则最小步长赋值 保证霍尔的连续性 不能突变
+			int32_t step_sign = (angle_diff >= 0) ? 1 : -1;
+			motor->m_ang_hall_rate_limited += angle_step * step_sign;
 		}
 
-		utils_norm_angle_rad((float*)&motor->m_ang_hall_rate_limited);
+		// 归一化角度
+		while (motor->m_ang_hall_rate_limited < -two_pi / 2) motor->m_ang_hall_rate_limited += two_pi;
+		while (motor->m_ang_hall_rate_limited >= two_pi / 2) motor->m_ang_hall_rate_limited -= two_pi;
+	}
 
-		if (motor->m_using_hall) {
-			angle = motor->m_ang_hall_rate_limited;
-		}
+	// 速度判断，决定使用霍尔还是观测器
+	int32_t sl_erpm = FLOAT_TO_Q12(conf_now->foc_sl_erpm);
+	if (rpm_abs < sl_erpm) {
+		motor->m_using_hall = true;
 	} else {
-		//错误 完全信任观测器
-		// Invalid hall reading. Don't update angle.
-		motor->m_ang_hall_int_prev = -1;
+		motor->m_using_hall = false;
+	}
 
-		// Also allow open loop in order to behave like normal sensorless
-		// operation. Then the motor works even if the hall sensor cable
-		// gets disconnected (when the sensor spacing is 120 degrees).
-		if (motor->m_phase_observer_override && motor->m_state == MC_STATE_RUNNING) {
-			angle = motor->m_phase_now_observer_override;
-		}
+	// 平滑过渡
+	int32_t angle_old = angle;
+	if (motor->m_using_hall && ang_hall_int < 201) {
+		angle = motor->m_ang_hall_rate_limited;
 	}
 
 	// Map output angle between hall angle and observer angle in transition region to make
 	// a smooth transition.
-	//转速范围内 加权观测器和霍尔角度 低速完全信任霍尔
 	if (angle_old != angle) {
-		float weight_hall = utils_map(rpm_abs, conf_now->foc_sl_erpm_start, conf_now->foc_sl_erpm, 1.0, 0.0);
-		utils_truncate_number(&weight_hall, 0.0, 1.0);
-		angle = utils_interpolate_angles_rad(angle, angle_old, weight_hall);
+		// weight_hall = utils_map(rpm_abs, sl_erpm_start, sl_erpm, 1.0, 0.0)
+		int32_t sl_erpm_start = FLOAT_TO_Q12(conf_now->foc_sl_erpm_start);
+		int32_t weight_hall = Q12_DIV((rpm_abs - sl_erpm_start) << Q12_SHIFT, (sl_erpm - sl_erpm_start));
+		weight_hall = FLOAT_TO_Q12(1.0f) - weight_hall;
+		
+		// 限幅
+		if (weight_hall < 0) weight_hall = 0;
+		if (weight_hall > FLOAT_TO_Q12(1.0f)) weight_hall = FLOAT_TO_Q12(1.0f);
+		
+		// 插值：angle = angle * (1-weight) + angle_old * weight
+		int32_t angle_new = Q12_MUL(angle, FLOAT_TO_Q12(1.0f) - weight_hall) + Q12_MUL(angle_old, weight_hall);
+		angle = angle_new;
 	}
 
 	return angle;
 }
 
-void foc_run_fw(motor_all_state_t *motor, float dt) {
-	if (motor->m_conf->foc_fw_current_max < fmaxf(motor->m_conf->cc_min_current, 0.001)) {
+void foc_run_fw(motor_all_state_t *motor, int32_t dt) {
+	// 转换配置参数到Q12.8格式
+	int32_t foc_fw_current_max = FLOAT_TO_Q12(motor->m_conf->foc_fw_current_max);
+	int32_t cc_min_current = FLOAT_TO_Q12(motor->m_conf->cc_min_current);
+	int32_t min_threshold = (cc_min_current > FLOAT_TO_Q12(0.001f)) ? cc_min_current : FLOAT_TO_Q12(0.001f);
+	
+	if (foc_fw_current_max < min_threshold) {
 		return;
 	}
 
 	// Field Weakening
-	// FW is used in the current and speed control modes. If a different mode is used
-	// this code also runs if field weakening was active before. This allows
-	// changing control mode even while in field weakening.
 	if (motor->m_state == MC_STATE_RUNNING &&
 			(motor->m_control_mode == CONTROL_MODE_CURRENT ||
 					motor->m_control_mode == CONTROL_MODE_CURRENT_BRAKE ||
 					motor->m_control_mode == CONTROL_MODE_SPEED ||
-					motor->m_i_fw_set > motor->m_conf->cc_min_current)) {
-		float fw_current_now = 0.0;
-		float duty_abs = motor->m_duty_abs_filtered;
+					motor->m_i_fw_set > min_threshold)) {
+		int32_t fw_current_now = 0;
+		int32_t duty_abs = motor->m_duty_abs_filtered;
 
-		if (motor->m_conf->foc_fw_duty_start < 0.99 &&
-				duty_abs > motor->m_conf->foc_fw_duty_start * motor->m_conf->l_max_duty) {
-			fw_current_now = utils_map(duty_abs,
-					motor->m_conf->foc_fw_duty_start * motor->m_conf->l_max_duty,
-					motor->m_conf->l_max_duty,
-					0.0, motor->m_conf->foc_fw_current_max);
+		int32_t foc_fw_duty_start = FLOAT_TO_Q12(motor->m_conf->foc_fw_duty_start);
+		int32_t l_max_duty = FLOAT_TO_Q12(motor->m_conf->l_max_duty);
+		int32_t threshold_duty = Q12_MUL(foc_fw_duty_start, l_max_duty);
+		
+		if (foc_fw_duty_start < FLOAT_TO_Q12(0.99f) && duty_abs > threshold_duty) {
+			// fw_current_now = utils_map(duty_abs, threshold_duty, l_max_duty, 0, foc_fw_current_max)
+			int32_t range = l_max_duty - threshold_duty;
+			int32_t position = duty_abs - threshold_duty;
+			fw_current_now = Q12_DIV(Q12_MUL(position, foc_fw_current_max), range);
 
-			// m_current_off_delay is used to not stop the modulation too soon after leaving FW. If axis decoupling
-			// is not working properly an oscillation can occur on the modulation when changing the current
-			// fast, which can make the estimated duty cycle drop below the FW threshold long enough to stop
-			// modulation. When that happens the body diodes in the MOSFETs can see a lot of current and unexpected
-			// braking happens. Therefore the modulation is left on for some time after leaving FW to give the
-			// oscillation a chance to decay while the MOSFETs are still driven.
-			motor->m_current_off_delay = 1.0;
+			motor->m_current_off_delay = FLOAT_TO_Q12(1.0f);
 		}
 
-		if (motor->m_conf->foc_fw_ramp_time < dt) {
+		int32_t foc_fw_ramp_time = FLOAT_TO_Q12(motor->m_conf->foc_fw_ramp_time);
+		
+		if (foc_fw_ramp_time < dt) {
 			motor->m_i_fw_set = fw_current_now;
 		} else {
-			utils_step_towards((float*)&motor->m_i_fw_set, fw_current_now,
-					(dt / motor->m_conf->foc_fw_ramp_time) * motor->m_conf->foc_fw_current_max);
+			// step = (dt / foc_fw_ramp_time) * foc_fw_current_max
+			int32_t step = Q12_MUL(Q12_DIV(dt, foc_fw_ramp_time), foc_fw_current_max);
+			
+			// utils_step_towards
+			if (motor->m_i_fw_set < fw_current_now) {
+				if ((motor->m_i_fw_set + step) < fw_current_now) {
+					motor->m_i_fw_set += step;
+				} else {
+					motor->m_i_fw_set = fw_current_now;
+				}
+			} else if (motor->m_i_fw_set > fw_current_now) {
+				if ((motor->m_i_fw_set - step) > fw_current_now) {
+					motor->m_i_fw_set -= step;
+				} else {
+					motor->m_i_fw_set = fw_current_now;
+				}
+			}
 		}
 	}
 }
 
-void foc_hfi_adjust_angle(float ang_err, motor_all_state_t *motor, float dt) {
-	mc_configuration *conf = motor->m_conf;
-	utils_truncate_number_abs(&ang_err, conf->foc_hfi_max_err);
 
-	// TODO: Check if ratio between these is sane or introduce separate gains
-	const float gain_int = 4000.0 * conf->foc_hfi_gain;
-	const float gain_int2 = 10.0 * conf->foc_hfi_gain;
-	motor->m_hfi.double_integrator += ang_err * gain_int2;
-	utils_truncate_number_abs(&motor->m_hfi.double_integrator, fabsf(motor->m_speed_est_fast));
-	motor->m_hfi.angle -= dt * (gain_int * ang_err + motor->m_hfi.double_integrator);
-	utils_norm_angle_rad((float*)&motor->m_hfi.angle);
-	motor->m_hfi.ready = true;
-}
 /**
  * @brief FOC 参数初始化
  * 
@@ -774,30 +794,46 @@ void foc_hfi_adjust_angle(float ang_err, motor_all_state_t *motor, float dt) {
  */
 void foc_precalc_values(motor_all_state_t *motor) {
 	const mc_configuration *conf_now = motor->m_conf;
-	motor->p_lq = conf_now->foc_motor_l + conf_now->foc_motor_ld_lq_diff * 0.5;
-	motor->p_ld = conf_now->foc_motor_l - conf_now->foc_motor_ld_lq_diff * 0.5;
+	
+	// 转换配置参数到Q12.8格式
+	int32_t foc_motor_l = FLOAT_TO_Q12(conf_now->foc_motor_l);
+	int32_t foc_motor_ld_lq_diff = FLOAT_TO_Q12(conf_now->foc_motor_ld_lq_diff);
+	int32_t foc_motor_flux_linkage = FLOAT_TO_Q12(conf_now->foc_motor_flux_linkage);
+	int32_t foc_overmod_factor = FLOAT_TO_Q12(conf_now->foc_overmod_factor);
+	
+	// p_lq = foc_motor_l + foc_motor_ld_lq_diff * 0.5
+	motor->p_lq = foc_motor_l + (foc_motor_ld_lq_diff >> 1);
+	// p_ld = foc_motor_l - foc_motor_ld_lq_diff * 0.5
+	motor->p_ld = foc_motor_l - (foc_motor_ld_lq_diff >> 1);
+	
 	//凸极补偿相关参数
-	//物理意义：计算(1/Lq - 1/Ld)，用于：
-	//转矩方程：Te = 1.5 * P * [λ*iq + (Ld - Lq)*id*iq]
-	//电流解耦：在dq坐标系中实现电流解耦控制
-	//磁饱和补偿：考虑电感变化的影响
-	motor->p_inv_ld_lq = (1.0 / motor->p_lq - 1.0 / motor->p_ld);
+	// p_inv_ld_lq = (1.0 / p_lq - 1.0 / p_ld)
+	int32_t one_q12 = FLOAT_TO_Q12(1.0f);
+	int32_t inv_lq = Q12_DIV(one_q12, motor->p_lq);
+	int32_t inv_ld = Q12_DIV(one_q12, motor->p_ld);
+	motor->p_inv_ld_lq = inv_lq - inv_ld;
+	
 	//电压限制计算
-	//物理意义：
-	//(0.5/Lq + 0.5/Ld)是电感倒数的平均值
-	//乘以0.9是安全系数，补偿参数识别误差
-	//用于计算电压极限圆，决定最大可用电压
-	//Vmax = ω * λ + ω * Ld * Id
-	//其中 ω 是电角速度
-	motor->p_v2_v3_inv_avg_half = (0.5 / motor->p_lq + 0.5 / motor->p_ld) * 0.9; // With the 0.9 we undo the adjustment from the detection
+	// p_v2_v3_inv_avg_half = (0.5 / p_lq + 0.5 / p_ld) * 0.9
+	int32_t half_inv_lq = inv_lq >> 1;
+	int32_t half_inv_ld = inv_ld >> 1;
+	int32_t avg = half_inv_lq + half_inv_ld;
+	motor->p_v2_v3_inv_avg_half = Q12_MUL(avg, FLOAT_TO_Q12(0.9f));
+	
 	//将观测器的磁链估计初始化为电机的额定磁链
-	motor->m_observer_state.lambda_est = conf_now->foc_motor_flux_linkage;
+	motor->m_observer_state.lambda_est = foc_motor_flux_linkage;
+	
 	//数学原理：
 	//TWO_BY_SQRT3= 2/√3 ≈ 1.1547
 	//这是空间矢量调制（SVPWM）​ 的最大调制系数
 	//foc_overmod_factor是过调制因子，允许超过六边形调制区域
-	motor->p_duty_norm = TWO_BY_SQRT3 / conf_now->foc_overmod_factor;
+	int32_t two_by_sqrt3 = FLOAT_TO_Q12(TWO_BY_SQRT3);
+	motor->p_duty_norm = Q12_DIV(two_by_sqrt3, foc_overmod_factor);
 
-	motor->p_fs = conf_now->foc_f_zv * 0.5;	//零矢量采样频率
-	motor->p_dt = 1.0 / motor->p_fs;	//=> 得出每次中断的时间
+	// 零矢量采样频率 (Q12.8)
+	int32_t foc_f_zv = FLOAT_TO_Q12(conf_now->foc_f_zv);
+	motor->p_fs = foc_f_zv >> 1;
+	
+	// 得出每次中断的时间 (Q12.8)
+	motor->p_dt = Q12_DIV(one_q12, motor->p_fs);
 }

@@ -14,7 +14,9 @@
 extern "C" {
 #endif
 
+#ifndef HK32M07x
 #define HK32M07x
+#endif
 
 /* Includes ------------------------------------------------------------------*/
 

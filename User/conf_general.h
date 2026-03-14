@@ -31,6 +31,10 @@
 // Disable hardware limits on configuration parameters
 //#define DISABLE_HW_LIMITS
 
+// Hardware configuration
+#define HW_SOURCE "hwconf/hw_conf.c"
+#define HW_HEADER "../hwconf/hw_conf.h"
+
 #if !defined(HW_SOURCE) && !defined(HW_SOURCE_ALT)
 #error "No hardware source file set"
 #endif
@@ -226,8 +230,8 @@ bool conf_general_store_eeprom_var_hw(eeprom_var *v, int address);
 bool conf_general_store_eeprom_var_custom(eeprom_var *v, int address);
 void conf_general_read_app_configuration(app_configuration *conf);
 bool conf_general_store_app_configuration(app_configuration *conf);
-void conf_general_read_mc_configuration(mc_configuration *conf, bool is_motor_2);
-bool conf_general_store_mc_configuration(mc_configuration *conf, bool is_motor_2);
+void conf_general_read_mc_configuration(mc_configuration *conf);	//读取电机存储的参数
+bool conf_general_store_mc_configuration(mc_configuration *conf);
 bool conf_general_detect_motor_param(float current, float min_rpm, float low_duty,
 									 float *int_limit, float *bemf_coupling_k, int8_t *hall_table, int *hall_res);
 bool conf_general_measure_flux_linkage(float current, float duty,

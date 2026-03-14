@@ -75,6 +75,31 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
 #define RPM2RADPS_f(rpm) ((rpm) * (float)((2.0 * M_PI) / 60.0))
 #define RADPS2RPM_f(rad_per_sec) ((rad_per_sec) * (float)(60.0 / (2.0 * M_PI)))
 
+// 定点数运算辅助函数
+static inline int16_t utils_sqrt(int32_t x) {
+    int16_t result = 0;
+    int16_t bit = 1 << 15;
+    
+    while (bit > x) {
+        bit >>= 2;
+    }
+    
+    while (bit != 0) {
+        if (x >= result + bit) {
+            x -= result + bit;
+            result = (result >> 1) + bit;
+        } else {
+            result >>= 1;
+        }
+        bit >>= 2;
+    }
+    
+    return result;
+}
+
+// 绝对值函数
+#define ABS(x) ((x) >= 0 ? (x) : -(x))
+
 #ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif

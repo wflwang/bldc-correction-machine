@@ -1,1 +1,1 @@
-start .\MDK\bldc_gimbal.uvprojx
+start .\MDK\FOC_hall_correction_machine.uvprojx

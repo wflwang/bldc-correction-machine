@@ -1,0 +1,14 @@
+/* Linker script for HK32M070 */
+
+LR_IROM1 0x08000000 0x00040000 {    /* 256KB FLASH */
+    ER_IROM1 0x08000000 0x00040000 {  /* ROM区域 */
+        *.o (RESET, +First)
+        *(InRoot$$Sections)
+        .ANY (+RO)
+        .ANY (+XO)
+    }
+    
+    RW_IRAM1 0x20000000 0x00008000 {  /* 32KB RAM */
+        .ANY (+RW +ZI)
+    }
+}

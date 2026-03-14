@@ -26,12 +26,10 @@
 
 // Functions
 void mc_interface_init(void);
-int mc_interface_motor_now(void);
-void mc_interface_select_motor_thread(int motor);
-int mc_interface_get_motor_thread(void);
+
 const volatile mc_configuration* mc_interface_get_configuration(void);
 void mc_interface_set_configuration(mc_configuration *configuration);
-unsigned mc_interface_calc_crc(mc_configuration* conf, bool is_motor_2);
+unsigned mc_interface_calc_crc(mc_configuration* conf);
 bool mc_interface_dccal_done(void);
 void mc_interface_set_pwm_callback(void (*p_func)(void));
 void mc_interface_lock(void);
@@ -111,10 +109,6 @@ void mc_interface_set_current_off_delay(float delay_sec);
 
 void mc_interface_override_temp_motor(float temp);
 
-void mc_interface_ignore_input_both(int time_ms);
-void mc_interface_release_motor_override_both(void);
-bool mc_interface_wait_for_motor_release_both(float timeout);
-
 // Statistics
 float mc_interface_stat_speed_avg(void);
 float mc_interface_stat_speed_max(void);
@@ -131,9 +125,9 @@ void mc_interface_stat_reset(void);
 
 // MC implementation functions
 void mc_interface_set_fault_info(const char *str, int argn, float arg0, float arg1);
-void mc_interface_fault_stop(mc_fault_code fault, bool is_second_motor, bool is_isr);
+void mc_interface_fault_stop(mc_fault_code fault, bool is_isr);
 int mc_interface_try_input(void);
-void mc_interface_mc_timer_isr(bool is_second_motor, float dt);
+void mc_interface_mc_timer_isr(float dt);
 
 // Interrupt handlers
 void mc_interface_adc_inj_int_handler(void);

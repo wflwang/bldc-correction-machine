@@ -121,6 +121,7 @@ void * HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     motor->m_ang60_intTime = -m_ang60_intTime;
                 }
             }else{
+                //本次误差变化方向和上次误差变化方向不一致 用上次误差产生的时间？ 时间不能突变的特性
                 motor->last_ang_diff = ang_diff;    //更新误差
                 motor->m_ang60_intTime = -motor->m_ang60_intTime; //如果角度不同的话用上次,防止正反转误差  
             }

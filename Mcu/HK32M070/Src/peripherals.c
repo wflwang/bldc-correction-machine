@@ -163,14 +163,17 @@ static void ADC_Init_Config(void)
     /* ADC GPIO Peripheral clock enable */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_ADC, ENABLE);
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
     
     /* Configure PA3,PA8,PA9 as analog input */
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_8| GPIO_Pin_9;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;    
     GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
     
     /* Configure groupA */
     Group_InitStructure.ADC_Group  = GROUP_A; /* Select Configure GROUP A */
@@ -186,9 +189,9 @@ static void ADC_Init_Config(void)
     /* Configure groupB */
     Group_InitStructure.ADC_Group  = GROUP_B; /* Select Configure GROUP B */
     Group_InitStructure.ADC_GroupChannel[ASCS_0] = ADC_CHANNEL_PGA1_OUTB; /* Select the input source for the group channel */
-    Group_InitStructure.ADC_GroupChannel[ASCS_1] = ADC_CHANNEL_11; /* VR */
-    Group_InitStructure.ADC_GroupChannel[ASCS_2] = ADC_CHANNEL_12; /* Vbus */
-    Group_InitStructure.ADC_GroupChannel[ASCS_3] = ADC_CHANNEL_13; /* Temp */     
+    Group_InitStructure.ADC_GroupChannel[ASCS_1] = ADC_CHANNEL_8; /* VBUS */
+    Group_InitStructure.ADC_GroupChannel[ASCS_2] = ADC_CHANNEL_18; /* PCB Temp */
+    Group_InitStructure.ADC_GroupChannel[ASCS_3] = ADC_CHANNEL_21; /* Motor Temp */     
     Group_InitStructure.ADC_GroupChNumber = 4;                    /* Select the number of channels sampled by group */
     Group_InitStructure.ADC_GroupSampleMode = ADC_SAMPLE_MODE_SINGLE; /* Select the sampling mode for group */
     Group_InitStructure.ADC_GroupExtTrigCtrl = ENABLE;        /* group's hardware triggers control */
@@ -198,10 +201,11 @@ static void ADC_Init_Config(void)
     ADC_GroupInit(ADC, &Group_InitStructure);
     
     //Temp
-    ADC_PinRemapCH13(ADC, ADC_CH13_PINREMAP_PA10);
+    //ADC_PinRemapCH13(ADC, ADC_CH13_PINREMAP_PA10);
     /* Configure ADC */
     ADC_InitStructure.ADC_ClkDiv = ADC_CLK_DIV_2; /* Configure clock division */
     ADC_InitStructure.ADC_DateAlignment = ADC_DATA_ALIGN_LEFT; /* Data Alignment */
+    //用的外部Vref VDD3.3?
     ADC_InitStructure.ADC_VrefSourse = ADC_VREF_EXTERNAL;  /* ADC_Vref Source selection */
     ADC_InitStructure.ADC_InternalVref = ADC_INTERNAL_VREF_2_4;/* Internal ADC Vref voltage range selection */
     ADC_Init(ADC, &ADC_InitStructure);
@@ -298,20 +302,20 @@ static void ATU_Init_Config(void)
     ATU_SetReloadModeCompare2(ATU_CRxA_AUTO_RELOAD, ATU_CRxB_AUTO_RELOAD);
     
     /* Configure the protected output polarity */
-    ATU_ProtectOutputStructInit(&ATU_ProtectOutputInitStruct);
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelA = ATU_PROTECT_TIO0A_DEFAULT_LEVEL_LOW;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelB = ATU_PROTECT_TIO0B_DEFAULT_LEVEL_LOW;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectA = ATU_PROTECT_TIO0A_OUTPUT_SELECT_DEFAULT_LEVLE;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectB = ATU_PROTECT_TIO0B_OUTPUT_SELECT_DEFAULT_LEVLE;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelA = ATU_PROTECT_TIO1A_DEFAULT_LEVEL_LOW;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelB = ATU_PROTECT_TIO1B_DEFAULT_LEVEL_LOW;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectA = ATU_PROTECT_TIO1A_OUTPUT_SELECT_DEFAULT_LEVLE;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectB = ATU_PROTECT_TIO1B_OUTPUT_SELECT_DEFAULT_LEVLE;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelA = ATU_PROTECT_TIO2A_DEFAULT_LEVEL_LOW;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelB = ATU_PROTECT_TIO2B_DEFAULT_LEVEL_LOW;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectA = ATU_PROTECT_TIO2A_OUTPUT_SELECT_DEFAULT_LEVLE;
-    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectB = ATU_PROTECT_TIO2B_OUTPUT_SELECT_DEFAULT_LEVLE;
-    ATU_ProtectOutputConfig(&ATU_ProtectOutputInitStruct);
+    //ATU_ProtectOutputStructInit(&ATU_ProtectOutputInitStruct);
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelA = ATU_PROTECT_TIO0A_DEFAULT_LEVEL_LOW;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelB = ATU_PROTECT_TIO0B_DEFAULT_LEVEL_LOW;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectA = ATU_PROTECT_TIO0A_OUTPUT_SELECT_DEFAULT_LEVLE;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectB = ATU_PROTECT_TIO0B_OUTPUT_SELECT_DEFAULT_LEVLE;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelA = ATU_PROTECT_TIO1A_DEFAULT_LEVEL_LOW;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelB = ATU_PROTECT_TIO1B_DEFAULT_LEVEL_LOW;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectA = ATU_PROTECT_TIO1A_OUTPUT_SELECT_DEFAULT_LEVLE;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectB = ATU_PROTECT_TIO1B_OUTPUT_SELECT_DEFAULT_LEVLE;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelA = ATU_PROTECT_TIO2A_DEFAULT_LEVEL_LOW;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelB = ATU_PROTECT_TIO2B_DEFAULT_LEVEL_LOW;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectA = ATU_PROTECT_TIO2A_OUTPUT_SELECT_DEFAULT_LEVLE;
+    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectB = ATU_PROTECT_TIO2B_OUTPUT_SELECT_DEFAULT_LEVLE;
+    //ATU_ProtectOutputConfig(&ATU_ProtectOutputInitStruct);
     
     /* Configuration trigger point */
     ATU_SetTrigger0(ATU_TRG0_POINT_UP, ATU_TRG0_AUTO_RELOAD, 1); //Trg0

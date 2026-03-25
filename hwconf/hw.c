@@ -19,6 +19,9 @@
 
 #include "conf_general.h"
 #include "utils_math.h"
+#include "hk32m07x.h"
+#include "hk32m07x_gpio.h"
+#include "hk32m07x_rcc.h"
 #include <math.h>
 
 #ifdef HW_SOURCE_ALT

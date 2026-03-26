@@ -55,44 +55,86 @@ volatile uint16_t ADC_Value[HW_ADC_CHANNELS + HW_ADC_CHANNELS_EXTRA];
 volatile float ADC_curr_norm_value[6];
 volatile float ADC_curr_raw[6];
 
+// VESC 电调 - 电机接口全局状态结构体
+// 保存电调所有实时运行数据、滤波值、故障、功率统计、温度等
 typedef struct {
-	mc_configuration m_conf;
+	// 电调配置参数（PID、电机参数、保护参数、功能开关等）
+	mc_configuration m_conf;	
+	// 当前故障代码（过流、过压、过温、MOS管故障、驱动故障等）
 	mc_fault_code m_fault_now;
+	// 电调运行统计数据（电压、电流、功率、转速、温度统计）
 	setup_stats m_stats;
+	// 忽略运行的迭代次数（用于启动/恢复时暂时跳过计算）
 	int m_ignore_iterations;
+	// 驱动故障持续迭代计数（用于故障消抖、延时复位）
 	int m_drv_fault_iterations;
+	// 电调运行周期计数（循环次数）
 	unsigned int m_cycles_running;
+	// 电机锁定使能标志（防倒转/锁定使能）
 	bool m_lock_enabled;
+	// 电机锁定临时取消一次（手动override解锁一次）
 	bool m_lock_override_once;
+	// 电机电流累加和（用于滤波计算）
 	float m_motor_current_sum;
+	// 输入电流累加和（电池侧电流滤波）
 	float m_input_current_sum;
+	// 电机电流平均迭代计数（用于求平均）
 	float m_motor_current_iterations;
+	// 输入电流平均迭代计数
 	float m_input_current_iterations;
+	// ========================= FOC 核心电流 =========================
+	// FOC 直轴电流 Id 累加和
 	float m_motor_id_sum;
+	// FOC 交轴电流 Iq 累加和
 	float m_motor_iq_sum;
+	// FOC 直轴电流 Id 平均迭代计数
 	float m_motor_id_iterations;
+	// FOC 交轴电流 Iq 平均迭代计数
 	float m_motor_iq_iterations;
+	// FOC 直轴电压 Vd 累加和
 	float m_motor_vd_sum;
+	// FOC 交轴电压 Vq 累加和
 	float m_motor_vq_sum;
+	// FOC 直轴电压 Vd 平均迭代计数
 	float m_motor_vd_iterations;
+	// FOC 交轴电压 Vq 平均迭代计数
 	float m_motor_vq_iterations;
+	// ========================= 电量/功率统计 =========================
+	// 安时（电量）累计
 	float m_amp_seconds;
+	// 充电安时累计
 	float m_amp_seconds_charged;
+	// 瓦时（能量）累计
 	float m_watt_seconds;
+	// 充电瓦时累计
 	float m_watt_seconds_charged;
+	// ========================= 位置/控制 =========================
+	// 设定位置（位置模式用）
 	float m_position_set;
+	// ========================= 温度/电压 =========================
+	// MOS管温度
 	float m_temp_fet;
+	// 电机温度
 	float m_temp_motor;
+	// 驱动电压（门极驱动电压）
 	float m_gate_driver_voltage;
+	// ========================= 保护/诊断 =========================
+	// 电机电流不平衡度
 	float m_motor_current_unbalance;
+	// 电机电流不平衡错误率
 	float m_motor_current_unbalance_error_rate;
+	// 输入电压（快速滤波）
 	float m_input_voltage_filtered;
+	// 输入电压（慢速滤波，用于判断电压跌落）
 	float m_input_voltage_filtered_slower;
+	// 温度覆盖值（外部温度输入/强制温度）
 	float m_temp_override;
+	// 输入电流滤波中间值
 	float m_i_in_filter;
-
-	// Backup data counters
+	// ========================= 备份统计 =========================
+	// 上次保存的里程数（用于掉电保存）
 	uint64_t m_odometer_last;
+	// 上次保存的总运行时间（掉电保存）
 	uint64_t m_runtime_last;
 } motor_if_state_t;
 
@@ -165,21 +207,17 @@ static thread_t *fault_stop_tp;
 static THD_WORKING_AREA(stat_thread_wa, 512);
 static THD_FUNCTION(stat_thread, arg);
 
+/**
+ * @brief 电机接口初始化配置
+ * 
+ * 
+ * 
+ */
 void mc_interface_init(void) {
+	//把电机参数全部置0
 	memset((void*)&m_motor_1, 0, sizeof(motor_if_state_t));
-#ifdef HW_HAS_DUAL_MOTORS
-	memset((void*)&m_motor_2, 0, sizeof(motor_if_state_t));
-#endif
-
+	//读取电机的参数配置
 	conf_general_read_mc_configuration((mc_configuration*)&m_motor_1.m_conf, false);
-#ifdef HW_HAS_DUAL_MOTORS
-	conf_general_read_mc_configuration((mc_configuration*)&m_motor_2.m_conf, true);
-#endif
-
-#ifdef HW_HAS_DUAL_MOTORS
-	m_motor_1.m_conf.motor_type = MOTOR_TYPE_FOC;
-	m_motor_2.m_conf.motor_type = MOTOR_TYPE_FOC;
-#endif
 
 	m_last_adc_duration_sample = 0.0;
 	m_sample_len = 1000;
@@ -200,56 +238,9 @@ void mc_interface_init(void) {
 	chThdCreateStatic(fault_stop_thread_wa, sizeof(fault_stop_thread_wa), HIGHPRIO - 3, fault_stop_thread, NULL);
 	chThdCreateStatic(stat_thread_wa, sizeof(stat_thread_wa), NORMALPRIO, stat_thread, NULL);
 
-	int motor_old = mc_interface_get_motor_thread();
-	mc_interface_select_motor_thread(1);
-#ifdef HW_HAS_DRV8301
-	drv8301_set_oc_mode(motor_now()->m_conf.m_drv8301_oc_mode);
-	drv8301_set_oc_adj(motor_now()->m_conf.m_drv8301_oc_adj);
-#elif defined(HW_HAS_DRV8320S)
-	drv8320s_set_oc_mode(motor_now()->m_conf.m_drv8301_oc_mode);
-	drv8320s_set_oc_adj(motor_now()->m_conf.m_drv8301_oc_adj);
-#elif defined(HW_HAS_DRV8323S)
-	drv8323s_set_oc_mode(motor_now()->m_conf.m_drv8301_oc_mode);
-	drv8323s_set_oc_adj(motor_now()->m_conf.m_drv8301_oc_adj);
-	DRV8323S_CUSTOM_SETTINGS();
-#endif
-
-#if defined HW_HAS_DUAL_MOTORS || defined HW_HAS_DUAL_PARALLEL
-	mc_interface_select_motor_thread(2);
-#ifdef HW_HAS_DRV8301
-	drv8301_set_oc_mode(motor_now()->m_conf.m_drv8301_oc_mode);
-	drv8301_set_oc_adj(motor_now()->m_conf.m_drv8301_oc_adj);
-#elif defined(HW_HAS_DRV8320S)
-	drv8320s_set_oc_mode(motor_now()->m_conf.m_drv8301_oc_mode);
-	drv8320s_set_oc_adj(motor_now()->m_conf.m_drv8301_oc_adj);
-#elif defined(HW_HAS_DRV8323S)
-	drv8323s_set_oc_mode(motor_now()->m_conf.m_drv8301_oc_mode);
-	drv8323s_set_oc_adj(motor_now()->m_conf.m_drv8301_oc_adj);
-	DRV8323S_CUSTOM_SETTINGS();
-#endif
-#endif
-	mc_interface_select_motor_thread(motor_old);
-
-	encoder_init(&motor_now()->m_conf);
-
 	// Initialize selected implementation
-	switch (motor_now()->m_conf.motor_type) {
-	case MOTOR_TYPE_BLDC:
-	case MOTOR_TYPE_DC:
-		mcpwm_init(&motor_now()->m_conf);
-		break;
 
-	case MOTOR_TYPE_FOC:
-#ifdef HW_HAS_DUAL_MOTORS
-		mcpwm_foc_init((mc_configuration*)&m_motor_1.m_conf, (mc_configuration*)&m_motor_2.m_conf);
-#else
-		mcpwm_foc_init((mc_configuration*)&m_motor_1.m_conf, (mc_configuration*)&m_motor_1.m_conf);
-#endif
-		break;
-
-	default:
-		break;
-	}
+	mcpwm_foc_init((mc_configuration*)&m_motor_1.m_conf);
 
 	bms_init((bms_config*)&m_motor_1.m_conf.bms);
 }

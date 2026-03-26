@@ -5,6 +5,8 @@
  */
 
 #include "peripherals.h"
+#include "hw_correct.h"
+#include "conf_general.h"
 
 
 static __IO uint32_t msTick=0;
@@ -46,6 +48,10 @@ void initCorePeripherals(void){
     SYSCFG_Config();
     /* PGA configuration */
     MY_PGA_Init();
+    //
+    ATU_Init_Config();
+    //init hall
+    HTU_Init_Config();
     //设置tick time
     SysTick_Config(SystemCoreClock /SYS_TICK_FREQUENCY);
     //EE_Read();
@@ -95,7 +101,7 @@ static void SYSCFG_Config(void)
   * @param  None
   * @retval None
   */
-static void MY_PGA_Init(void)
+void MY_PGA_Init(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     PGA1_InitTypeDef PGA1_InitStruct;
@@ -133,7 +139,7 @@ static void MY_PGA_Init(void)
     PGA1_InitStruct.PGA1_GAIN = PGA1_PGA_GAIN_12; //PGA_GAIN = 4
     PGA2_InitStruct.PGA2_NInputSelect = PGA2_NInputSelectAVSS;  //PGA2_NInputSelectN1; //PGA_N Select N1
     PGA2_InitStruct.PGA2_PInputSelect = PGA2_PInputSelect_PGA1OUT;  //PGA2_PInputSelect_P1; //PGA_P Select P1
-    PGA2_InitStruct.PGA2_GAIN = PGA2_PGA_GAIN_4; //PGA_GAIN = 4
+    PGA2_InitStruct.PGA2_GAIN = PGA2_PGA_GAIN_12; //PGA_GAIN = 4
     PGA_Init(&PGA1_InitStruct, &PGA2_InitStruct);
     
     /* PGA user mode configured*/
@@ -145,6 +151,7 @@ static void MY_PGA_Init(void)
     //PGA_Enable(PGA2);
     
     /* Configure the bias voltage*/
+    // /2 /4 /8 /16
     PGA_SetBias( ENABLE, DISABLE, VrefDiv1); //1/2Vref
     PGA_Lock();
 }
@@ -153,7 +160,7 @@ static void MY_PGA_Init(void)
   * @param  None
   * @retval None
   */
-static void ADC_Init_Config(void)
+void ADC_Init_Config(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     Group_InitTypeDef Group_InitStructure;
@@ -172,7 +179,8 @@ static void ADC_Init_Config(void)
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;    
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9;
+    //| GPIO_Pin_2 | GPIO_Pin_1 | GPIO_Pin_0    这3个不是AD口
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9 ;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
     
     /* Configure groupA */
@@ -230,10 +238,10 @@ static void ADC_Init_Config(void)
 }
 /**
   * @brief  ATU configuration
-  * @param  None
+  * @param  f_zv PWM 频率 中心对称PWM实际频率/2
   * @retval None
   */
-static void ATU_Init_Config(void)
+void ATU_Init_Config(int f_zv)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
@@ -241,12 +249,13 @@ static void ATU_Init_Config(void)
     ATU_OutputInitTypeDef ATU_OutputInitStruct;
     ATU_ProtectIFInitTypeDef ATU_ProtectIFInitStruct;
     ATU_ProtectOutputInitTypeDef ATU_ProtectOutputInitStruct;
-    
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_ATU1, DISABLE);
     /* ATU Peripheral clock enable */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_ATU1, ENABLE);
     
     /* GPIO Peripheral clock enable */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
+    ATU->CNT = 0;
     
     /* Configure PWM output PIN */
     GPIO_StructInit(&GPIO_InitStructure);
@@ -276,23 +285,23 @@ static void ATU_Init_Config(void)
     /* Configure ATU */
     ATU_TimeBaseInitStruct.ATU_ClockDivision = ATU_CLK_DIV_1;
     ATU_TimeBaseInitStruct.ATU_CounterMode = ATU_COUNTER_MODE_UPDOWM ;
-    ATU_TimeBaseInitStruct.ATU_Period = 2666;//12KHZ
+    ATU_TimeBaseInitStruct.ATU_Period = (SYSTEM_CORE_CLOCK / f_zv);// 2666 /12KHZ
     ATU_TimeBaseInitStruct.ATU_PeriodAutoReload = ATU_PERIOD_AUTO_RELOAD;
     ATU_TimeBaseInit(&ATU_TimeBaseInitStruct);
     
     /* Configure PWM duty cycle and dead time */
     ATU_OutputStructInit(&ATU_OutputInitStruct);
     ATU_OutputInitStruct.ATU_OutputMode = ATU_OUTPUT_COMPLEMENTARY_PWM;
-    ATU_OutputInitStruct.ATU_CompareValuexA = 0;
-    ATU_OutputInitStruct.ATU_CompareValuexB = 0;
-    ATU_OutputInitStruct.ATU_DeadBandTimeA = 0x40;//1us,ATUclk=64M
-    ATU_OutputInitStruct.ATU_DeadBandTimeB = 0x40;//1us,ATUclk=64M
+    ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
+    ATU_OutputInitStruct.ATU_CompareValuexB = (ATU->TPR/2);
+    ATU_OutputInitStruct.ATU_DeadBandTimeA = conf_general_calculate_deadtime(HW_DEAD_TIME_NSEC, SYSTEM_CORE_CLOCK);//1us,ATUclk=64M
+    ATU_OutputInitStruct.ATU_DeadBandTimeB = conf_general_calculate_deadtime(HW_DEAD_TIME_NSEC, SYSTEM_CORE_CLOCK);//1us,ATUclk=64M
     ATU_OutputInit(ATU_PWMCHANNEL_0, &ATU_OutputInitStruct);
-    ATU_OutputInitStruct.ATU_CompareValuexA = 0;
-    ATU_OutputInitStruct.ATU_CompareValuexB = 0;
+    ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
+    ATU_OutputInitStruct.ATU_CompareValuexB = (ATU->TPR/2);
     ATU_OutputInit(ATU_PWMCHANNEL_1, &ATU_OutputInitStruct);
-    ATU_OutputInitStruct.ATU_CompareValuexA = 0;
-    ATU_OutputInitStruct.ATU_CompareValuexB = 0;
+    ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
+    ATU_OutputInitStruct.ATU_CompareValuexB = (ATU->TPR/2);
     ATU_OutputInit(ATU_PWMCHANNEL_2, &ATU_OutputInitStruct);
     
     /* Configure Auto Reload */
@@ -320,7 +329,7 @@ static void ATU_Init_Config(void)
     /* Configuration trigger point */
     ATU_SetTrigger0(ATU_TRG0_POINT_UP, ATU_TRG0_AUTO_RELOAD, 1); //Trg0
     ATU_SetTrigger1(ATU_TRG1_POINT_UP, ATU_TRG1_AUTO_RELOAD, 1); //Trg1
-    ATU_SetTriggerDoubleDataB(ATU_TRGDB_POINT_UP, ATU_TRIGGER_DOUBLE_DATAB_AUTO_RELOAD, 2666 - 2); //TrgB
+    ATU_SetTriggerDoubleDataB(ATU_TRGDB_POINT_UP, ATU_TRIGGER_DOUBLE_DATAB_AUTO_RELOAD, ((SYSTEM_CORE_CLOCK / f_zv)- 2)); //TrgB
     
     /* Enable PWM */
     ATU_PWMOutputCmd(ENABLE);
@@ -333,7 +342,7 @@ static void ATU_Init_Config(void)
   * @param  None
   * @retval None
   */
-static void HTU_Init_Config(void)
+void HTU_Init_Config(void)
 {
     HTU_TimeBaseInitTypeDef HTU_TimeBaseInitStruct;
     GPIO_InitTypeDef  GPIO_InitStructure;
@@ -496,29 +505,16 @@ void SystemClock_Config(void)
 */
 void MX_GPIO_Init(void){
     GPIO_InitTypeDef GPIO_InitStructure;
-    RCC_AHBPeriphClockCmd(Button_PWR_GPIO_CLK|Button_LR_GPIO_CLK|Button_RR_GPIO_CLK|PowerEn_GPIO_CLK|LEDG_GPIO_CLK|LEDR_GPIO_CLK, ENABLE);
+    RCC_AHBPeriphClockCmd(Button_En_GPIO_CLK|Button_SpeedIn_GPIO_CLK|Button_Dir_GPIO_CLK, ENABLE);
     /* Configure Button pin as input */
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_3;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_InitStructure.GPIO_Pin = PowerEn_GPIO_PIN;
-	GPIO_Init(PowerEn_GPIO_PORT, &GPIO_InitStructure);
-    PowerEn_Write(0);
-    GPIO_InitStructure.GPIO_Pin = LEDR_GPIO_PIN;
-	GPIO_Init(LEDR_GPIO_PORT, &GPIO_InitStructure);
-    LEDR_Write(0);
-    GPIO_InitStructure.GPIO_Pin = LEDG_GPIO_PIN;
-	GPIO_Init(LEDG_GPIO_PORT, &GPIO_InitStructure);
-    LEDR_Write(0);
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_InitStructure.GPIO_Pin = Button_PWR_GPIO_PIN;
-    GPIO_Init(Button_PWR_GPIO_PORT, &GPIO_InitStructure); 
-    GPIO_InitStructure.GPIO_Pin = Button_LR_GPIO_PIN;
-    GPIO_Init(Button_LR_GPIO_PORT, &GPIO_InitStructure); 
-    GPIO_InitStructure.GPIO_Pin = Button_RR_GPIO_PIN;
-    GPIO_Init(Button_RR_GPIO_PORT, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_Pin = Button_En_GPIO_PIN;
+    GPIO_Init(Button_En_GPIO_PORT, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_Pin = Button_SpeedIn_GPIO_PIN;
+    GPIO_Init(Button_SpeedIn_GPIO_PORT, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_Pin = Button_Dir_GPIO_PIN;
+    GPIO_Init(Button_Dir_GPIO_PORT, &GPIO_InitStructure); 
 }
 
 /**

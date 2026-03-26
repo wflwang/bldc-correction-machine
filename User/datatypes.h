@@ -112,11 +112,11 @@ typedef enum {
 	TEMP_SENSOR_DISABLED
 } temp_sensor_type;
 
-typedef enum {
-	MOTOR_TYPE_BLDC = 0,
-	MOTOR_TYPE_DC,
-	MOTOR_TYPE_FOC
-} mc_motor_type;
+//typedef enum {
+//	MOTOR_TYPE_BLDC = 0,
+//	MOTOR_TYPE_DC,
+//	MOTOR_TYPE_FOC
+//} mc_motor_type;
 
 // FOC current controller decoupling mode.
 typedef enum {
@@ -432,7 +432,8 @@ typedef struct {
 	// BLDC switching and drive
 	mc_pwm_mode pwm_mode;
 	mc_comm_mode comm_mode;
-	mc_motor_type motor_type;
+	//只有FOC模式
+	//mc_motor_type motor_type;
 	mc_sensor_mode sensor_mode;
 
 	// Sensorless (bldc)

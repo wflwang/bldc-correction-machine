@@ -14,14 +14,23 @@
 // Hall sensor pins
 #define HW_HALL_ENC_GPIO1 GPIOA
 #define HW_HALL_ENC_PIN1 GPIO_Pin_0
+#define HW_HALL_ENC_PIN1_No GPIO_PinSource0
 #define HW_HALL_ENC_PIN2 GPIO_Pin_1
+#define HW_HALL_ENC_PIN2_No GPIO_PinSource1
 #define HW_HALL_ENC_PIN3 GPIO_Pin_2
+#define HW_HALL_ENC_PIN3_No GPIO_PinSource3
+#define HW_HALL_TIMER   HTU
 
 // ADC channels
 #define ADC_IND_CURR1 0
 #define ADC_IND_CURR2 1
 #define ADC_IND_VIN 2
 #define ADC_IND_EXT 3
+
+//获取AD值
+#define GetVBusAD()         (ADC->ADDR1B)
+#define GetPCBTempAD()      (ADC->ADDR2B)
+#define GetMotorTempAD()    (ADC->ADDR3B)
 
 // Motor control pins
 #define HW_PWM1_PORT GPIOA
@@ -30,6 +39,13 @@
 #define HW_PWM2_PIN GPIO_Pin_9
 #define HW_PWM3_PORT GPIOA
 #define HW_PWM3_PIN GPIO_Pin_10
+
+#define PWMIO_PB10      ATU_PWM_REMAP_SOURCE_TIO2B
+#define PWMIO_PB11      ATU_PWM_REMAP_SOURCE_TIO2A
+#define PWMIO_PB12      ATU_PWM_REMAP_SOURCE_TIO1B
+#define PWMIO_PB13      ATU_PWM_REMAP_SOURCE_TIO1A
+#define PWMIO_PB14      ATU_PWM_REMAP_SOURCE_TIO0B
+#define PWMIO_PB15      ATU_PWM_REMAP_SOURCE_TIO0A
 
 // Direction pin
 #define HW_DIR_PORT GPIOB
@@ -40,8 +56,31 @@
 #define READ_HALL2() GPIO_ReadInputDataBit(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN2)
 #define READ_HALL3() GPIO_ReadInputDataBit(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN3)
 
-// Get input voltage
-#define GET_INPUT_VOLTAGE() 48.0
+#ifndef V_REG
+#define V_REG   3.3
+#endif
+#ifndef VIN_R1  
+#define VIN_R1  47000.0
+#endif
+#ifndef VIN_R2
+#define VIN_R2  2200.0
+#endif
+#ifndef CURRENT_AMP_GAIN
+#define CURRENT_AMP_GAIN    12.0
+#endif
+#ifndef CURRENT_SHUNT_RES
+#define CURRENT_SHUNT_RES   0.005
+#endif
+
+// Get input voltage 得出的是当前电压
+#define GET_INPUT_VOLTAGE() 	((uint16_t)((V_REG / 4095.0) * (float)ADC_Value[ADC_IND_VIN_SENS] * ((VIN_R1 + VIN_R2) / VIN_R2)))
+//最终温度扩大100倍保留精度
+#define NTC_RES_MOTOR(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
+#define NTC_TEMP_MOTOR(beta)	((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(ADC_Value[ADC_IND_TEMP_MOTOR]) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
+#define NTC_RES_PCB(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
+#define NTC_TEMP_PCB(beta)	    ((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(ADC_Value[ADC_IND_TEMP_MOTOR]) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
+
+
 
 // Motor control limits
 #define HW_LIM_CURRENT -20.0, 20.0

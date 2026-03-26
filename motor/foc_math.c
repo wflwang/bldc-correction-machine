@@ -769,7 +769,7 @@ void foc_hfi_adjust_angle(float ang_err, motor_all_state_t *motor, float dt) {
 }
 /**
  * @brief FOC 参数初始化
- * 
+ * foc_motor_ld_lq_diff Lq-Ld
  * 
  */
 void foc_precalc_values(motor_all_state_t *motor) {
@@ -781,6 +781,7 @@ void foc_precalc_values(motor_all_state_t *motor) {
 	//转矩方程：Te = 1.5 * P * [λ*iq + (Ld - Lq)*id*iq]
 	//电流解耦：在dq坐标系中实现电流解耦控制
 	//磁饱和补偿：考虑电感变化的影响
+	//用于 MTPA 最大转矩电流比算法
 	motor->p_inv_ld_lq = (1.0 / motor->p_lq - 1.0 / motor->p_ld);
 	//电压限制计算
 	//物理意义：

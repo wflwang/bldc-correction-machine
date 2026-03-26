@@ -58,9 +58,9 @@ void * HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     uint16_t hPrscBuf;
     uint32_t hHighSpeedCapture;
     //霍尔值
-    uint8_t hall_val = GPIO_IsInputPinSet( pHandle->H3Port, pHandle->H3Pin ) << 2
-                        | GPIO_IsInputPinSet( pHandle->H2Port, pHandle->H2Pin ) << 1
-                        | GPIO_IsInputPinSet( pHandle->H1Port, pHandle->H1Pin );
+    uint8_t hall_val = GPIO_IsInputPinSet( HW_PWM3_PORT, HW_PWM3_PIN ) << 2
+                        | GPIO_IsInputPinSet( HW_PWM2_PORT, HW_PWM2_PIN ) << 1
+                        | GPIO_IsInputPinSet( HW_PWM1_PORT, HW_PWM1_PIN );
     //对应出不同角度值 0,1,2,3,4,5,6,7
     //每次进来比较本次和上次的时间误差
     // 角度变化/时间误差 = 当前变化的角速度 *dt(中断时间) = 每次中断预计变化的角度

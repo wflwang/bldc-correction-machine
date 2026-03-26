@@ -5063,6 +5063,11 @@ typedef struct{
 #define MODIFY_REG(REG, CLEARMASK, SETMASK)  WRITE_REG((REG), (((READ_REG(REG)) & (~(CLEARMASK))) | (SETMASK)))
 
 
+__STATIC_INLINE uint32_t GPIO_IsInputPinSet(GPIO_TypeDef *GPIOx, uint32_t PinMask)
+{
+    return (READ_BIT(GPIOx->IDR, PinMask) == (PinMask));
+}
+
 #include "hk32m07x_def.h"
 #include "hk32m07x_conf.h"
 

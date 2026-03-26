@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "foc_math.h"
+#include "peripherals.h"
 
 // Private variables
 static volatile bool m_dccal_done = false;
@@ -132,177 +133,13 @@ static volatile bool pid_thd_stop;
 #pragma GCC optimize ("Os")
 
 static void timer_reinit(int f_zv) {
-	utils_sys_lock_cnt();
-
-	TIM_DeInit(TIM1);
-	TIM_DeInit(TIM8);
-	TIM_DeInit(TIM2);
-
-	TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-	TIM_OCInitTypeDef TIM_OCInitStructure;
-	TIM_BDTRInitTypeDef TIM_BDTRInitStructure;
-
-	TIM1->CNT = 0;
-	TIM2->CNT = 0;
-	TIM8->CNT = 0;
-
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM8, ENABLE);
-
-	TIM_TimeBaseStructure.TIM_Prescaler = 0;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_CenterAligned1;
-	TIM_TimeBaseStructure.TIM_Period = (SYSTEM_CORE_CLOCK / f_zv);
-	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-
-	TIM_TimeBaseInit(TIM1, &TIM_TimeBaseStructure);
-	TIM_TimeBaseInit(TIM8, &TIM_TimeBaseStructure);
-
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_OutputNState = TIM_OutputNState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = TIM1->ARR / 2;
-
-#ifndef INVERTED_TOP_DRIVER_INPUT
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High; // gpio high = top fets on
-#else
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
-#endif
-	TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Set;
-
-#ifndef INVERTED_BOTTOM_DRIVER_INPUT
-	TIM_OCInitStructure.TIM_OCNPolarity = TIM_OCNPolarity_High;  // gpio high = bottom fets on
-#else
-	TIM_OCInitStructure.TIM_OCNPolarity = TIM_OCNPolarity_Low;
-#endif
-	TIM_OCInitStructure.TIM_OCNIdleState = TIM_OCNIdleState_Set;
-
-	TIM_OC1Init(TIM1, &TIM_OCInitStructure);
-	TIM_OC2Init(TIM1, &TIM_OCInitStructure);
-	TIM_OC3Init(TIM1, &TIM_OCInitStructure);
-	TIM_OC4Init(TIM1, &TIM_OCInitStructure);
-
-	TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
-	TIM_OC2PreloadConfig(TIM1, TIM_OCPreload_Enable);
-	TIM_OC3PreloadConfig(TIM1, TIM_OCPreload_Enable);
-	TIM_OC4PreloadConfig(TIM1, TIM_OCPreload_Enable);
-
-	TIM_OC1Init(TIM8, &TIM_OCInitStructure);
-	TIM_OC2Init(TIM8, &TIM_OCInitStructure);
-	TIM_OC3Init(TIM8, &TIM_OCInitStructure);
-	TIM_OC4Init(TIM8, &TIM_OCInitStructure);
-
-	TIM_OC1PreloadConfig(TIM8, TIM_OCPreload_Enable);
-	TIM_OC2PreloadConfig(TIM8, TIM_OCPreload_Enable);
-	TIM_OC3PreloadConfig(TIM8, TIM_OCPreload_Enable);
-	TIM_OC4PreloadConfig(TIM8, TIM_OCPreload_Enable);
-
-	// Automatic Output enable, Break, dead time and lock configuration
-	TIM_BDTRInitStructure.TIM_OSSRState = TIM_OSSRState_Enable;
-	TIM_BDTRInitStructure.TIM_OSSIState = TIM_OSSIState_Enable;
-	TIM_BDTRInitStructure.TIM_LOCKLevel = TIM_LOCKLevel_OFF;
-	TIM_BDTRInitStructure.TIM_DeadTime =  conf_general_calculate_deadtime(HW_DEAD_TIME_NSEC, SYSTEM_CORE_CLOCK);
-	TIM_BDTRInitStructure.TIM_AutomaticOutput = TIM_AutomaticOutput_Disable;
-
-#ifdef HW_USE_BRK
-	// Enable BRK function. Hardware will asynchronously stop any PWM activity upon an
-	// external fault signal. PWM outputs remain disabled until MCU is reset.
-	// software will catch the BRK flag to report the fault code
-	TIM_BDTRInitStructure.TIM_Break = TIM_Break_Enable;
-	#ifdef BRK_HIGH
-	TIM_BDTRInitStructure.TIM_BreakPolarity = TIM_BreakPolarity_High;
-	#else
-	TIM_BDTRInitStructure.TIM_BreakPolarity = TIM_BreakPolarity_Low;
-	#endif
-	
-#else
-	TIM_BDTRInitStructure.TIM_Break = TIM_Break_Disable;
-	#ifdef BRK_HIGH
-	TIM_BDTRInitStructure.TIM_BreakPolarity = TIM_BreakPolarity_Low;
-	#else
-	TIM_BDTRInitStructure.TIM_BreakPolarity = TIM_BreakPolarity_High;
-	#endif
-#endif
-
-	TIM_BDTRConfig(TIM1, &TIM_BDTRInitStructure);
-	TIM_CCPreloadControl(TIM1, ENABLE);
-	TIM_ARRPreloadConfig(TIM1, ENABLE);
-
-	TIM_BDTRConfig(TIM8, &TIM_BDTRInitStructure);
-	TIM_CCPreloadControl(TIM8, ENABLE);
-	TIM_ARRPreloadConfig(TIM8, ENABLE);
-
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-
-	TIM_TimeBaseStructure.TIM_Prescaler = 0;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-	TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
-	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
-
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = 250;
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-	TIM_OCInitStructure.TIM_OCNPolarity = TIM_OCNPolarity_High;
-	TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Set;
-	TIM_OCInitStructure.TIM_OCNIdleState = TIM_OCNIdleState_Set;
-	TIM_OC1Init(TIM2, &TIM_OCInitStructure);
-	TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Enable);
-	TIM_OC2Init(TIM2, &TIM_OCInitStructure);
-	TIM_OC2PreloadConfig(TIM2, TIM_OCPreload_Enable);
-	TIM_OC3Init(TIM2, &TIM_OCInitStructure);
-	TIM_OC3PreloadConfig(TIM2, TIM_OCPreload_Enable);
-
-	TIM_ARRPreloadConfig(TIM2, ENABLE);
-	TIM_CCPreloadControl(TIM2, ENABLE);
-
-	// PWM outputs have to be enabled in order to trigger ADC on CCx
-	TIM_CtrlPWMOutputs(TIM2, ENABLE);
-
-#if defined HW_HAS_DUAL_MOTORS || defined HW_HAS_DUAL_PARALLEL
-	// See: https://www.cnblogs.com/shangdawei/p/4758988.html
-	TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Enable);
-	TIM_SelectMasterSlaveMode(TIM1, TIM_MasterSlaveMode_Enable);
-	TIM_SelectInputTrigger(TIM8, TIM_TS_ITR0);
-	TIM_SelectSlaveMode(TIM8, TIM_SlaveMode_Trigger);
-	TIM_SelectOutputTrigger(TIM8, TIM_TRGOSource_Enable);
-	TIM_SelectOutputTrigger(TIM8, TIM_TRGOSource_Update);
-	TIM_SelectInputTrigger(TIM2, TIM_TS_ITR1);
-	TIM_SelectSlaveMode(TIM2, TIM_SlaveMode_Reset);
-#else
-	TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
-	TIM_SelectMasterSlaveMode(TIM1, TIM_MasterSlaveMode_Enable);
-	TIM_SelectInputTrigger(TIM2, TIM_TS_ITR0);
-	TIM_SelectSlaveMode(TIM2, TIM_SlaveMode_Reset);
-#endif
-
-#ifdef HW_HAS_DUAL_MOTORS
-	TIM8->CNT = TIM1->ARR;
-#else
-	TIM8->CNT = 0;
-#endif
-	TIM1->CNT = 0;
-	TIM_Cmd(TIM1, ENABLE);
-	TIM_Cmd(TIM2, ENABLE);
+	ATU_Init_Config(f_zv);
 
 	// Prevent all low side FETs from switching on
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
-#ifdef HW_HAS_DUAL_MOTORS
-	stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-#endif
-
-	TIM_CtrlPWMOutputs(TIM1, ENABLE);
-	TIM_CtrlPWMOutputs(TIM8, ENABLE);
-
-	TIMER_UPDATE_SAMP(MCPWM_FOC_CURRENT_SAMP_OFFSET);
-
-	// Enable CC2 interrupt, which will be fired in V0 and V7
-	TIM_ITConfig(TIM2, TIM_IT_CC2, ENABLE);
-	utils_sys_unlock_cnt();
-
-	nvicEnableVector(TIM2_IRQn, 6);
+    /* Enable PWM */
+    ATU_PWMOutputCmd(ENABLE);
+    ADC_ITConfig(ADC, ADC_IT_GROUPB0_FINISH, ENABLE);	//开启AD中断
 }
 
 /**
@@ -311,8 +148,6 @@ static void timer_reinit(int f_zv) {
  * 
  */
 void mcpwm_foc_init(mc_configuration *conf_m1) {
-	utils_sys_lock_cnt();
-
 	m_init_done = false;
 
 	memset((void*)&m_motor_1, 0, sizeof(motor_all_state_t));
@@ -320,126 +155,40 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
 
 	m_motor_1.m_conf = conf_m1;
 	m_motor_1.m_state = MC_STATE_OFF;
-	m_motor_1.m_control_mode = CONTROL_MODE_NONE;
+	m_motor_1.m_control_mode = CONTROL_MODE_NONE;	//控制模式
 	m_motor_1.m_hall_dt_diff_last = 1.0;
-	m_motor_1.m_hall_dt_diff_now = 1.0;
+	m_motor_1.m_hall_dt_diff_now = 1.0;	
 	m_motor_1.m_ang_hall_int_prev = 65536;	//normal is 0-65535
 	//不要HFI 不要audio
 	foc_precalc_values((motor_all_state_t*)&m_motor_1);
-
-	TIM_DeInit(TIM1);
-	TIM_DeInit(TIM2);
-	TIM_DeInit(TIM8);
-
-	TIM1->CNT = 0;
-	TIM2->CNT = 0;
-	TIM8->CNT = 0;
-
-	ADC_CommonInitTypeDef ADC_CommonInitStructure;
-	DMA_InitTypeDef DMA_InitStructure;
-	ADC_InitTypeDef ADC_InitStructure;
-	/* ADC GPIO Peripheral clock enable */
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_ADC, ENABLE);
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
-	/* Configure PA3,PB3,PB9 as analog input */
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;    
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_9 | GPIO_Pin_2 | GPIO_Pin_1 | GPIO_Pin_0;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-	/* Configure groupA */
-    Group_InitStructure.ADC_Group  = GROUP_A; /* Select Configure GROUP A */
-    Group_InitStructure.ADC_GroupChannel[ASCS_0] = ADC_CHANNEL_PGA1_OUTA; /* Select the input source for the group channel */
-    Group_InitStructure.ADC_GroupChNumber = 1;                    /* Select the number of channels sampled by group */
-    Group_InitStructure.ADC_GroupSampleMode = ADC_SAMPLE_MODE_SINGLE; /* Select the sampling mode for group */
-    Group_InitStructure.ADC_GroupExtTrigCtrl = ENABLE;        /* group's hardware triggers control */
-    Group_InitStructure.ADC_GroupExtTrigSourse = ADC_EXT_TRIG_ATU_TRG0;/* Select the hardware trigger source for group */
-    Group_InitStructure.ADC_GroupTrigSkip = ADC_TRIG_SKIP_NONE;  /* Select the number of times the group trigger signal is omitted */
-    Group_InitStructure.ADC_GroupDoubleSampleCtrl = ENABLE;   /* Double sampling control */
-    ADC_GroupInit(ADC, &Group_InitStructure);
-    
-    /* Configure groupB */
-    Group_InitStructure.ADC_Group  = GROUP_B; /* Select Configure GROUP B */
-    Group_InitStructure.ADC_GroupChannel[ASCS_0] = ADC_CHANNEL_PGA1_OUTB; /* Select the input source for the group channel */
-    Group_InitStructure.ADC_GroupChannel[ASCS_1] = ADC_CHANNEL_PGA2_OUT; /* PGA2_OUT(Ibus) */
-    Group_InitStructure.ADC_GroupChannel[ASCS_2] = ADC_CHANNEL_11; /* VR */
-    Group_InitStructure.ADC_GroupChannel[ASCS_3] = ADC_CHANNEL_12; /* Vbus */
-    Group_InitStructure.ADC_GroupChannel[ASCS_4] = ADC_CHANNEL_13; /* Temp */     
-    Group_InitStructure.ADC_GroupChNumber = 5;                    /* Select the number of channels sampled by group */
-    Group_InitStructure.ADC_GroupSampleMode = ADC_SAMPLE_MODE_SINGLE; /* Select the sampling mode for group */
-    Group_InitStructure.ADC_GroupExtTrigCtrl = ENABLE;        /* group's hardware triggers control */
-    Group_InitStructure.ADC_GroupExtTrigSourse = ADC_EXT_TRIG_ATU_TRG1;/* Select the hardware trigger source for group */
-    Group_InitStructure.ADC_GroupTrigSkip = ADC_TRIG_SKIP_NONE;  /* Select the number of times the group trigger signal is omitted */
-    Group_InitStructure.ADC_GroupDoubleSampleCtrl = ENABLE;   /* Double sampling control */
-    ADC_GroupInit(ADC, &Group_InitStructure);
-
-	// Note that the ADC is running at 42MHz, which is higher than the
-	// specified 36MHz in the data sheet, but it works.
-	ADC_CommonInitStructure.ADC_Mode = ADC_TripleMode_RegSimult;
-	ADC_CommonInitStructure.ADC_Prescaler = ADC_Prescaler_Div2;
-	ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_1;
-	ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
-	ADC_CommonInit(&ADC_CommonInitStructure);
-
-
-	ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
-	ADC_InitStructure.ADC_ScanConvMode = ENABLE;
-	ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
-	ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Falling;
-	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T2_CC2;
-	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-	ADC_InitStructure.ADC_NbrOfConversion = HW_ADC_NBR_CONV;
-
-	ADC_Init(ADC1, &ADC_InitStructure);
-	ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
-	ADC_InitStructure.ADC_ExternalTrigConv = 0;
-	ADC_Init(ADC2, &ADC_InitStructure);
-	ADC_Init(ADC3, &ADC_InitStructure);
-
-	ADC_TempSensorVrefintCmd(ENABLE);
-	ADC_MultiModeDMARequestAfterLastTransferCmd(ENABLE);
-
-	hw_setup_adc_channels();
-
-	ADC_Cmd(ADC1, ENABLE);
-	ADC_Cmd(ADC2, ENABLE);
-	ADC_Cmd(ADC3, ENABLE);
-
+	//关闭时钟
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_ATU1, DISABLE);
+	ATU->CNT = 0;
+	ADC_Init_Config();	//开启AD采样
 	timer_reinit((int)m_motor_1.m_conf->foc_f_zv);
 
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
-#ifdef HW_HAS_DUAL_MOTORS
-	stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-#endif
-
-	utils_sys_unlock_cnt();
-
-	CURRENT_FILTER_ON();
-	CURRENT_FILTER_ON_M2();
-	ENABLE_GATE();
-	DCCAL_OFF();
+	//DC 校准
 #ifdef HW_USE_ALTERNATIVE_DC_CAL
 	m_dccal_done = true;
 #else
+	//判断是否开始校准
 	if (m_motor_1.m_conf->foc_offsets_cal_mode & (1 << 0)) {
 		systime_t cal_start_time = chVTGetSystemTimeX();
 		float cal_start_timeout = 10.0;
 
 		// Wait for input voltage to rise above minimum voltage
+		//电压如果小于最小工作电压不校准 最多等待10s
 		while (mc_interface_get_input_voltage_filtered() < m_motor_1.m_conf->l_min_vin) {
 			chThdSleepMilliseconds(1);
 			if (UTILS_AGE_S(cal_start_time) >= cal_start_timeout) {
-				m_dccal_done = true;
+				m_dccal_done = true;	//超时结束
 				break;
 			}
 		}
 
 		// Wait for input voltage to settle
+		// 等待电压稳定,不稳定不校准 2s内 电压误差>1.5重新校准
 		if (!m_dccal_done) {
 			float v_in_last = mc_interface_get_input_voltage_filtered();
 			systime_t v_in_stable_time = chVTGetSystemTimeX();
@@ -453,7 +202,7 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
 				}
 
 				if (UTILS_AGE_S(cal_start_time) >= cal_start_timeout) {
-					m_dccal_done = true;
+					m_dccal_done = true;	//超时退出 最长10s
 					break;
 				}
 			}
@@ -461,6 +210,7 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
 
 		// Wait for fault codes to go away
 		if (!m_dccal_done) {
+			//电机没有报错时候才可以校准
 			while ((mc_interface_get_fault() != FAULT_CODE_NONE) &&
 					(mc_interface_get_fault() != FAULT_CODE_OVER_TEMP_MOTOR)) {
 
@@ -482,23 +232,9 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
 			m_motor_1.m_conf->foc_offsets_voltage_undriven[1] = MCCONF_FOC_OFFSETS_VOLTAGE_UNDRIVEN_1;
 			m_motor_1.m_conf->foc_offsets_voltage_undriven[2] = MCCONF_FOC_OFFSETS_VOLTAGE_UNDRIVEN_2;
 
-			m_motor_1.m_conf->foc_offsets_current[0] = MCCONF_FOC_OFFSETS_CURRENT_0;
+			m_motor_1.m_conf->foc_offsets_current[0] = MCCONF_FOC_OFFSETS_CURRENT_0;	//运放的基本偏置 AD采样点
 			m_motor_1.m_conf->foc_offsets_current[1] = MCCONF_FOC_OFFSETS_CURRENT_1;
 			m_motor_1.m_conf->foc_offsets_current[2] = MCCONF_FOC_OFFSETS_CURRENT_2;
-
-#ifdef HW_HAS_DUAL_MOTORS
-			m_motor_2.m_conf->foc_offsets_voltage[0] = MCCONF_FOC_OFFSETS_VOLTAGE_0;
-			m_motor_2.m_conf->foc_offsets_voltage[1] = MCCONF_FOC_OFFSETS_VOLTAGE_1;
-			m_motor_2.m_conf->foc_offsets_voltage[2] = MCCONF_FOC_OFFSETS_VOLTAGE_2;
-
-			m_motor_2.m_conf->foc_offsets_voltage_undriven[0] = MCCONF_FOC_OFFSETS_VOLTAGE_UNDRIVEN_0;
-			m_motor_2.m_conf->foc_offsets_voltage_undriven[1] = MCCONF_FOC_OFFSETS_VOLTAGE_UNDRIVEN_1;
-			m_motor_2.m_conf->foc_offsets_voltage_undriven[2] = MCCONF_FOC_OFFSETS_VOLTAGE_UNDRIVEN_2;
-
-			m_motor_2.m_conf->foc_offsets_current[0] = MCCONF_FOC_OFFSETS_CURRENT_0;
-			m_motor_2.m_conf->foc_offsets_current[1] = MCCONF_FOC_OFFSETS_CURRENT_1;
-			m_motor_2.m_conf->foc_offsets_current[2] = MCCONF_FOC_OFFSETS_CURRENT_2;
-#endif
 
 			mcpwm_foc_dc_cal(false);
 		}
@@ -522,12 +258,6 @@ void mcpwm_foc_init(mc_configuration *conf_m1) {
 	if (timeout_had_IWDG_reset()) {
 		mc_interface_fault_stop(FAULT_CODE_BOOTING_FROM_WATCHDOG_RESET, false, false);
 	}
-
-	terminal_register_command_callback(
-			"foc_plot_hfi_en",
-			"Enable HFI plotting. 0: off, 1: DFT, 2: Raw",
-			"[en]",
-			terminal_plot_hfi);
 
 	m_init_done = true;
 }
@@ -2417,26 +2147,16 @@ int mcpwm_foc_hall_detect(float current, uint8_t *hall_table, bool *result) {
  * 1: Success
  *
  */
-#ifndef HW_USE_ALTERNATIVE_DC_CAL
 int mcpwm_foc_dc_cal(bool cal_undriven) {
 	// Wait max 5 seconds for DRV-fault to go away
 	int cnt = 0;
-	while(IS_DRV_FAULT()){
-		chThdSleepMilliseconds(1);
-		cnt++;
-		if (cnt > 5000) {
-			return -1;
-		}
-	};
-
-	chThdSleepMilliseconds(1000);
-
+	//chThdSleepMilliseconds(1000);
 	// Disable timeout
-	systime_t tout = timeout_get_timeout_msec();
-	float tout_c = timeout_get_brake_current();
-	KILL_SW_MODE tout_ksw = timeout_get_kill_sw_mode();
-	timeout_reset();
-	timeout_configure(60000, 0.0, KILL_SW_MODE_DISABLED);
+	//systime_t tout = timeout_get_timeout_msec();
+	//float tout_c = timeout_get_brake_current();
+	//KILL_SW_MODE tout_ksw = timeout_get_kill_sw_mode();
+	//timeout_reset();
+	//timeout_configure(60000, 0.0, KILL_SW_MODE_DISABLED);
 
 	// Measure driven offsets
 	// NOTE: One phase is measured at a time while the others are left
@@ -2457,28 +2177,11 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
 	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
 
-#ifdef HW_HAS_DUAL_MOTORS
-	float current_sum_m2[3] = {0.0, 0.0, 0.0};
-	float voltage_sum_m2[3] = {0.0, 0.0, 0.0};
-	TIMER_UPDATE_DUTY_M2(TIM8->ARR / 2, TIM8->ARR / 2, TIM8->ARR / 2);
-
-	stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-	PHASE_FILTER_ON_M2();
-	TIM_SelectOCxM(TIM8, TIM_Channel_1, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM8, TIM_Channel_1, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM8, TIM_Channel_1, TIM_CCxN_Enable);
-	TIM_GenerateEvent(TIM8, TIM_EventSource_COM);
-#endif
-
 	chThdSleep(1);
 
 	for (float i = 0;i < samples;i++) {
 		current_sum[0] += m_motor_1.m_currents_adc[0];
 		voltage_sum[0] += ADC_V_L1_VOLTS;
-#ifdef HW_HAS_DUAL_MOTORS
-		current_sum_m2[0] += m_motor_2.m_currents_adc[0];
-		voltage_sum_m2[0] += ADC_V_L4_VOLTS;
-#endif
 		chThdSleep(1);
 	}
 
@@ -2490,24 +2193,11 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 	TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
 	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
 
-#ifdef HW_HAS_DUAL_MOTORS
-	stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-	PHASE_FILTER_ON_M2();
-	TIM_SelectOCxM(TIM8, TIM_Channel_2, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM8, TIM_Channel_2, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM8, TIM_Channel_2, TIM_CCxN_Enable);
-	TIM_GenerateEvent(TIM8, TIM_EventSource_COM);
-#endif
-
 	chThdSleep(1);
 
 	for (float i = 0;i < samples;i++) {
 		current_sum[1] += m_motor_1.m_currents_adc[1];
 		voltage_sum[1] += ADC_V_L2_VOLTS;
-#ifdef HW_HAS_DUAL_MOTORS
-		current_sum_m2[1] += m_motor_2.m_currents_adc[1];
-		voltage_sum_m2[1] += ADC_V_L5_VOLTS;
-#endif
 		chThdSleep(1);
 	}
 
@@ -2519,174 +2209,13 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
 	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
 
-#ifdef HW_HAS_DUAL_MOTORS
-	stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-	PHASE_FILTER_ON_M2();
-	TIM_SelectOCxM(TIM8, TIM_Channel_3, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM8, TIM_Channel_3, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM8, TIM_Channel_3, TIM_CCxN_Enable);
-	TIM_GenerateEvent(TIM8, TIM_EventSource_COM);
-#endif
-
 	chThdSleep(1);
 
 	for (float i = 0;i < samples;i++) {
 		current_sum[2] += m_motor_1.m_currents_adc[2];
 		voltage_sum[2] += ADC_V_L3_VOLTS;
-#ifdef HW_HAS_DUAL_MOTORS
-		current_sum_m2[2] += m_motor_2.m_currents_adc[2];
-		voltage_sum_m2[2] += ADC_V_L6_VOLTS;
-#endif
 		chThdSleep(1);
 	}
-
-	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
-
-	m_motor_1.m_conf->foc_offsets_current[0] = current_sum[0] / samples;
-	m_motor_1.m_conf->foc_offsets_current[1] = current_sum[1] / samples;
-	m_motor_1.m_conf->foc_offsets_current[2] = current_sum[2] / samples;
-
-	voltage_sum[0] /= samples;
-	voltage_sum[1] /= samples;
-	voltage_sum[2] /= samples;
-	float v_avg = (voltage_sum[0] + voltage_sum[1] + voltage_sum[2]) / 3.0;
-
-	m_motor_1.m_conf->foc_offsets_voltage[0] = voltage_sum[0] - v_avg;
-	m_motor_1.m_conf->foc_offsets_voltage[1] = voltage_sum[1] - v_avg;
-	m_motor_1.m_conf->foc_offsets_voltage[2] = voltage_sum[2] - v_avg;
-
-#ifdef HW_HAS_DUAL_MOTORS
-	stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-
-	m_motor_2.m_conf->foc_offsets_current[0] = current_sum_m2[0] / samples;
-	m_motor_2.m_conf->foc_offsets_current[1] = current_sum_m2[1] / samples;
-	m_motor_2.m_conf->foc_offsets_current[2] = current_sum_m2[2] / samples;
-
-	voltage_sum_m2[0] /= samples;
-	voltage_sum_m2[1] /= samples;
-	voltage_sum_m2[2] /= samples;
-	v_avg = (voltage_sum_m2[0] + voltage_sum_m2[1] + voltage_sum_m2[2]) / 3.0;
-
-	m_motor_2.m_conf->foc_offsets_voltage[0] = voltage_sum_m2[0] - v_avg;
-	m_motor_2.m_conf->foc_offsets_voltage[1] = voltage_sum_m2[1] - v_avg;
-	m_motor_2.m_conf->foc_offsets_voltage[2] = voltage_sum_m2[2] - v_avg;
-#endif
-
-	// Measure undriven offsets
-
-	if (cal_undriven) {
-		chThdSleepMilliseconds(10);
-
-		voltage_sum[0] = 0.0; voltage_sum[1] = 0.0; voltage_sum[2] = 0.0;
-#ifdef HW_HAS_DUAL_MOTORS
-		voltage_sum_m2[0] = 0.0; voltage_sum_m2[1] = 0.0; voltage_sum_m2[2] = 0.0;
-#endif
-
-		for (float i = 0;i < samples;i++) {
-			v_avg = (ADC_V_L1_VOLTS + ADC_V_L2_VOLTS + ADC_V_L3_VOLTS) / 3.0;
-			voltage_sum[0] += ADC_V_L1_VOLTS - v_avg;
-			voltage_sum[1] += ADC_V_L2_VOLTS - v_avg;
-			voltage_sum[2] += ADC_V_L3_VOLTS - v_avg;
-#ifdef HW_HAS_DUAL_MOTORS
-			v_avg = (ADC_V_L4_VOLTS + ADC_V_L5_VOLTS + ADC_V_L6_VOLTS) / 3.0;
-			voltage_sum_m2[0] += ADC_V_L4_VOLTS - v_avg;
-			voltage_sum_m2[1] += ADC_V_L5_VOLTS - v_avg;
-			voltage_sum_m2[2] += ADC_V_L6_VOLTS - v_avg;
-#endif
-			chThdSleep(1);
-		}
-
-		stop_pwm_hw((motor_all_state_t*)&m_motor_1);
-
-		voltage_sum[0] /= samples;
-		voltage_sum[1] /= samples;
-		voltage_sum[2] /= samples;
-
-		m_motor_1.m_conf->foc_offsets_voltage_undriven[0] = voltage_sum[0];
-		m_motor_1.m_conf->foc_offsets_voltage_undriven[1] = voltage_sum[1];
-		m_motor_1.m_conf->foc_offsets_voltage_undriven[2] = voltage_sum[2];
-#ifdef HW_HAS_DUAL_MOTORS
-		stop_pwm_hw((motor_all_state_t*)&m_motor_2);
-
-		voltage_sum_m2[0] /= samples;
-		voltage_sum_m2[1] /= samples;
-		voltage_sum_m2[2] /= samples;
-
-		m_motor_2.m_conf->foc_offsets_voltage_undriven[0] = voltage_sum_m2[0];
-		m_motor_2.m_conf->foc_offsets_voltage_undriven[1] = voltage_sum_m2[1];
-		m_motor_2.m_conf->foc_offsets_voltage_undriven[2] = voltage_sum_m2[2];
-#endif
-	}
-
-	// TODO: Make sure that offsets are no more than e.g. 5%, as larger values indicate hardware problems.
-
-	// Enable timeout
-	timeout_configure(tout, tout_c, tout_ksw);
-	mc_interface_unlock();
-
-	m_dccal_done = true;
-
-	return 1;
-}
-#else
-// WARNING: This calibration routine can only be run when the motor is not spinning.
-// For low side shunt hardware with high capacitance mosfets this works a lot better
-int mcpwm_foc_dc_cal(bool cal_undriven) {
-	// Wait max 5 seconds for DRV-fault to go away
-	int cnt = 0;
-	while(IS_DRV_FAULT()){
-		chThdSleepMilliseconds(1);
-		cnt++;
-		if (cnt > 5000) {
-			return -1;
-		}
-	};
-
-	chThdSleepMilliseconds(1000);
-
-	// Disable timeout
-	systime_t tout = timeout_get_timeout_msec();
-	float tout_c = timeout_get_brake_current();
-	KILL_SW_MODE tout_ksw = timeout_get_kill_sw_mode();
-	timeout_reset();
-	timeout_configure(60000, 0.0, KILL_SW_MODE_DISABLED);
-
-	// Measure driven offsets
-	const float samples = 1000.0;
-	float current_sum[3] = {0.0, 0.0, 0.0};
-	float voltage_sum[3] = {0.0, 0.0, 0.0};
-
-	TIMER_UPDATE_DUTY_M1(TIM1->ARR / 2, TIM1->ARR / 2, TIM1->ARR / 2);
-
-	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
-	PHASE_FILTER_ON();
-	
-	// Start PWM on all phases at 50% to get a V0 measurement
-	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
-
-	TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
-
-	TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
-		
-	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
-
-	chThdSleep(1);	
-
-	for (float i = 0; i < samples; i++) {
-		current_sum[0] += m_motor_1.m_currents_adc[0];
-		voltage_sum[0] += ADC_V_L1_VOLTS;
-		current_sum[1] += m_motor_1.m_currents_adc[1];
-		voltage_sum[1] += ADC_V_L2_VOLTS;
-		current_sum[2] += m_motor_1.m_currents_adc[2];
-		voltage_sum[2] += ADC_V_L3_VOLTS;
-		chThdSleep(1);
-	}	
 
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
 
@@ -2715,7 +2244,6 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 			voltage_sum[0] += ADC_V_L1_VOLTS - v_avg;
 			voltage_sum[1] += ADC_V_L2_VOLTS - v_avg;
 			voltage_sum[2] += ADC_V_L3_VOLTS - v_avg;
-
 			chThdSleep(1);
 		}
 
@@ -2740,7 +2268,6 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 
 	return 1;
 }
-#endif
 
 void mcpwm_foc_print_state(void) {
 	commands_printf("Mod d:     %.2f", (double)get_motor_now()->m_motor_state.mod_d);
@@ -4821,67 +4348,28 @@ static void update_valpha_vbeta(motor_all_state_t *motor, float mod_alpha, float
 #endif
 	}
 }
-
+/**
+ * @brief stop PWM
+ * 
+ * 
+ */
 static void stop_pwm_hw(motor_all_state_t *motor) {
-	motor->m_id_set = 0.0;
-	motor->m_iq_set = 0.0;
+    motor->m_id_set = 0.0f;
+    motor->m_iq_set = 0.0f;
 
-	if (motor == &m_motor_1) {
-		TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+    // 三相比较值全部清零 → 占空比 0%
+    ATU->CR0A = 0;
+    ATU->CR0B = 0;
+    ATU->CR1A = 0;
+    ATU->CR1B = 0;
+    ATU->CR2A = 0;
+    ATU->CR2B = 0;
 
-		TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+    // 立即更新
+    ATU->TCSR |= (1 << 1); // 软件更新
 
-		TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
-
-		TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
-
-#ifdef HW_HAS_DUAL_PARALLEL
-		TIM_SelectOCxM(TIM8, TIM_Channel_1, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM8, TIM_Channel_1, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM8, TIM_Channel_1, TIM_CCxN_Disable);
-
-		TIM_SelectOCxM(TIM8, TIM_Channel_2, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM8, TIM_Channel_2, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM8, TIM_Channel_2, TIM_CCxN_Disable);
-
-		TIM_SelectOCxM(TIM8, TIM_Channel_3, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM8, TIM_Channel_3, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM8, TIM_Channel_3, TIM_CCxN_Disable);
-
-		TIM_GenerateEvent(TIM8, TIM_EventSource_COM);
-#endif
-
-#ifdef HW_HAS_DRV8313
-		DISABLE_BR();
-#endif
-		PHASE_FILTER_OFF();
-	} else {
-		TIM_SelectOCxM(TIM8, TIM_Channel_1, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM8, TIM_Channel_1, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM8, TIM_Channel_1, TIM_CCxN_Disable);
-
-		TIM_SelectOCxM(TIM8, TIM_Channel_2, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM8, TIM_Channel_2, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM8, TIM_Channel_2, TIM_CCxN_Disable);
-
-		TIM_SelectOCxM(TIM8, TIM_Channel_3, TIM_ForcedAction_InActive);
-		TIM_CCxCmd(TIM8, TIM_Channel_3, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM8, TIM_Channel_3, TIM_CCxN_Disable);
-
-		TIM_GenerateEvent(TIM8, TIM_EventSource_COM);
-
-#ifdef HW_HAS_DRV8313_2
-		DISABLE_BR_2();
-#endif
-
-		PHASE_FILTER_OFF_M2();
-	}
+    // 关闭总输出
+    ATU->TPOC &= ~(1 << 0);
 
 	motor->m_pwm_mode = FOC_PWM_DISABLED;
 }

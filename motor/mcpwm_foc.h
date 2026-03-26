@@ -26,7 +26,7 @@
 #include <stdbool.h>
 
 // Functions
-void mcpwm_foc_init(mc_configuration *conf_m1, mc_configuration *conf_m2);
+void mcpwm_foc_init(mc_configuration *conf_m1);
 void mcpwm_foc_deinit(void);
 bool mcpwm_foc_init_done(void);
 void mcpwm_foc_set_configuration(mc_configuration *configuration);

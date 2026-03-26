@@ -6,6 +6,7 @@
 #include "hk32m07x.h"
 #include "hk32m07x_rcc.h"
 #include "hk32m07x_gpio.h"
+#include "peripherals.h"
 
 // System clock configuration
 void SystemClock_Config(void) {
@@ -22,35 +23,17 @@ void SystemClock_Config(void) {
     RCC_PCLKConfig(RCC_HCLK_Div1);
 }
 
-// GPIO initialization
-void GPIO_Config(void) {
-    // Enable GPIO clock
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA | RCC_AHBPeriph_GPIOB, ENABLE);
-    
-    // Configure GPIO pins
-    GPIO_InitTypeDef GPIO_InitStructure;
-    
-    // Set GPIOA pins as input
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-    
-    // Set GPIOB pins as output
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-}
 
 // Main function
 int main(void) {
     // System initialization
     SystemClock_Config();
-    
-    // GPIO initialization
-    GPIO_Config();
+    //初始化IO口
+    initCorePeripherals();
+    //读取电机配置
+    conf_general_init();
+    //初始化电机
+    mc_interface_init();
     
     // Main loop
     while (1) {

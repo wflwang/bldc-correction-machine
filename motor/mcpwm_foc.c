@@ -4358,18 +4358,9 @@ static void stop_pwm_hw(motor_all_state_t *motor) {
     motor->m_iq_set = 0.0f;
 
     // 三相比较值全部清零 → 占空比 0%
-    ATU->CR0A = 0;
-    ATU->CR0B = 0;
-    ATU->CR1A = 0;
-    ATU->CR1B = 0;
-    ATU->CR2A = 0;
-    ATU->CR2B = 0;
-
-    // 立即更新
-    ATU->TCSR |= (1 << 1); // 软件更新
-
-    // 关闭总输出
-    ATU->TPOC &= ~(1 << 0);
+    ATU->TCSR =0x00;//关闭ATU计数器
+    ATU->TPPS =0x00000005;	//IO口变普通IO
+    ADC->ADIER &=0xFFF7;//关GroupB第一通道采样完成中断
 
 	motor->m_pwm_mode = FOC_PWM_DISABLED;
 }

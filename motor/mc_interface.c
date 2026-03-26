@@ -231,18 +231,9 @@ void mc_interface_init(void) {
 	m_sample_is_second_motor = false;
 
 	mc_interface_stat_reset();
-
-	// Start threads
-	chThdCreateStatic(timer_thread_wa, sizeof(timer_thread_wa), NORMALPRIO, timer_thread, NULL);
-	chThdCreateStatic(sample_send_thread_wa, sizeof(sample_send_thread_wa), NORMALPRIO - 1, sample_send_thread, NULL);
-	chThdCreateStatic(fault_stop_thread_wa, sizeof(fault_stop_thread_wa), HIGHPRIO - 3, fault_stop_thread, NULL);
-	chThdCreateStatic(stat_thread_wa, sizeof(stat_thread_wa), NORMALPRIO, stat_thread, NULL);
-
 	// Initialize selected implementation
-
 	mcpwm_foc_init((mc_configuration*)&m_motor_1.m_conf);
-
-	bms_init((bms_config*)&m_motor_1.m_conf.bms);
+	//bms_init((bms_config*)&m_motor_1.m_conf.bms);
 }
 
 int mc_interface_motor_now(void) {

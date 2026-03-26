@@ -311,20 +311,20 @@ void ATU_Init_Config(int f_zv)
     ATU_SetReloadModeCompare2(ATU_CRxA_AUTO_RELOAD, ATU_CRxB_AUTO_RELOAD);
     
     /* Configure the protected output polarity */
-    //ATU_ProtectOutputStructInit(&ATU_ProtectOutputInitStruct);
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelA = ATU_PROTECT_TIO0A_DEFAULT_LEVEL_LOW;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelB = ATU_PROTECT_TIO0B_DEFAULT_LEVEL_LOW;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectA = ATU_PROTECT_TIO0A_OUTPUT_SELECT_DEFAULT_LEVLE;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectB = ATU_PROTECT_TIO0B_OUTPUT_SELECT_DEFAULT_LEVLE;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelA = ATU_PROTECT_TIO1A_DEFAULT_LEVEL_LOW;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelB = ATU_PROTECT_TIO1B_DEFAULT_LEVEL_LOW;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectA = ATU_PROTECT_TIO1A_OUTPUT_SELECT_DEFAULT_LEVLE;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectB = ATU_PROTECT_TIO1B_OUTPUT_SELECT_DEFAULT_LEVLE;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelA = ATU_PROTECT_TIO2A_DEFAULT_LEVEL_LOW;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelB = ATU_PROTECT_TIO2B_DEFAULT_LEVEL_LOW;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectA = ATU_PROTECT_TIO2A_OUTPUT_SELECT_DEFAULT_LEVLE;
-    //ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectB = ATU_PROTECT_TIO2B_OUTPUT_SELECT_DEFAULT_LEVLE;
-    //ATU_ProtectOutputConfig(&ATU_ProtectOutputInitStruct);
+    ATU_ProtectOutputStructInit(&ATU_ProtectOutputInitStruct);
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelA = ATU_PROTECT_TIO0A_DEFAULT_LEVEL_LOW;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0DefaultLevelB = ATU_PROTECT_TIO0B_DEFAULT_LEVEL_LOW;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectA = ATU_PROTECT_TIO0A_OUTPUT_SELECT_DEFAULT_LEVLE;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput0SelectB = ATU_PROTECT_TIO0B_OUTPUT_SELECT_DEFAULT_LEVLE;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelA = ATU_PROTECT_TIO1A_DEFAULT_LEVEL_LOW;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1DefaultLevelB = ATU_PROTECT_TIO1B_DEFAULT_LEVEL_LOW;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectA = ATU_PROTECT_TIO1A_OUTPUT_SELECT_DEFAULT_LEVLE;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput1SelectB = ATU_PROTECT_TIO1B_OUTPUT_SELECT_DEFAULT_LEVLE;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelA = ATU_PROTECT_TIO2A_DEFAULT_LEVEL_LOW;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2DefaultLevelB = ATU_PROTECT_TIO2B_DEFAULT_LEVEL_LOW;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectA = ATU_PROTECT_TIO2A_OUTPUT_SELECT_DEFAULT_LEVLE;
+    ATU_ProtectOutputInitStruct.ATU_ProtectOutput2SelectB = ATU_PROTECT_TIO2B_OUTPUT_SELECT_DEFAULT_LEVLE;
+    ATU_ProtectOutputConfig(&ATU_ProtectOutputInitStruct);
     
     /* Configuration trigger point */
     ATU_SetTrigger0(ATU_TRG0_POINT_UP, ATU_TRG0_AUTO_RELOAD, 1); //Trg0

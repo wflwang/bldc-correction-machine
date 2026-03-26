@@ -32,8 +32,12 @@ int main(void) {
     initCorePeripherals();
     //读取电机配置
     conf_general_init();
+    /* Reconfigure the SysTick interrupt to fire every 500 us. */
+    //SysTick_Config(SystemCoreClock / SYS_TICK_FREQUENCY);
     //初始化电机
-    mc_interface_init();
+    //mc_interface_init();
+    /* Motor configuration */    
+    MX_MotorControl_Init();
     
     // Main loop
     while (1) {

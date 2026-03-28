@@ -56,6 +56,8 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
 
 // Return the sign of the argument. -1.0 if negative, 1.0 if zero or positive.
 #define SIGN(x)				(((x) < 0.0) ? -1.0 : 1.0)
+//比较int16_t 误差反向是否一样 =0 相等 !0 不相等
+#define DirCMPint16(x,y)			((x^y)&0x8000)
 
 // Squared
 #define SQ(x)				((x) * (x))

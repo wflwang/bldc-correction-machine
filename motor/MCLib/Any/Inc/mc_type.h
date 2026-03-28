@@ -165,6 +165,7 @@ typedef struct
   int16_t UserIdref;           /**< @brief User value for the Idref stator current */
   Volt_Components Vqd;         /**< @brief Phase voltage on rotor reference frame qd */
   Volt_Components Valphabeta;  /**< @brief Phase voltage on stator reference frame alpha-beta*/
+  int16_t now_duty;           //当前duty 电压
   int16_t hTeref;              /**< @brief Reference torque */
   int16_t hElAngle;            /**< @brief Electrical angle used for reference frame transformation  */
   uint16_t hCodeError;         /**< @brief error message */

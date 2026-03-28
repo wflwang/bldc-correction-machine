@@ -1,5 +1,6 @@
-/*
- * HKMicroChip Limited (HKMicroChip) is supplying this software for use with Cortex-M0!
+/** 
+ * @file hk32m07x
+ * @HKMicroChip Limited (HKMicroChip) is supplying this software for use with Cortex-M0!
  * @file          hk32m07x.h
  * @brief         CMSIS HeaderFile
  * @version       1.3

@@ -12,7 +12,7 @@
 #include "mc_type.h"
 #include "mc_math.h"
 #include "mc_config.h"
-#include "mc_interface.h"
+//#include "mc_interface.h"
 #include "mc_tuning.h"
 #include "state_machine.h"
 #include "mc_tasks.h"
@@ -390,6 +390,7 @@ void FOC_Clear(uint8_t bMotor)
     FOCVars[bMotor].Vqd = Vnull;
     FOCVars[bMotor].Valphabeta = Vnull;
     FOCVars[bMotor].hElAngle = (int16_t)0;
+    FOCVars[bMotor].now_duty = 0;   //初始当前duty为0
 
     PID_SetIntegralTerm(pPIDIq[bMotor], (int32_t)0);
     PID_SetIntegralTerm(pPIDId[bMotor], (int32_t)0);
@@ -560,7 +561,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     Curr_Components Iqd, Ialphabeta;
     Volt_Components Vqd;
     uint16_t hCodeError;
-
+    //duty 控制模式是 用 上次   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
     hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
     PWMC_GetPhaseCurrents(pwmcHandle[bMotor], &Iab);
     
@@ -578,6 +579,10 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
     Valphabeta = MCM_Rev_Park(Vqd, hElAngle);
     hCodeError = PWMC_SetPhaseVoltage(pwmcHandle[bMotor], Valphabeta);
+
+    int32_t vq2 = Vqd.qV_Component1*Vqd.qV_Component1;
+    int32_t vd2 = Vqd.qV_Component2*Vqd.qV_Component2;
+    FOCVars[bMotor].MaxDutyV = ((vq2+vd2)>>16);     //max is 0x2fff
     FOCVars[bMotor].Iab = Iab;
     FOCVars[bMotor].Ialphabeta = Ialphabeta;
     FOCVars[bMotor].Iqd = Iqd;

@@ -573,9 +573,9 @@ void R3F0XX_SwitchOffPWM( PWMC_Handle_t * pHdl )
 
     /* Main PWM Output Disable */
 /* Main PWM Output Disable */
-    ATU->TCSR =0x00;//关闭ATU计数器
+    ATU->TCSR =0x00;//关闭ATU计数器 计数器关闭 AD关闭?
     ATU->TPPS =0x00000005;
-    ADC->ADIER &=0xFFF7;//关GroupB第一通道采样完成中断
+    ADC->ADIER &=0xFFF7;//关GroupB第一通道采样完成中断 禁止GroupB 中断 但是AD采样还在继续
 //    NVIC_DisableIRQ(ADC_IRQn);//关闭ADC中断 
 
     /* We allow ADC usage for regular conversion on Systick*/

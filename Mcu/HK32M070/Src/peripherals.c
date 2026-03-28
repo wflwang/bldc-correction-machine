@@ -380,7 +380,7 @@ void HTU_Init_Config(void)
     HTU_TimeBaseInitStruct.HTU_Period = 0xFFFFFF;
     HTU_TimeBaseInitStruct.HTU_ClockDivision = HTU_CLK_DIV_1;   //64/1 = 64M?
     HTU_TimeBaseInit(&HTU_TimeBaseInitStruct);
-
+    //打开hall中断
     //HTU_ITConfig(HTU_IT_SW | HTU_IT_ERR | HTU_IT_OVF, ENABLE);
 
     /* Initializes the NVIC peripheral */
@@ -388,7 +388,7 @@ void HTU_Init_Config(void)
     NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
     NVIC_InitStruct.NVIC_IRQChannelPriority = 2;
     NVIC_Init(&NVIC_InitStruct);
-
+    //使能中断
     /* Enable PWM output and Start Counter */
     //HTU_CounterCmd(ENABLE);    
 					

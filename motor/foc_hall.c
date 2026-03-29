@@ -129,6 +129,7 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 }else{
                     //本次误差变化方向和上次误差变化方向不一致 用上次误差产生的时间？ 时间不能突变的特性
                     motor->last_ang_diff = ang_diff;    //更新误差 主要是更新误差方向
+                    //方向不一致时候时间用上次的速度也用上次的?
                     motor->m_ang60_intTime = -motor->m_ang60_intTime; //如果角度不同的话用上次,防止正反转误差  
                 }
             }
@@ -167,7 +168,8 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 }
                 //结束hall学习
                 motor->hallState = 0; //进入正常模式
-                motor->m_ang_hall_int_prev = 65536; //给一个初始错误角度
+                motor->m_ang_hall_int_prev = lastHallEAngle; //给一个初始错误角度
+                motor->m_ang60_intTime = MaxAng60IntTime;   //最长换相时间 后续基本插值无效
             }
         break;
     }

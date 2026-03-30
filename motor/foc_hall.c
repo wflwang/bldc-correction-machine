@@ -131,8 +131,11 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     motor->last_ang_diff = ang_diff;    //更新误差 主要是更新误差方向
                     //方向不一致时候时间用上次的速度也用上次的?
                     motor->m_ang60_intTime = -motor->m_ang60_intTime; //如果角度不同的话用上次,防止正反转误差  
-                }
+                }//motor->m_ang60_intTime 单位是 1/64us 角速度 = 角度变化/60度换向时间
+                //motor->last_ang_diff / motor->m_ang60_intTime  变化角度/变化的时间 = 角速度 * 单位中断进来时间 = 每次变化的角度
             }
+            //中断每次增加的角度 *中断时间(单位1/64us) = 每次增加的角度
+            motor->anginc = motor->last_ang_diff * motot->intTime / m_ang60_intTime;  //每次变化的角度
             //角度插值放在ADC/PWM 中断中去处理
             motor->m_ang_hall_int_prev  = ang_hall_int; //本次角度直接更新
             m_ang60_intTime = 0;    //重新更新下一次时间

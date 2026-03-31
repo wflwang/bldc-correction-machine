@@ -2577,10 +2577,11 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 				//开环
 				motor_now->m_motor_state.phase = motor_now->m_phase_now_override;
 			}
-
-			utils_fast_sincos_better(motor_now->m_motor_state.phase,
-					(float*)&motor_now->m_motor_state.phase_sin,
-					(float*)&motor_now->m_motor_state.phase_cos);
+			//通过当前角度算出sin 和 cos值 供后续坐标变换使用
+			utils_generate_sin_cos_tables(
+					motor_now->m_motor_state.phase,
+					&motor_now->m_motor_state.phase_sin,
+					&motor_now->m_motor_state.phase_cos);
 		}
 
 

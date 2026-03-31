@@ -316,7 +316,7 @@ Trig_Components MCM_Trig_Functions( int16_t hAngle )
   /* 10 bit index computation  */
   shindex = ( ( int32_t )32768 + ( int32_t )hAngle );
   uhindex = ( uint16_t )shindex;
-  uhindex /= ( uint16_t )64;
+  uhindex >>= 6;      ///64
 
  
   switch ( ( uint16_t )( uhindex ) & SIN_MASK )

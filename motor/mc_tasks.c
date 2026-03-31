@@ -513,7 +513,7 @@ uint8_t TSK_HighFrequencyTask(void)
 {
     uint8_t bMotorNbr = 0;
     uint16_t hFOCreturn;
-    HALL_CalcElAngle (&HALL_M1);
+    //HALL_CalcElAngle (&HALL_M1);
 
     hFOCreturn = FOC_CurrController(M1);
 
@@ -562,7 +562,13 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     Volt_Components Vqd;
     uint16_t hCodeError;
     //duty 控制模式是 用 上次   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
-    hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
+    //角度由hall算出来
+    if(motor->m_ang_hall_int_prev<65536){
+        //hall 角度正常
+    }else{
+        //hall 失效 用观测器角度
+    }
+    //hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
     PWMC_GetPhaseCurrents(pwmcHandle[bMotor], &Iab);
     
     Ialphabeta = MCM_Clarke(Iab);

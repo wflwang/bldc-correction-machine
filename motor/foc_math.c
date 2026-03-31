@@ -69,11 +69,9 @@ void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16
 		//原理：使用一个用户可配置的补偿系数foc_sat_comp，乘以当前电流与最大电流的比值，得到一个补偿因子comp_fact。然后用这个补偿因子同时减小电感L和磁链lambda。
 		//实现：comp_fact= conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter/ conf_now->l_current_max);
 		//然后：L -=L * comp_fact;lambda -= lambda* comp_fact;这意味着，随着电流增大，补偿因子增大，L和λ按比例减小。foc_sat_comp系数允许用户调整补偿的强度。
-	int16_t i_abs_filter = get_i_abs_filter();	//滤波后电流绝对值
-	int16_t comp_fact = ((int32_t)conf_now->foc_sat_comp*i_abs_filter/conf_now->l_current_max);
-	//const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
-	L -= (((int32_t)L * comp_fact)>>15);
-	lambda -= lambda * comp_fact;
+	const float comp_fact = conf_now->foc_sat_comp * (motor->m_motor_state.i_abs_filter / conf_now->l_current_max);
+		L -= L * comp_fact;
+		lambda -= lambda * comp_fact;
 	//} break;
 
 	//case SAT_COMP_LAMBDA_AND_FACTOR: {
@@ -115,8 +113,6 @@ void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16
 		L = L - ld_lq_diff / 2.0 + ld_lq_diff * SQ(iq) / (SQ(id) + SQ(iq));
 	}
 
-	float L_ia = L * i_alpha;
-	float L_ib = L * i_beta;
 	const float R_ia = R * i_alpha;
 	const float R_ib = R * i_beta;
 	const float gamma_half = motor->m_gamma_now * 0.5;
@@ -183,10 +179,6 @@ void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16
 	//}
 	#endif
 
-	// Set these to 0 to allow using the same atan2-code as for Ortega
-	L_ia = 0.0;
-	L_ib = 0.0;
-
 	state->i_alpha_last = i_alpha;
 	state->i_beta_last = i_beta;
 
@@ -201,7 +193,7 @@ void foc_observer_update(int16_t v_alpha, int16_t v_beta, int16_t i_alpha, int16
 	}
 
 	if (phase) {
-		*phase = utils_fast_atan2(state->x2 - L_ib, state->x1 - L_ia);
+		*phase = utils_fast_atan2(state->x2, state->x1);
 	}
 
 	// Can we clamp the flux in dq with q flux = 0 and d flux is lambda

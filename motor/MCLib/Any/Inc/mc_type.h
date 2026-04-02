@@ -151,26 +151,80 @@ typedef enum
 {
   INTERNAL, EXTERNAL
 } CurrRefSource_t ;
+/**
+ * 电机工作状态
+ * 
+ */
+typedef enum{
+    not_ready = 0,     //电机未准备好
+    ready_VDDAD = 1,   //电压AD准备好
+    ready_IAD = 2,     //电流AD准备好
+    ready_HALL = 3,    //hall准备好
+    ready_RUN = 4,     //电机准备好 可以运行了
+    mc_under_voltage,  //欠压
+    mc_over_voltage,   //过压
+    mc_over_MotorTemp,   //马达过热
+    mc_over_MosTemp,   //mos过热
+    mc_over_current,   //过流
+    mc_lost_phase,      //缺相
+    mc_fault,           //其他故障
+}mc_status_t;
+/**
+ * 
+ * @brief  Hall state definition
+ */
+typedef enum{
+    hall_run = 0,               //hall 正常工作中
+    hall_null = 0xff,          //hall 不存在
+    hall_no_ready = 0x80,          //hall 没有校准
+    hall_learning = 1,          //hall 学习中
+}hall_state_t;
 
+//hall struct define
+typedef struct{
+    hall_state_t hallState;     //hall状态
+    bool angUpdate;     //hall角度更新了 可以用来更新最新角度了
+    uint8_t hall_val;       //当前hall位置指针 0-7
+    int16_t intTime;      //中断时间 ?*1/64us
+    int16_t m_ang_hall_int_prev;   //上次hall保存的角度
+    int16_t m_ang_hall_int_Next;   //下次hall预测的角度
+    int16_t anginc;    //每次中断变化的角度 相当于角速度*中断时间
+    int16_t hall_real_phase;    //hall实际使用的hall角度
+    int16_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
+    int16_t foc_hall_tableTemp[8];  //hall学习时候临时记录的表格 0-7
+    int16_t foc_hall_table[8];  //hall学习完成后正式使用的表格 0-7
+    int16_t hallFastLearnAng; //hall学习时候可以快速跳过的角度 增加学习效率
+    uint32_t m_ang60_intTime;   //60度时间
+}foc_hall_t;
 /**
   * @brief  FOC variables structure
   */
 typedef struct
 {
+  bool duty_was_pi;   //bool duty_was_pi_last;   //上次是否是pi控制输出
   Curr_Components Iab;         /**< @brief Stator current on stator reference frame abc */
   Curr_Components Ialphabeta;  /**< @brief Stator current on stator reference frame alfa-beta*/
   Curr_Components IqdHF;       /**< @brief Stator current on stator reference frame alfa-beta*/
   Curr_Components Iqd;         /**< @brief Stator current on rotor reference frame qd */
   Curr_Components Iqdref;      /**< @brief Stator current on rotor reference frame qd */
+  int16_t mc_KV;                  /**< @brief Motor KV value */
   int16_t UserIdref;           /**< @brief User value for the Idref stator current */
   Volt_Components Vqd;         /**< @brief Phase voltage on rotor reference frame qd */
   Volt_Components Valphabeta;  /**< @brief Phase voltage on stator reference frame alpha-beta*/
+  int16_t vBus;             /**< @brief Bus voltage. */
   int16_t now_duty;           //当前duty 电压
+  int16_t duty_pi_duty_last;   //上次pi计算的duty
   int16_t hTeref;              /**< @brief Reference torque */
   int16_t hElAngle;            /**< @brief Electrical angle used for reference frame transformation  */
   uint16_t hCodeError;         /**< @brief error message */
   CurrRefSource_t bDriveInput; /**< @brief It specifies whether the current reference source must be
                                  *         #INTERNAL or #EXTERNAL*/
+  int16_t m_duty_cycle_set;    /**< @brief Duty cycle set value */
+  foc_hall_t foc_hall;         /**< @brief FOC variables related to hall sensor.*/
+  int32_t mc_MaxSpeed;          /**< @brief Mechanical speed in 0.1Hz unit. */
+  int32_t m_duty_i_term;      //duty模式时候的积分值
+  int32_t foc_duty_dowmramp_ki;   /**< @brief Integral term gain for duty cycle down ramp.*/
+  int32_t foc_duty_dowmramp_kp;   /**< @brief Proportional term gain for duty cycle down ramp.*/
 } FOCVars_t, *pFOCVars_t;
 
 /**

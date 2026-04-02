@@ -17,9 +17,15 @@
 #include "state_machine.h"
 #include "mc_tasks.h"
 #include "parameters_conversion.h"
+#include <stdint.h>
+#include "foc_hall.h"
+#include "hw_correct.h"
 /* USER CODE BEGIN Includes */
 
 int16_t AVrspeed = 0;
+static int16_t NowVBusx100 = 0;   //当前母线电压*100
+static int16_t NowTempMotorx100 = 0;   //当前马达电压*100
+static int16_t NowTempPCBx100 = 0;   //当前PCB电压*100
 
 /* USER CODE END Includes */
 
@@ -115,7 +121,12 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     pPIDSpeed[M1] = &PIDSpeedHandle_M1;
     pSTC[M1] = &SpeednTorqCtrlM1;
 
-    HALL_Init (&HALL_M1);
+    M_Hall_Init(&FOCVars[M1].foc_hall);
+    //HALL_Init (&HALL_M1);
+    //开启一次AD转换，触发一次中断，读取一次电压，给FOC一个初始的v_bus值
+    //ADC_StartConversion(ADC1, ADC_CHANNEL_0); // 触发一次AD
+    //读取上电时候电压 根据初始顶呀KV值算出 最大转速
+    //电机停止2s比较电压最大转速 超过最大电压20%目标转速
 
     /******************************************************/
     /*   Speed & torque component initialization          */
@@ -146,8 +157,8 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     /*******************************************************/
     /*   Temperature measurement component initialization  */
     /*******************************************************/
-    NTC_Init(&TempSensorParamsM1);
-    pTemperatureSensor[M1] = &TempSensorParamsM1;
+    //NTC_Init(&TempSensorParamsM1);
+    //pTemperatureSensor[M1] = &TempSensorParamsM1;
 
     pREMNG[M1] = &RampExtMngrHFParamsM1;
     REMNG_Init(pREMNG[M1]);
@@ -172,8 +183,8 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     MCT[M1].pSpeedSensorVirtual = MC_NULL;  /* only if M1 is sensorless*/
     MCT[M1].pSpeednTorqueCtrl = pSTC[M1];
     MCT[M1].pStateMachine = &STM[M1];
-    MCT[M1].pTemperatureSensor = (NTC_Handle_t *) pTemperatureSensor[M1];
-    MCT[M1].pBusVoltageSensor = &(pBusSensorM1->_Super);
+    //MCT[M1].pTemperatureSensor = (NTC_Handle_t *) pTemperatureSensor[M1];
+    //MCT[M1].pBusVoltageSensor = &(pBusSensorM1->_Super);
     MCT[M1].pMPM =  (MotorPowMeas_Handle_t*)pMPM[M1];
     MCT[M1].pFW = MC_NULL;
     MCT[M1].pFF = MC_NULL;
@@ -207,7 +218,7 @@ void MC_RunMotorControlTasks(void)
         * it can overcome actions they initiated if needed. */
         if (ADC->ADIFR & 0x0004)//GroupB采样完成
         {
-            TSK_SafetyTask();
+            TSK_SafetyTask();       //500us执行一次安全任务，检查过压欠压等
             ADC->ADIFR |= 0x0004;//清除GroupB采样完成标志
         }
     }
@@ -262,7 +273,7 @@ void TSK_MediumFrequencyTaskM1(void)
 {
     State_t StateM1;
     int16_t wAux = 0;
-
+    //计算hall的平均机械速度和电机功率
     (void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
     PQD_CalcElMotorPower( pMPM[M1] );
     AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
@@ -309,13 +320,18 @@ void TSK_MediumFrequencyTaskM1(void)
 
         case START:
         {
-            STM_NextState( &STM[M1], START_RUN );
+            //这里要先检测一下 有没有校准hall 和 学习FOC参数 没有的话就先校准一下
+            if(FOCVars[bMotor].status == ready_RUN){
+                //待机模式才可以初始化hall 并开始校准
+                GetHallState(&HALL_M1);  //获取hall状态
+                STM_NextState( &STM[M1], START_RUN );
+            }
         }
         break;
 
         case START_RUN:
         {
-            FOC_InitAdditionalMethods(M1);
+            //FOC_InitAdditionalMethods(M1);
             FOC_CalcCurrRef( M1 );
             STM_NextState( &STM[M1], RUN );
         }
@@ -561,15 +577,126 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     Curr_Components Iqd, Ialphabeta;
     Volt_Components Vqd;
     uint16_t hCodeError;
-    //duty 控制模式是 用 上次   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
-    //角度由hall算出来
-    if(motor->m_ang_hall_int_prev<65536){
-        //hall 角度正常
-    }else{
-        //hall 失效 用观测器角度
-    }
+    PWMC_GetPhaseCurrents(pwmcHandle[bMotor], &Iab);    //获取电流
+    if(FOCVars[bMotor].foc_hall.hallState==0){
+        //正常控制模式
+        #ifdef duty_ControlMode //duty控制模式
+	    int16_t duty_set = FOCVars[bMotor].m_duty_cycle_set;	//当前设置的目标duty
+		int16_t duty_now =  FOCVars[bMotor].now_duty;	//上次算出的duty大小
+		int16_t duty_abs = fabsf(duty_now);
+		// Duty cycle control
+		if ((fabsf(duty_set) < duty_abs) &&
+				((!FOCVars[bMotor].duty_was_pi) || (SIGN_int16(FOCVars[bMotor].duty_pi_duty_last) == SIGN_int16(duty_now)))) {
+			// Truncating the duty cycle here would be dangerous, so run a PI controller.
+			FOCVars[bMotor].duty_pi_duty_last = duty_now;
+			FOCVars[bMotor].duty_was_pi = true;	//上次控制是PI控制输出
+			// Reset the integrator in duty mode to not increase the duty if the load suddenly changes. In braking
+			// mode this would cause a discontinuity, so there we want to keep the value of the integrator.
+			//if (motor_now->m_control_mode == CONTROL_MODE_DUTY) {
+				if (duty_now > 0) {
+					if (FOCVars[bMotor].m_duty_i_term > 0) {
+						FOCVars[bMotor].m_duty_i_term = 0;
+					}
+				} else {
+					if (FOCVars[bMotor].m_duty_i_term < 0) {
+						FOCVars[bMotor].m_duty_i_term = 0;
+					}
+				}
+			//}
+			// Compute error
+			int32_t error = (int32_t)duty_set - (int32_t)duty_now;
+			//带上v_bus 的意义是 不同电压下 做一个比例参考 让电压一致
+			// Compute parameters
+			//float scale = 1.0 / state_now->v_bus;
+			int32_t p_term = (error * FOCVars[bMotor].foc_duty_dowmramp_kp<<15) / FOCVars[bMotor].vBus;
+            //*dt 是不同中断时间 ki的影响不大 FOCVars[bMotor].foc_hall.intTime
+			// 先计算增量
+            int32_t i_inc = (error * (FOCVars[bMotor].foc_duty_dowmramp_ki << 15)) / FOCVars[bMotor].vBus;
+
+            // 【安全写法】防止累加后溢出
+            if ((i_inc > 0) && (FOCVars[bMotor].m_duty_i_term > (INT32_MAX - i_inc))) {
+                FOCVars[bMotor].m_duty_i_term = INT32_MAX;
+            } else if ((i_inc < 0) && (FOCVars[bMotor].m_duty_i_term < (-INT32_MAX - i_inc))) {
+                FOCVars[bMotor].m_duty_i_term = -INT32_MAX;
+            } else {
+                FOCVars[bMotor].m_duty_i_term += i_inc;
+            }
+			//utils_truncate_number((float*)&FOCVars[bMotor].m_duty_i_term, -1.0, 1.0);
+			// Calculate output
+            int32_t output;
+            if ((p_term > 0) && (FOCVars[bMotor].m_duty_i_term > (INT32_MAX - p_term))) {
+                output = INT32_MAX;
+            } else if ((p_term < 0) && (FOCVars[bMotor].m_duty_i_term < (-INT32_MAX - p_term))) {
+                output = -INT32_MAX;
+            } else {
+                output = p_term + FOCVars[bMotor].m_duty_i_term;
+            }
+			//utils_truncate_number(&output, -1.0, 1.0);
+			FOCVars[bMotor].Iqdref.qI_Component1  = ((int16_t)(output>>15) * current_max_for_duty)>>15;
+		} else {
+			// If the duty cycle is less than or equal to the set duty cycle just limit
+			// the modulation and use the maximum allowed current.
+            //目的是给一个积分,让下次电流减小时候先锁定在这个电流值 不要直接锁定在duty上 这样可以让电流变化更平滑
+			FOCVars[bMotor].m_duty_i_term = (FOCVars[bMotor].Iqd.qI_Component1<<15) / current_max_for_duty;   //当前iq/max
+			//state_now->max_duty = duty_set; //猛加速时让D轴变化慢一点  转速不高不考虑
+			if (duty_set > 0) {
+				FOCVars[bMotor].Iqdref.qI_Component1 = current_max_for_duty;	//如果设置的目标duty是正的 就给正的最大电流
+			} else {
+				FOCVars[bMotor].Iqdref.qI_Component1 = -current_max_for_duty;
+			}
+			FOCVars[bMotor].duty_was_pi = false;
+		}
+        FOCVars[bMotor].Iqdref.qI_Component2 = 0; // 初始化id_set_tmp
+        #endif
+        //duty 控制模式是 用 上次   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
+        //角度由hall算出来
+        if(FOCVars[bMotor].foc_hall.angUpdate==true){ //有换相更新
+            FOCVars[bMotor].foc_hall.real_phase = FOCVars[bMotor].foc_hall.m_ang_hall_int_prev;    //真实相位
+            FOCVars[bMotor].foc_hall.real_phase_Next = FOCVars[bMotor].foc_hall.m_ang_hall_int_Next; //下次相位
+            FOCVars[bMotor].foc_hall.angUpdate = false;   //换相更新完成
+        }else{
+            int16_t minDec = FOCVars[bMotor].foc_hall.anginc >>3; 
+            if(minDec==0){
+                minDec = 1; //最小的幅度
+            }
+            FOCVars[bMotor].foc_hall.real_phase =  FOCVars[bMotor].foc_hall.real_phase + FOCVars[bMotor].foc_hall.anginc;    //真实相位
+            if(FOCVars[bMotor].foc_hall.anginc > 0)  // 正转
+            {
+                if(FOCVars[bMotor].foc_hall.real_phase > FOCVars[bMotor].foc_hall.real_phase_Next)
+                {
+                    // 不让角度超过目标
+                    FOCVars[bMotor].foc_hall.real_phase = FOCVars[bMotor].foc_hall.real_phase_Next;  
+                    // 速度自动变小（衰减），防止超前太多
+                    // 下次以更小步距走，等待真实霍尔跳变
+                    FOCVars[bMotor].foc_hall.anginc -= minDec;  
+                    // 防止速度变成0，保持极小蠕动
+                    if(FOCVars[bMotor].foc_hall.anginc < 1){
+                        //达到下次换相点但是不换相,角度变化很慢了 此时要限制duty_set
+                        duty_set = (duty_set *7) >>3;   //87.5%
+                        if(duty_set < 10) duty_set = 10; // 最低限幅
+                        FOCVars[bMotor].foc_hall.anginc = 1;
+                    }
+                }
+            }else if(FOCVars[bMotor].foc_hall.anginc < 0){
+                if(FOCVars[bMotor].foc_hall.real_phase < FOCVars[bMotor].foc_hall.real_phase_Next)
+                {
+                    FOCVars[bMotor].foc_hall.real_phase = FOCVars[bMotor].foc_hall.real_phase_Next;
+                    // 反向速度衰减
+                    FOCVars[bMotor].foc_hall.anginc += minDec;
+                    if(FOCVars[bMotor].foc_hall.anginc > -1){
+                        duty_set = (duty_set *7) >>3;   //87.5%
+                        if(duty_set > -10) duty_set = -10;
+                        FOCVars[bMotor].foc_hall.anginc = -1;
+                    }
+                }
+            }else{
+                //没有角度增量 是停止了 此时duty要 = 0;
+                duty_set = 0;
+            }
+        }
+    }   //其他模式角度由外部提供
+    hElAngle = FOCVars[bMotor].foc_hall.real_phase;
     //hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
-    PWMC_GetPhaseCurrents(pwmcHandle[bMotor], &Iab);
     
     Ialphabeta = MCM_Clarke(Iab);
     
@@ -580,15 +707,94 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 
     Vqd.qV_Component2 = PI_Controller(pPIDId[bMotor],
                                       (int32_t)(FOCVars[bMotor].Iqdref.qI_Component2) - Iqd.qI_Component2);
-                                         
-    FOCVars[bMotor].Vqd = Vqd;
-    Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
+     
+    #ifdef decodedqEm            //         解耦             
+    //=====================================================================
+    //  VESC 标准 d/q 交叉解耦（MXlemming 高速弱磁必加，角度更稳）
+    //=====================================================================
+    #define ELEC_SPEED   hElSpeed         // 你的电角速度 Q15 或 int32
+    #define FLUX        pMC[bMotor]->Flux // 磁链
+    #define Lq_Ld       (pMC[bMotor]->Lq - pMC[bMotor]->Ld)
+
+    Vqd.qV_Component1 += (int32_t)ELEC_SPEED * FLUX / 32768;       // 反电动势前馈
+    Vqd.qV_Component2 -= (int32_t)ELEC_SPEED * Lq_Ld * Iqd.qI_Component1 / 32768; // 解耦
+    //FOCVars[bMotor].Vqd = Vqd;
+    //Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
+    #endif
+    //=====================================================================
+    //  VESC 风格：内切圆 → 六边形 平滑渐进过调制（适配你的代码）
+    //=====================================================================
+    Volt_Components Vqd_circle;
+    int32_t mag_sq;
+    int32_t circle_max_sq;
+    int32_t hex_max_sq;
+    int32_t diff;
+    int32_t ratio;
+    int32_t one_minus_ratio;
+
+    // 1. 先做你原来的圆形限制
+    Vqd_circle = Circle_Limitation(pCLM[bMotor], Vqd);
+
+    // 2. 计算电压模长平方（不用开方！）
+    mag_sq = (int32_t)Vqd.qV_Component1 * Vqd.qV_Component1
+           + (int32_t)Vqd.qV_Component2 * Vqd.qV_Component2;
+
+    // 3. 你内切圆的最大幅值平方
+    circle_max_sq = (int32_t)pCLM[bMotor]->MaxModule * pCLM[bMotor]->MaxModule;
+
+    // 4. 六边形最大幅值平方（比圆大 15% 左右，VESC标准）
+    //hex_max_sq = (circle_max_sq * 130) / 100;  // 放大1.3倍，最安全
+    hex_max_sq = ((circle_max_sq * 334) >> 8);  // 放大1.3倍，最安全
+
+    Volt_Components Vqd_final;
+
+    if (mag_sq <= circle_max_sq)
+    {
+        // 完全在线性区 → 只用圆形限制
+        Vqd_final = Vqd_circle;
+    }
+    else if (mag_sq >= hex_max_sq)
+    {
+        // 完全进入过调制 → 不用限制
+        Vqd_final = Vqd;
+    }
+    else
+    {
+        // ==============================
+        // VESC 核心：平滑过渡（全定点）
+        // ==============================
+        diff = mag_sq - circle_max_sq;
+        //ratio = (diff * 32767) / (hex_max_sq - circle_max_sq); // 0~32767
+        ratio = (diff << 15) / (hex_max_sq - circle_max_sq); // 0~32767
+        //one_minus_ratio = 32767 - ratio;
+        one_minus_ratio = 32768 - ratio;
+
+        // 平滑混合：圆形限制 + 原始电压
+        //Vqd_final.qV_Component1 = (Vqd_circle.qV_Component1 * one_minus_ratio
+        //                         + Vqd.qV_Component1 * ratio) / 32767;
+        Vqd_final.qV_Component1 = (Vqd_circle.qV_Component1 * one_minus_ratio
+                                 + Vqd.qV_Component1 * ratio) >> 15;
+
+        //Vqd_final.qV_Component2 = (Vqd_circle.qV_Component2 * one_minus_ratio
+        //                         + Vqd.qV_Component2 * ratio) / 32767;
+        Vqd_final.qV_Component2 = (Vqd_circle.qV_Component2 * one_minus_ratio
+                                 + Vqd.qV_Component2 * ratio) >>15;
+    }
+
+    // 最终输出
+    Vqd = Vqd_final;
+
     Valphabeta = MCM_Rev_Park(Vqd, hElAngle);
     hCodeError = PWMC_SetPhaseVoltage(pwmcHandle[bMotor], Valphabeta);
 
     int32_t vq2 = Vqd.qV_Component1*Vqd.qV_Component1;
     int32_t vd2 = Vqd.qV_Component2*Vqd.qV_Component2;
-    FOCVars[bMotor].MaxDutyV = ((vq2+vd2)>>16);     //max is 0x2fff
+    //motor_now->m_motor_state.duty_now = ((vq2+vd2)>>16);    //当前算出的duty大小
+    if(Vqd.qV_Component1<0)
+        FOCVars[bMotor].now_duty = -((vq2+vd2)>>16);
+    else
+        FOCVars[bMotor].now_duty = ((vq2+vd2)>>16);     //max is 0x2fff
+    FOCVars[bMotor].Vqd = Vqd;
     FOCVars[bMotor].Iab = Iab;
     FOCVars[bMotor].Ialphabeta = Ialphabeta;
     FOCVars[bMotor].Iqd = Iqd;
@@ -615,40 +821,81 @@ void TSK_SafetyTask(void)
   * @param  bMotor Motor reference number defined
   *         \link Motors_reference_number here \endlink
   * @retval None
+  * 500us 执行一次安全任务，检查过压欠压等
   */
 void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
 {
-    uint16_t CodeReturn = MC_NO_ERROR;
-    uint16_t errMask[NBR_OF_MOTORS] = {VBUS_TEMP_ERR_MASK};
-
-    CodeReturn |= errMask[bMotor] & NTC_CalcAvTemp(pTemperatureSensor[bMotor]); /* check for fault if FW protection is activated. It returns MC_OVER_TEMP or MC_NO_ERROR */
-    CodeReturn |= PWMC_CheckOverCurrent(pwmcHandle[bMotor]);                    /* check for fault. It return MC_BREAK_IN or MC_NO_FAULTS */
-
-    if (bMotor == M1)
-    {
-        CodeReturn |=  errMask[bMotor] & RVBS_CalcAvVbus(pBusSensorM1);
+    uint16_t vBusx100;   //母线电压*100
+    uint16_t vTempMotorx100;   //马达温度*100
+    uint16_t vTempPCBx100;   //PCB温度*100
+    static int countVolUnder = 0;   //连续过压欠压的次数
+    static int countVolOver = 0;   //连续过压欠压的次数
+    static int countTempMotorOver = 0;   //连续过压欠压的次数
+    static int countTempMosOver = 0;   //连续过压欠压的次数
+    //uint16_t CodeReturn = MC_NO_ERROR;
+    //uint16_t errMask[NBR_OF_MOTORS] = {VBUS_TEMP_ERR_MASK};
+    if(FOCVars[bMotor].status == not_ready){
+        //电机准备中
+        vBusx100 = GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+        vTempMotorx100 = NTC_TEMP_MOTOR(TempBeta);
+        vTempPCBx100 = NTC_TEMP_PCB(TempBeta);
+        NowVBusx100 = vBusx100;   //更新当前电压值
+        NowTempMotorx100 = vTempMotorx100;
+        NowTempPCBx100 = vTempPCBx100;
+        if(vBusx100 < vMinBus){   //
+            //电机过低 不工作
+            FOCVars[bMotor].status = mc_under_voltage;   //欠压了
+        }else if(vBusx100 > vMaxBus){
+            FOCVars[bMotor].status = mc_over_voltage;   //过压了
+        }else{
+            FOCVars[bMotor].mc_MaxSpeed = vBusx100*FOCVars[bMotor].mc_KV/100;   //算出最大转速
+            //初始化电压 根据上电电压算出最大转速
+            FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
+        }
+        return; //如果电机还没有开始运行 就不检查安全了
+    }else{
+        if(FOCVars[bMotor].status != ready_RUN)
+            return;     //没有正常运行
+        vBusx100 = GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+        UTILS_LPInt16_FAST(NowVBusx100, vBusx100, VBusFilterConstant);   //更新当前电压值 
+        UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //更新Motor温度
+        UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //更新PCB温度
+        if(NowVBusx100 < vMinBus){   //
+            //电机过低 不工作
+            countVolUnder++;
+            if(countVolUnder > 2000){    //1s
+                FOCVars[bMotor].status = mc_under_voltage;   //欠压了
+            }
+        }else
+            countVolUnder = 0;
+        if(NowVBusx100 > vMaxBus){
+            countVolOver++;
+            if(countVolOver > 2000){    //1s
+                FOCVars[bMotor].status = mc_over_voltage;   //过压了
+            }
+        }else   
+            countVolOver = 0;
+        #ifdef MotorTempEn
+        if(NowTempMotorx100>vMaxMotorTemp){   //电机温度超过
+            countTempMotorOver++;
+            if(countTempMotorOver>6000){
+                //3s
+                FOCVars[bMotor].status = mc_over_MotorTemp;   //motor 过温
+            }
+        }else
+            countTempMotorOver = 0;
+        #endif
+        #ifdef MosTempEn
+        if(NowTempPCBx100>vMaxPCBTemp){   //MOS 温度超过
+            countTempMosOver++;
+            if(countTempMosOver>6000){
+                //3s
+                FOCVars[bMotor].status = mc_over_MosTemp;   //mos 过温
+            }
+        }else   
+            countTempMosOver = 0;
+        #endif
     }
-
-    STM_FaultProcessing(&STM[bMotor], CodeReturn, ~CodeReturn); /* Update the STM according error code */
-
-    switch (STM_GetState(&STM[bMotor])) /* Acts on PWM outputs in case of faults */
-    {
-        case FAULT_NOW:
-            PWMC_SwitchOffPWM(pwmcHandle[bMotor]);
-            FOC_Clear(bMotor);
-            MPM_Clear((MotorPowMeas_Handle_t*)pMPM[bMotor]);
-
-            break;
-
-        case FAULT_OVER:
-            PWMC_SwitchOffPWM(pwmcHandle[bMotor]);
-
-            break;
-
-        default:
-            break;
-    }
-
 }
 
 /**

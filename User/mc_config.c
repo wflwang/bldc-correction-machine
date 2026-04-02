@@ -212,20 +212,20 @@ uint16_t RealIBusFilterBufferM1[M1_VBUS_SW_FILTER_BW_FACTOR];
 /**
   * Bus voltage sensor parameters Motor 1
   */
-RDivider_Handle_t RealBusVoltageSensorParamsM1 =
-{
-    ._Super                =
-    {
-        .SensorType        = REAL_SENSOR,
-        .ConversionFactor  = (uint16_t)(ADC_REFERENCE_VOLTAGE / BUS_ADC_CONV_RATIO),
-    },
-
-    .LowPassFilterBW       =  M1_VBUS_SW_FILTER_BW_FACTOR,
-    .OverVoltageThreshold  = OVERVOLTAGE_THRESHOLD_d,
-    .UnderVoltageThreshold =  UNDERVOLTAGE_THRESHOLD_d,
-    .aBuffer = RealBusVoltageSensorFilterBufferM1,
-    .bBuffer = RealIBusFilterBufferM1,
-};
+//RDivider_Handle_t RealBusVoltageSensorParamsM1 =
+//{
+//    ._Super                =
+//    {
+//        .SensorType        = REAL_SENSOR,
+//        .ConversionFactor  = (uint16_t)(ADC_REFERENCE_VOLTAGE / BUS_ADC_CONV_RATIO),
+//    },
+//
+//    .LowPassFilterBW       =  M1_VBUS_SW_FILTER_BW_FACTOR,
+//    .OverVoltageThreshold  = OVERVOLTAGE_THRESHOLD_d,
+//    .UnderVoltageThreshold =  UNDERVOLTAGE_THRESHOLD_d,
+//    .aBuffer = RealBusVoltageSensorFilterBufferM1,
+//    .bBuffer = RealIBusFilterBufferM1,
+//};
 
 
 /** RAMP for Motor1.

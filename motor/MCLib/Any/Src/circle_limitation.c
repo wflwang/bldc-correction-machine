@@ -67,6 +67,7 @@ Volt_Components Circle_Limitation( CircleLimitation_Handle_t * pHandle, Volt_Com
   return ( local_vqd );
 }
 
+
 /**
   * @}
   */

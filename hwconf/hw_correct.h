@@ -27,6 +27,24 @@
 #define ADC_IND_VIN 2
 #define ADC_IND_EXT 3
 
+#define default_KV  125 //默认KV值125
+
+// 电压值
+#define vMinBus 1200    //最低电压 12V*100
+#define vMaxBus 5300   //最高电压 53V*100
+#define Int16FilterDiv 32768    //int16 滤波分母
+#define VBusFilterConstant (int16_t)(0.04*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
+
+#define MotorTempEn     //使能motor temp
+#define MosTempEn       //使能MOS temp
+#define TempBeta    3490    //温度传感器B值
+//#define vMinMotorTemp 1200    //最低电机 temp 12V*100
+#define vMaxMotorTemp 15000   //最高电机 temp 150c*100
+//#define vMinMosTemp 1200    //最低mos temp 12V*100
+#define vMaxMosTemp 10000   //最高mos temp 100c*100
+#define VTempMotorFilterConstant (int16_t)(0.02*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
+#define VTempPCBFilterConstant (int16_t)(0.02*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
+
 //获取AD值
 #define GetVBusAD()         (ADC->ADDR1B)
 #define GetPCBTempAD()      (ADC->ADDR2B)
@@ -73,12 +91,12 @@
 #endif
 
 // Get input voltage 得出的是当前电压
-#define GET_INPUT_VOLTAGE() 	((uint16_t)((V_REG / 4095.0) * (float)ADC_Value[ADC_IND_VIN_SENS] * ((VIN_R1 + VIN_R2) / VIN_R2)))
+#define GET_INPUT_VOLTAGE() 	((uint16_t)(100.0 * (V_REG / 4095.0) * (float)GetVBusAD()  * ((VIN_R1 + VIN_R2) / VIN_R2)))
 //最终温度扩大100倍保留精度
 #define NTC_RES_MOTOR(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
-#define NTC_TEMP_MOTOR(beta)	((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(ADC_Value[ADC_IND_TEMP_MOTOR]) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
+#define NTC_TEMP_MOTOR(beta)	((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(GetMotorTempAD()) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
 #define NTC_RES_PCB(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
-#define NTC_TEMP_PCB(beta)	    ((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(ADC_Value[ADC_IND_TEMP_MOTOR]) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
+#define NTC_TEMP_PCB(beta)	    ((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(GetPCBTempAD()) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
 
 
 

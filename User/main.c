@@ -38,6 +38,12 @@ int main(void) {
     //mc_interface_init();
     /* Motor configuration */    
     MX_MotorControl_Init();
+    /* Initialize interrupts */
+    MX_NVIC_Init();
+    //初始化马达部分 和中断
+    Delay_ms(50);
+    MC_StartMotor1();   //启动电机 速度为0
+    Delay_ms(50);
     
     // Main loop
     while (1) {

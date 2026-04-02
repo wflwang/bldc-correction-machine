@@ -56,8 +56,11 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
 
 // Return the sign of the argument. -1.0 if negative, 1.0 if zero or positive.
 #define SIGN(x)				(((x) < 0.0) ? -1.0 : 1.0)
+#define SIGN_int16(x)		(((x) < 0) ? -1 : 1)
 //比较int16_t 误差反向是否一样 =0 相等 !0 不相等
 #define DirCMPint16(x,y)			((x^y)&0x8000)
+//比较int16_t 方向输出后面的值
+#define SignCMPint16(x,y)			((x>0)?y:(-y))
 
 // Squared
 #define SQ(x)				((x) * (x))
@@ -100,6 +103,7 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
  * Filter constant. Range 0.0 to 1.0, where 1.0 gives the unfiltered value.
  */
 #define UTILS_LP_FAST(value, sample, filter_constant)	(value -= (filter_constant) * ((value) - (sample)))
+#define UTILS_LPInt16_FAST(value, sample, filter_constant)	(value -= (((filter_constant) * ((value) - (sample)))>>15))
 
 /**
  * A fast approximation of a moving average filter with N samples. See

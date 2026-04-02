@@ -21,6 +21,10 @@
 
 #define CHECK_BOUNDARY
 
+static int16_t id_weak_field_filtered = 0;  //上次弱磁限制
+static int16_t smoothed_brake_limit = IQBrakelimit; //上次最大刹车限制
+static int16_t lastTorq = 0;  //上次的输出转矩
+
 /** @addtogroup MCSDK
   * @{
   */
@@ -403,6 +407,10 @@ int16_t STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
   int16_t hMeasuredSpeed;
   int16_t hTargetSpeed;
   int16_t hError;
+  int32_t temp;
+  Curr_Components IqdTemp;
+  temp = (( int32_t )pHandle->TargetFinal <<16); //上次扭矩
+  hMeasuredSpeed = SPD_GetAvrgMecSpeed01Hz( pHandle->SPD ); //获取当前速度
   if ( pHandle->Mode == STC_TORQUE_MODE )
   {
     wCurrentReference = pHandle->TorqueRef;
@@ -417,15 +425,43 @@ int16_t STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
   if ( pHandle->RampRemainingStep > 1u )
   {
     /* Increment/decrement the reference value. */
-    wCurrentReference += pHandle->IncDecAmount;
-
-    /* Decrement the number of remaining steps */
-    pHandle->RampRemainingStep--;
+    if(pHandle->IncDecAmount==0){
+      wCurrentReference = temp; //(( int32_t )pHandle->TargetFinal<<16);   //* 65536;
+      pHandle->RampRemainingStep = 0u;
+    }
+    else if(pHandle->IncDecAmount>0){ //增速
+      if(wCurrentReference>=temp){
+        wCurrentReference = temp; //(( int32_t )pHandle->TargetFinal<<16);   //* 65536;
+        pHandle->RampRemainingStep = 0u;
+      }
+      else if(hMeasuredSpeed<pHandle->TargetFinal){
+        //本次速度小 还是需要加速的
+        wCurrentReference += pHandle->IncDecAmount;
+        pHandle->RampRemainingStep--;
+      }else{
+        wCurrentReference = temp; //(( int32_t )pHandle->TargetFinal<<16);   //* 65536;
+        pHandle->RampRemainingStep = 0u;
+      }
+    }else{
+      if(wCurrentReference<=temp){
+        wCurrentReference = temp; //(( int32_t )pHandle->TargetFinal<<16);   //* 65536;
+        pHandle->RampRemainingStep = 0u;
+      }
+      else if(hMeasuredSpeed>pHandle->TargetFinal){
+        //本次速度大 还是需要减速
+        wCurrentReference += pHandle->IncDecAmount;
+        pHandle->RampRemainingStep--;
+      }else{
+        wCurrentReference = temp; //(( int32_t )pHandle->TargetFinal<<16);   //* 65536;
+        pHandle->RampRemainingStep = 0u;
+      }
+    }
   }
   else if ( pHandle->RampRemainingStep == 1u )
   {
     /* Set the backup value of hTargetFinal. */
-    wCurrentReference = ( int32_t )pHandle->TargetFinal * 65536;
+    //wCurrentReference = ( int32_t )pHandle->TargetFinal * 65536;
+    wCurrentReference = temp; //(( int32_t )pHandle->TargetFinal<<16);   //* 65536;
     pHandle->RampRemainingStep = 0u;
   }
   else

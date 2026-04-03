@@ -46,6 +46,7 @@ void TSK_DualDriveFIFOUpdate(void *pDrive);
 
 /* Puts the Motor Control subsystem in in safety conditions on a Hard Fault */
 void TSK_HardwareFaultTask(void);
+uint8_t GetMaxTerefReady(void);
 
  /* Locks GPIO pins used for Motor Control to prevent accidental reconfiguration */
 void mc_lock_pins (void);

@@ -23,7 +23,9 @@
   * @{
   */
 #define SQRT_2  1.4142
+#ifndef SQRT_3
 #define SQRT_3  1.732
+#endif
 /**
   * @brief  Macro to compute logarithm of two
   */

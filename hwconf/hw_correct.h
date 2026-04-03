@@ -15,8 +15,10 @@
 #define HW_HALL_ENC_GPIO1 GPIOA
 #define HW_HALL_ENC_PIN1 GPIO_Pin_0
 #define HW_HALL_ENC_PIN1_No GPIO_PinSource0
+#define HW_HALL_ENC_GPIO2 GPIOA
 #define HW_HALL_ENC_PIN2 GPIO_Pin_1
 #define HW_HALL_ENC_PIN2_No GPIO_PinSource1
+#define HW_HALL_ENC_GPIO3 GPIOA
 #define HW_HALL_ENC_PIN3 GPIO_Pin_2
 #define HW_HALL_ENC_PIN3_No GPIO_PinSource3
 #define HW_HALL_TIMER   HTU
@@ -51,12 +53,12 @@
 #define GetMotorTempAD()    (ADC->ADDR3B)
 
 // Motor control pins
-#define HW_PWM1_PORT GPIOA
-#define HW_PWM1_PIN GPIO_Pin_8
-#define HW_PWM2_PORT GPIOA
-#define HW_PWM2_PIN GPIO_Pin_9
-#define HW_PWM3_PORT GPIOA
-#define HW_PWM3_PIN GPIO_Pin_10
+//#define HW_PWM1_PORT GPIOA
+//#define HW_PWM1_PIN GPIO_Pin_8
+//#define HW_PWM2_PORT GPIOA
+//#define HW_PWM2_PIN GPIO_Pin_9
+//#define HW_PWM3_PORT GPIOA
+//#define HW_PWM3_PIN GPIO_Pin_10
 
 #define PWMIO_PB10      ATU_PWM_REMAP_SOURCE_TIO2B
 #define PWMIO_PB11      ATU_PWM_REMAP_SOURCE_TIO2A
@@ -98,6 +100,54 @@
 #define NTC_RES_PCB(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
 #define NTC_TEMP_PCB(beta)	    ((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(GetPCBTempAD()) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
 
+#define VBusVol(x)  (x*VIN_R2*4095.0/(VIN_R1 + VIN_R2)/V_REG) 
+//低压级别
+#define LvdLVL1     14.0
+#define LvdLVL2     11.0
+#define LvdLVL3     9.0
+#define LvdLVL1_RPM     500
+#define LvdLVL2_RPM     200
+#define LvdLVL3_RPM     0
+
+#define MaxLimitHVol    52  //最高限制电压
+
+#define GetVBusLimit()  VBusVol(MaxLimitHVol)   
+
+//最高超过限制电压 多少达到最大弱磁电流
+#define MaxBoostVol     0.9f
+
+//采样电阻 RSHUNT 0.005 放大倍数12倍 最高知道检测到31.75A
+// vref*2/RSHUNT/AMP/sqrt(3) ~= 31.75A -> 32767  ---V_REG = vref*2
+//32.75*x/32767 =>
+#define  DefaultMaxCurrent       30.0    //最大电流60A？
+#define  DefaultMaxBrakeCurrent  30.0
+#define  DefaultMinBrakeCurrent  10.0
+#define MaxWeakId    -18.0    //最大弱磁电流
+
+//电流换算
+#define CurrentInt16(x) (int16_t)(x*31.75*V_REG/RSHUNT/AMPLIFICATION_GAIN/SQRT_3)
+
+// 弱磁-d 过滤系数
+#define WEAK_FIELD_ALPHA         30000 //32768  // 0.25的滤波系数
+#define LIMIT_SMOOTH_ALPHA       26000 //32768   // 限制值平滑滤波系数 (α=0.25)
+
+//4000转以下 -Iq限制最小(值最大) 10000转以上-Iq限制达到最大(值最小)
+#define SpeedLimit_MIN_NIq_TH 1500
+#define SpeedLimit_MAX_NIq_TH 2500
+#define IQBrakelimit                   6000 //最大刹车限幅
+
+//限制前进时候最大转矩增速
+#define MaxFBSpeedADD   5350  //最大速度误差
+#define LIMIT_AddAcc_ALPHA 18000 //加速幅度   /65536  扭矩变化的一阶滤波
+#define MaxTorqAcc      20000   //最大增加的电流扭矩 上个版本每次增加6% 现在最大增加到30%
+#define MinTorqAcc      1  //最小增加的电流扭矩 12% 变化样子
+//限制刹车时候的最大转矩增速
+#define LIMIT_SubAcc_ALPHA 10000  //减速幅度 /65536  
+#define MaxTorqDecAcc   8000   //最大减速限制 最大减速扭矩
+#define MinTorqDecAcc   1  //最小减速限制
+
+//发声时候的音量
+#define speechVol   7000      //  /32768
 
 
 // Motor control limits

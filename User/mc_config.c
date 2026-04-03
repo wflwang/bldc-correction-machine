@@ -11,6 +11,7 @@
 #include "parameters_conversion.h"
 #include "mc_parameters.h"
 #include "mc_config.h"
+#include "hw_correct.h"
 
 #define MAX_TWAIT 0                 /* Dummy value for single drive */
 #define FREQ_RATIO 1                /* Dummy value for single drive */
@@ -18,13 +19,19 @@
 
 #define OFFCALIBRWAIT_MS     0
 #define OFFCALIBRWAIT_MS2    0
-#include "pqd_motor_power_measurement.h"
 
-PQD_MotorPowMeas_Handle_t PQD_MotorPowMeasM1 =
-{
-    .wConvFact = PQD_CONVERSION_FACTOR
-};
-PQD_MotorPowMeas_Handle_t *pPQD_MotorPowMeasM1 = &PQD_MotorPowMeasM1;
+extern int16_t foc_hall_ang_table[8];
+
+
+//mc_config_t mcconf;     //初始化 马达配置
+//app_config_t appconf;   //app config
+//#include "pqd_motor_power_measurement.h"
+
+//PQD_MotorPowMeas_Handle_t PQD_MotorPowMeasM1 =
+//{
+//    .wConvFact = PQD_CONVERSION_FACTOR
+//};
+//PQD_MotorPowMeas_Handle_t *pPQD_MotorPowMeasM1 = &PQD_MotorPowMeasM1;
 
 /**
   * @brief  PI / PID Speed loop parameters Motor 1
@@ -166,49 +173,55 @@ PWMC_R3_F0_Handle_t PWM_Handle_M1 =
 /**
   * @brief  SpeedNPosition sensor parameters Motor 1 - Base Class
   */
-
-HALL_Handle_t HALL_M1 =
-{
-    ._Super = {
-        .bElToMecRatio                     =    POLE_PAIR_NUM,
-        .hMaxReliableMecSpeed01Hz          =    (uint16_t)(1.15 * MAX_APPLICATION_SPEED / 6),
-        .hMinReliableMecSpeed01Hz          =    (uint16_t)(MIN_APPLICATION_SPEED / 6),
-        .bMaximumSpeedErrorsNumber         =    MEAS_ERRORS_BEFORE_FAULTS,
-        .hMaxReliableMecAccel01HzP         =    65535,
-        .hMeasurementFrequency             =    TF_REGULATION_RATE,
-    },
-    .SensorPlacement     = HALL_SENSORS_PLACEMENT,
-    .PhaseShift          = (int16_t)(HALL_PHASE_SHIFT * 65536 / 360),
-    .SpeedSamplingFreqHz = MEDIUM_FREQUENCY_TASK_RATE,
-    .SpeedBufferSize     = HALL_AVERAGING_FIFO_DEPTH,
-    .TIMClockFreq        = HALL_TIM_CLK,
-    .TIMx                = HALL_TIM2,
-
-    .H1Port             =  M1_HALL_H1_GPIO_Port,
-    .H1Pin              =  M1_HALL_H1_Pin,
-    .H2Port             =  M1_HALL_H2_GPIO_Port,
-    .H2Pin              =  M1_HALL_H2_Pin,
-    .H3Port             =  M1_HALL_H3_GPIO_Port,
-    .H3Pin              =  M1_HALL_H3_Pin,
-};
+foc_hall_t hall_t = {
+  .hallState = hall_null,
+  .angUpdate = false,
+  .intTime = PWM_PERIOD_CYCLES,
+  .anginc = 0,
+  .last_ang_diff = 0,
+}
+//HALL_Handle_t HALL_M1 =
+//{
+//    ._Super = {
+//        .bElToMecRatio                     =    POLE_PAIR_NUM,
+//        .hMaxReliableMecSpeed01Hz          =    (uint16_t)(1.15 * MAX_APPLICATION_SPEED / 6),
+//        .hMinReliableMecSpeed01Hz          =    (uint16_t)(MIN_APPLICATION_SPEED / 6),
+//        .bMaximumSpeedErrorsNumber         =    MEAS_ERRORS_BEFORE_FAULTS,
+//        .hMaxReliableMecAccel01HzP         =    65535,
+//        .hMeasurementFrequency             =    TF_REGULATION_RATE,
+//    },
+//    .SensorPlacement     = HALL_SENSORS_PLACEMENT,
+//    .PhaseShift          = (int16_t)(HALL_PHASE_SHIFT * 65536 / 360),
+//    .SpeedSamplingFreqHz = MEDIUM_FREQUENCY_TASK_RATE,
+//    .SpeedBufferSize     = HALL_AVERAGING_FIFO_DEPTH,
+//    .TIMClockFreq        = HALL_TIM_CLK,
+//    .TIMx                = HALL_TIM2,
+//
+//    .H1Port             =  M1_HALL_H1_GPIO_Port,
+//    .H1Pin              =  M1_HALL_H1_Pin,
+//    .H2Port             =  M1_HALL_H2_GPIO_Port,
+//    .H2Pin              =  M1_HALL_H2_Pin,
+//    .H3Port             =  M1_HALL_H3_GPIO_Port,
+//    .H3Pin              =  M1_HALL_H3_Pin,
+//};
 
 /**
   * temperature sensor parameters Motor 1
   */
-NTC_Handle_t TempSensorParamsM1 =
-{
-    .bSensorType = REAL_SENSOR,
-    .hLowPassFilterBW        = M1_TEMP_SW_FILTER_BW_FACTOR,
-    .hOverTempThreshold      = (uint16_t)(OV_TEMPERATURE_THRESHOLD_d),
-    .hOverTempDeactThreshold = (uint16_t)(OV_TEMPERATURE_THRESHOLD_d - OV_TEMPERATURE_HYSTERESIS_d),
-    .hSensitivity            = (uint16_t)(ADC_REFERENCE_VOLTAGE / dV_dT),
-    .wV0                     = (uint16_t)(V0_V * 65536 / ADC_REFERENCE_VOLTAGE),
-    .hT0                     = T0_C,
-};
+//NTC_Handle_t TempSensorParamsM1 =
+//{
+//    .bSensorType = REAL_SENSOR,
+//    .hLowPassFilterBW        = M1_TEMP_SW_FILTER_BW_FACTOR,
+//    .hOverTempThreshold      = (uint16_t)(OV_TEMPERATURE_THRESHOLD_d),
+//    .hOverTempDeactThreshold = (uint16_t)(OV_TEMPERATURE_THRESHOLD_d - OV_TEMPERATURE_HYSTERESIS_d),
+//    .hSensitivity            = (uint16_t)(ADC_REFERENCE_VOLTAGE / dV_dT),
+//    .wV0                     = (uint16_t)(V0_V * 65536 / ADC_REFERENCE_VOLTAGE),
+//    .hT0                     = T0_C,
+//};
 
 /* Bus voltage sensor value filter buffer */
-uint16_t RealBusVoltageSensorFilterBufferM1[M1_VBUS_SW_FILTER_BW_FACTOR];
-uint16_t RealIBusFilterBufferM1[M1_VBUS_SW_FILTER_BW_FACTOR];
+//uint16_t RealBusVoltageSensorFilterBufferM1[M1_VBUS_SW_FILTER_BW_FACTOR];
+//uint16_t RealIBusFilterBufferM1[M1_VBUS_SW_FILTER_BW_FACTOR];
 /**
   * Bus voltage sensor parameters Motor 1
   */
@@ -245,6 +258,39 @@ CircleLimitation_Handle_t CircleLimitationM1 =
     .Circle_limit_table = MMITABLE,
     .Start_index        = START_INDEX,
 };
+
+
+/**
+ * @brief default motor config
+ * 
+ * 
+ */
+void DefaultMCConfig(mc_config_t *mcconf){
+    mcconf->speed_Kp = PID_SPEED_KP_DEFAULT;
+    mcconf->speed_Ki = PID_SPEED_KI_DEFAULT;
+    mcconf->speed_Kd = PID_SPEED_KD_DEFAULT;
+    mcconf->current_Kp = PID_TORQUE_KP_DEFAULT;
+    mcconf->current_Ki = PID_TORQUE_KI_DEFAULT;
+    mcconf->IntTime = PWM_PERIOD_CYCLES;    //1/64us  64*1000,000 / PWMFre = 
+    mcconf->limitCurrentMax = CurrentInt16(DefaultMaxCurrent);     //最大限制电流
+    mcconf->brakeCurrentMax = CurrentInt16(DefaultMaxBrakeCurrent);     //最大刹车电流
+    mcconf->brakeCurrentMin = CurrentInt16(DefaultMinBrakeCurrent);     //最小刹车电流
+    mcconf->deadCompCnt = SW_DEADTIME_NS;      //SVPWM死区时间a
+    mcconf->LowVBusLVL1 = VBusVol(LvdLVL1);
+    mcconf->LowVBusLVL2 = VBusVol(LvdLVL2);
+    mcconf->LowVBusLVL3 = VBusVol(LvdLVL3);
+    mcconf->LowVBusLVL1Speed = LvdLVL1_RPM;
+    mcconf->LowVBusLVL1Speed = LvdLVL2_RPM;
+    mcconf->LowVBusLVL1Speed = LvdLVL3_RPM;
+    //mcconf->TempMotorLVL1 = 100;
+    mcconf->foc_hall_table = foc_hall_ang_table;
+    mcconf->mc_KV = default_KV;
+    mcconf->Fluxlink = Q12RLF(FluxLink);    //0x7fffffff
+    mcconf->R = Q12RLF(RS);    //0x7fffffff
+    mcconf->Ld = Q12RLF(LdS);    //0x7fffffff
+    mcconf->Lq = Q12RLF(LqS);    //0x7fffffff
+    mcconf->CRC_Data = 0;
+}
 
 
 

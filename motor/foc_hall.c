@@ -13,8 +13,22 @@
 
 static volatile uint32_t m_ang60_intTime=0;  //60度换向时间单位是 1/8us 最长 512s
 static int16_t lastHallEAngle = 0;  //上次hall保存的电角度
+int16_t foc_hall_ang_table[8] = {    //0 7 fail
+    0,0,10922,21845,32767,-21845,-10922,0
+};
+static int16_t foc_hall_ang_Temptable[8] = {
+    0,0,10922,21845,32767,-21845,-10922,0
+};
 
 //hall struct define
+/**
+ * @brief get hall state
+ * 
+ * 
+ */
+hall_state_t GetHallState(foc_hall_t * pHandle){
+    return pHandle->hallState;
+}
 
 
 /**
@@ -67,9 +81,9 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     int16_t nowEAngle= 0;   //当前电角度
     //uint32_t hHighSpeedCapture;
     //霍尔值
-    uint8_t hall_val = GPIO_IsInputPinSet( HW_PWM3_PORT, HW_PWM3_PIN ) << 2
-                        | GPIO_IsInputPinSet( HW_PWM2_PORT, HW_PWM2_PIN ) << 1
-                        | GPIO_IsInputPinSet( HW_PWM1_PORT, HW_PWM1_PIN );
+    uint8_t hall_val = GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
     //对应出不同角度值 0,1,2,3,4,5,6,7
     //每次进来比较本次和上次的时间误差
     // 角度变化/时间误差 = 当前变化的角速度 *dt(中断时间) = 每次中断预计变化的角度
@@ -290,9 +304,9 @@ void * M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
         m_ang60_intTime = MaxAng60IntTime;
         //锁定当前角度 慢慢向霍尔读取的速度靠拢 如果读取的角度正常 不正常就锁定当前速度
         //motor->m_ang_hall_int_prev = 65536; //给一个错误的角度
-        uint8_t hall_val = GPIO_IsInputPinSet( HW_PWM3_PORT, HW_PWM3_PIN ) << 2
-                        | GPIO_IsInputPinSet( HW_PWM2_PORT, HW_PWM2_PIN ) << 1
-                        | GPIO_IsInputPinSet( HW_PWM1_PORT, HW_PWM1_PIN );
+        uint8_t hall_val = GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 ) << 2
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 );
         if((hall_val==0)||(hall_val==7)){
             //长时间不换相 且角度不合法 说明hall坏了 角度不动 速度慢慢降到0 且不能再启动 直到hall恢复正常
             pHandle->hallState |= 0x80;    //hall 失效/丢失
@@ -310,6 +324,9 @@ void * M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
  */
 void M_Hall_Init(foc_hall_t * pHandle){
     m_ang60_intTime = MaxAng60IntTime;  //60度最长换相时间
+    //pHandle->foc_hall_table = foc_hall_ang_table;
+    //pHandle->foc_hall_tableTemp = foc_hall_ang_Temptable;
+    pHandle->anginc  = 0;
     //motor->m_ang_hall_int_prev = 65536; //给一个错误的角度
     /* Clear the TIMx's pending flags */
     HTU->HIFR = 0xFFFF;
@@ -325,6 +342,5 @@ void M_Hall_Init(foc_hall_t * pHandle){
  * @retval hall_angle
  * 在ADC中断中计算hall的插值补偿角度
  */
-int16_t foc_correct_hall(void){
-
-}
+//int16_t foc_correct_hall(void){
+//}

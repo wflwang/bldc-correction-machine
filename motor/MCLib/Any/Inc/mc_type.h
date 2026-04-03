@@ -226,7 +226,40 @@ typedef struct
   int32_t foc_duty_dowmramp_ki;   /**< @brief Integral term gain for duty cycle down ramp.*/
   int32_t foc_duty_dowmramp_kp;   /**< @brief Proportional term gain for duty cycle down ramp.*/
 } FOCVars_t, *pFOCVars_t;
-
+/**
+ * @brief mototr FOC config
+ * 
+ * 
+ */
+typedef struct{
+  int16_t speed_Kp;   //速度环Kp
+  int16_t speed_Ki;   //速度环Ki
+  int16_t speed_Kd;   //速度环Kd
+  int16_t current_Kp; //电流环Kp
+  int16_t current_Ki; //电流环Ki
+  int16_t IntTime;    //adc 中断时间 PWM频率  *1/64us
+  int16_t limitCurrentMax;    //最大限制电流
+  int16_t brakeCurrentMax; //最大刹车电流
+  int16_t brakeCurrentMin;  //最小刹车电流
+  int16_t deadCompCnt;  //死区补偿时间
+  int16_t LowVBusLVL1;              //低压级别1
+  int16_t LowVBusLVL2;              //低压级别2
+  int16_t LowVBusLVL3;             //低压级别3
+  int16_t LowVBusLVL1Speed;      //低压级别1 速度
+  int16_t LowVBusLVL2Speed;      //低压级别2 速度
+  int16_t LowVBusLVL3Speed;      //低压级别3 速度
+  int16_t TempMotorLVL1;              //电机温度级别1
+  int16_t TempMotorLVL2;              //电机温度级别2
+  int16_t TempMotorLVL1Iq;      //电机温度级别1 限制电流
+  int16_t TempMotorLVL2Iq;      //电机温度级别2 限制电流
+  int16_t foc_hall_table[8];  //hall 校准好的角度表格
+  int16_t mc_KV;    //电机KV值
+  int32_t Fluxlink; //磁链
+  int32_t Ld;     //d轴电感
+  int32_t Lq;   //q轴电感
+  int32_t R;    //电阻
+  int16_t CRC_Data; //数据校验
+}mc_config_t;
 /**
   * @brief  Low side or enabling signal definition
   */

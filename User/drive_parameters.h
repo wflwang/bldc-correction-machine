@@ -13,6 +13,9 @@
 /************************
  *** Motor Parameters ***
  ************************/
+#ifndef SQRT_3
+#define SQRT_3  1.732
+#endif
 
 /************************* CPU & ADC PERIPHERAL CLOCK CONFIG ******************/
 #define SYSCLK_FREQ                          64000000uL
@@ -25,7 +28,12 @@
 #define POLE_PAIR_NUM                        4       /*!< Number of motor pole pairs */
 #define RS                                   3.2     /*!< Stator resistance, ohm */
 #define LS                                   0.00043 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
+#define LdS                                   0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
+#define LqS                                   0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
+#define FluxLink                             3.232 //磁链
 
+
+#define Q12RLF(x) (x*0x1fffffff)
 /* When using Id = 0, NOMINAL_CURRENT is utilized to saturate the output of the
    PID for speed regulation (i.e. reference torque).
    Transformation of real currents (A) into int16_t format must be done accordingly with
@@ -36,6 +44,7 @@
 #define NOMINAL_CURRENT                      2100
 #define MOTOR_MAX_SPEED_RPM                  4000 /*!< Maximum rated speed  */
 #define MOTOR_VOLTAGE_CONSTANT               2.45 /*!< Volts RMS ph-ph /kRPM */
+
 
 /***************** MOTOR SENSORS PARAMETERS  ******************************/
 /* Motor sensors parameters are always generated but really meaningful only
@@ -52,11 +61,11 @@
 /******** Current reading parameters section ******/
 /*** Topology ***/
 #define THREE_SHUNT
-#define RSHUNT                               0.05
+#define RSHUNT                               0.005
 
 /*  ICSs gains in case of isolated current sensors, amplification gain for shunts based sensing */
-#define AMPLIFICATION_GAIN                   3.2//5.18 
-#define AMPLIFICATION_GAIN_IBUS              3.2
+#define AMPLIFICATION_GAIN                   12.0 //3.2//5.18 
+//#define AMPLIFICATION_GAIN_IBUS              3.2
 
 /*** Noise parameters ***/
 #define TNOISE_NS                            1000
@@ -96,7 +105,7 @@
 #define SW_DEADTIME_NS                       1000 /*!< Dead-time to be inserted  
                                                        by FW, only if low side 
                                                        signals are enabled */
-
+#define fw_pro    33    //前馈补偿的比例  ?*目标速度/128
 /* Torque and flux regulation loops */
 #define REGULATION_EXECUTION_RATE            1  /*!< FOC execution rate in number of PWM cycles */
 
@@ -138,6 +147,6 @@
 
 /*  Feed-forward parameters */
 /*  Maximum Torque Per Ampere strategy parameters */
-#define IQMAX                                15594
+#define IQMAX                                32767 //15594
 
 #endif /*__DRIVE_PARAMETERS_H*/

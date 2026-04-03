@@ -20,12 +20,20 @@
 #include <stdint.h>
 #include "foc_hall.h"
 #include "hw_correct.h"
+#include "EEPROM.h"
+#include "app.h"
+#include "crc.h"
 /* USER CODE BEGIN Includes */
 
 int16_t AVrspeed = 0;
 static int16_t NowVBusx100 = 0;   //当前母线电压*100
 static int16_t NowTempMotorx100 = 0;   //当前马达电压*100
 static int16_t NowTempPCBx100 = 0;   //当前PCB电压*100
+static int IsSpeech = 0;  //是否发声
+static int IScount = 0; //电流环速度环切换时间
+
+mc_config_t mcconf;     //初始化 马达配置
+app_config_t appconf;   //app config
 
 /* USER CODE END Includes */
 
@@ -224,6 +232,14 @@ void MC_RunMotorControlTasks(void)
     }
 
 }
+//获取是否发声状态
+int GetMSpeechEN(void){
+  return IsSpeech;
+}
+//设置发射状态
+void SetMSpeechEN(int state){
+  IsSpeech = state;
+}
 
 /**
  * @brief  Executes the Medium Frequency Task functions for each drive instance.
@@ -275,7 +291,7 @@ void TSK_MediumFrequencyTaskM1(void)
     int16_t wAux = 0;
     //计算hall的平均机械速度和电机功率
     (void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
-    PQD_CalcElMotorPower( pMPM[M1] );
+    //PQD_CalcElMotorPower( pMPM[M1] );
     AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
 
     StateM1 = STM_GetState( &STM[M1] );
@@ -321,11 +337,16 @@ void TSK_MediumFrequencyTaskM1(void)
         case START:
         {
             //这里要先检测一下 有没有校准hall 和 学习FOC参数 没有的话就先校准一下
-            if(FOCVars[bMotor].status == ready_RUN){
+            if(FOCVars[bMotor].status == ready_RUN){    //没有电压问题
                 //待机模式才可以初始化hall 并开始校准
-                GetHallState(&HALL_M1);  //获取hall状态
-                STM_NextState( &STM[M1], START_RUN );
-            }
+                if(GetHallState(&FOCVars[bMotor].foc_hall)==hall_run){  //获取hall状态
+                    //hall 正常工作了 进入下一环节 开始FOC
+                    STM_NextState( &STM[M1], START_RUN );
+                }else{
+                    //否则继续开环学习FOC 参数 hall位置
+                }
+                //STM_NextState( &STM[M1], START_RUN );
+            }   //有电压问题 不进入下一个状态
         }
         break;
 
@@ -379,6 +400,19 @@ void TSK_MediumFrequencyTaskM1(void)
     }
 
 
+}
+/**
+ * get err max ready
+ * return 1 max 2 -max 0 normal
+ * 
+*/
+uint8_t GetMaxTerefReady(void){
+  if(FOCVars[M1].Iqdref.qI_Component1>=CurrentInt16(DefaultMaxCurrent))
+  return 1;
+  else if(FOCVars[M1].Iqdref.qI_Component1<=CurrentInt16(-DefaultMaxCurrent))
+  return 2;
+  else
+  return 0;
 }
 
 /**
@@ -445,10 +479,28 @@ void FOC_InitAdditionalMethods(uint8_t bMotor)
   */
 void FOC_CalcCurrRef(uint8_t bMotor)
 {
+    #ifdef speedLoopInt    //速度环调整变慢
+    static int pidInter;
+    if(pidInter<speedLoopInt){
+      pidInter++;
+      return;
+    }
+    pidInter=0;
+    #endif
     if (FOCVars[bMotor].bDriveInput == INTERNAL)
     {
-        FOCVars[bMotor].hTeref = STC_CalcTorqueReference(pSTC[bMotor]);
-        FOCVars[bMotor].Iqdref.qI_Component1 = FOCVars[bMotor].hTeref;
+        #ifdef cTestSVPWM
+        FOCVars[bMotor].hTeref = cTestSVPWM;    //测试SVPWM Iq大小
+        #else
+        if(GetMSpeechEN()){ //有播放声音
+            FOCVars[bMotor].Iqdref.qI_Component1 = 0;  //实际转起来是给q轴
+            FOCVars[bMotor].Iqdref.qI_Component2  = speechVol;  //音量
+        }else{
+            Curr_Components iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
+            FOCVars[bMotor].Iqdref = iqdtemp;
+        }
+        //FOCVars[bMotor].hTeref = STC_CalcTorqueReference(pSTC[bMotor]);
+        //FOCVars[bMotor].Iqdref.qI_Component1 = FOCVars[bMotor].hTeref;
     }
 }
 
@@ -957,6 +1009,30 @@ void TSK_HardwareFaultTask(void)
     /* USER CODE BEGIN TSK_HardwareFaultTask 1 */
 
     /* USER CODE END TSK_HardwareFaultTask 1 */
+}
+
+/**
+ * @brief 从flash中读取 APPConfig 并矫正数据是否正确
+ * 
+ * 
+ */
+void GetAPPConfig(void){
+  EE_ReadConfig(ADDR_FLASH_EEPROM_APPCONF,&appconf,sizeof(app_config_t));
+}
+/**
+ * @brief 从flash中读取 MCConfig 并矫正数据是否正确
+ * 
+ * 
+ */
+void GetMCConfig(void){
+  EE_ReadConfig(ADDR_FLASH_EEPROM_MCCONF,&mcconf,sizeof(mc_config_t));
+  uint16_t crc = crc16((uint8_t)&mcconf,sizeof(mc_config_t)-2);
+  if(mcconf.CRC_Data!=crc){
+    DefaultMCConfig(&mcconf);      //用默认马达配置 读取数据失败 要重新学习
+    FOCVars[0].foc_hall.hallState = hall_null;  //hall 不存在 要重新学习
+  }else{ 
+    FOCVars[0].foc_hall.hallState = hall_run;  //读取数据成功 hall可以直接运行
+  }
 }
 
 /**

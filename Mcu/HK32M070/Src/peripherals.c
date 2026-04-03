@@ -7,6 +7,8 @@
 #include "peripherals.h"
 #include "hw_correct.h"
 #include "conf_general.h"
+#include "drive_parameters.h"
+#include "parameters_conversion.h"
 
 
 static __IO uint32_t msTick=0;
@@ -285,7 +287,7 @@ void ATU_Init_Config(int f_zv)
     /* Configure ATU */
     ATU_TimeBaseInitStruct.ATU_ClockDivision = ATU_CLK_DIV_1;
     ATU_TimeBaseInitStruct.ATU_CounterMode = ATU_COUNTER_MODE_UPDOWM ;
-    ATU_TimeBaseInitStruct.ATU_Period = (SYSTEM_CORE_CLOCK / f_zv);// 2666 /12KHZ
+    ATU_TimeBaseInitStruct.ATU_Period = (PWM_PERIOD_CYCLES/2);// 2666 /12KHZ
     ATU_TimeBaseInitStruct.ATU_PeriodAutoReload = ATU_PERIOD_AUTO_RELOAD;
     ATU_TimeBaseInit(&ATU_TimeBaseInitStruct);
     
@@ -294,8 +296,8 @@ void ATU_Init_Config(int f_zv)
     ATU_OutputInitStruct.ATU_OutputMode = ATU_OUTPUT_COMPLEMENTARY_PWM;
     ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
     ATU_OutputInitStruct.ATU_CompareValuexB = (ATU->TPR/2);
-    ATU_OutputInitStruct.ATU_DeadBandTimeA = conf_general_calculate_deadtime(HW_DEAD_TIME_NSEC, SYSTEM_CORE_CLOCK);//1us,ATUclk=64M
-    ATU_OutputInitStruct.ATU_DeadBandTimeB = conf_general_calculate_deadtime(HW_DEAD_TIME_NSEC, SYSTEM_CORE_CLOCK);//1us,ATUclk=64M
+    ATU_OutputInitStruct.ATU_DeadBandTimeA = DEAD_TIME_COUNTS  //1us,ATUclk=64M
+    ATU_OutputInitStruct.ATU_DeadBandTimeB = DEAD_TIME_COUNTS;   //1us,ATUclk=64M
     ATU_OutputInit(ATU_PWMCHANNEL_0, &ATU_OutputInitStruct);
     ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
     ATU_OutputInitStruct.ATU_CompareValuexB = (ATU->TPR/2);
@@ -329,7 +331,7 @@ void ATU_Init_Config(int f_zv)
     /* Configuration trigger point */
     ATU_SetTrigger0(ATU_TRG0_POINT_UP, ATU_TRG0_AUTO_RELOAD, 1); //Trg0
     ATU_SetTrigger1(ATU_TRG1_POINT_UP, ATU_TRG1_AUTO_RELOAD, 1); //Trg1
-    ATU_SetTriggerDoubleDataB(ATU_TRGDB_POINT_UP, ATU_TRIGGER_DOUBLE_DATAB_AUTO_RELOAD, ((SYSTEM_CORE_CLOCK / f_zv)- 2)); //TrgB
+    ATU_SetTriggerDoubleDataB(ATU_TRGDB_POINT_UP, ATU_TRIGGER_DOUBLE_DATAB_AUTO_RELOAD, (((PWM_PERIOD_CYCLES/2))- 2)); //TrgB
     
     /* Enable PWM */
     ATU_PWMOutputCmd(ENABLE);
@@ -499,117 +501,6 @@ void SystemClock_Config(void)
     LL_RCC_SetADCClockSource(LL_RCC_ADC_CLKSOURCE_SYSCLK);
 }
 #endif
-/**
- * GPIO inital
- * IO口配置 ->power set..
-*/
-void MX_GPIO_Init(void){
-    GPIO_InitTypeDef GPIO_InitStructure;
-    RCC_AHBPeriphClockCmd(Button_En_GPIO_CLK|Button_SpeedIn_GPIO_CLK|Button_Dir_GPIO_CLK, ENABLE);
-    /* Configure Button pin as input */
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_InitStructure.GPIO_Pin = Button_En_GPIO_PIN;
-    GPIO_Init(Button_En_GPIO_PORT, &GPIO_InitStructure); 
-    GPIO_InitStructure.GPIO_Pin = Button_SpeedIn_GPIO_PIN;
-    GPIO_Init(Button_SpeedIn_GPIO_PORT, &GPIO_InitStructure); 
-    GPIO_InitStructure.GPIO_Pin = Button_Dir_GPIO_PIN;
-    GPIO_Init(Button_Dir_GPIO_PORT, &GPIO_InitStructure); 
-}
-
-/**
- * @brief TIM Initialization Function
- * @param None
- * @retval None
- */
-void MX_TIM_Init(void)
-{
-    /* USER CODE BEGIN TIM1_Init 0 */
-
-    /* USER CODE END TIM1_Init 0 */
-
-    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure = {0};
-    TIM_OCInitTypeDef  TIM_OCInitStructure={0};
-    GPIO_InitTypeDef GPIO_InitStructure={0};
-    /* Peripheral clock enable */
-    //LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM1);
-	RCC_AHBPeriphClockCmd(PHASE_A_GPIO_CLK|PHASE_B_GPIO_CLK|PHASE_C_GPIO_CLK, ENABLE);	
-    /* USER CODE BEGIN TIM1_Init 1 */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_3;	
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;	
-	GPIO_InitStructure.GPIO_Pin = PHASE_A_GPIO_PIN;
-	GPIO_Init(PHASE_A_GPIO_PORT, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = PHASE_B_GPIO_PIN;
-	GPIO_Init(PHASE_B_GPIO_PORT, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = PHASE_C_GPIO_PIN;
-	GPIO_Init(PHASE_C_GPIO_PORT, &GPIO_InitStructure);
-
-	GPIO_PinAFConfig(PHASE_A_GPIO_PORT, PHASE_A_GPIO_SOURCE, PHASE_A_GPIO_AF);
-	GPIO_PinAFConfig(PHASE_B_GPIO_PORT, PHASE_B_GPIO_SOURCE, PHASE_B_GPIO_AF);
-	GPIO_PinAFConfig(PHASE_C_GPIO_PORT, PHASE_C_GPIO_SOURCE, PHASE_C_GPIO_AF);
-    /* USER CODE END TIM1_Init 1 */
-    /* TIM1 clock enable */
-    RCC_APBPeriph2ClockCmd(RCC_APBPeriph2_TIM1, ENABLE);
-    //TIM_DeInit(TIM1);
-    //TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-    TIM_TimeBaseStructure.TIM_Prescaler = 0;
-    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_CenterAligned1;
-    TIM_TimeBaseStructure.TIM_Period = ((PWM_PERIOD_CYCLES) >> 1);
-    //TIM_TimeBaseStructure.Autoreload = 3000;
-    TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV2;
-    TIM_TimeBaseStructure.TIM_RepetitionCounter = (REP_COUNTER);
-    TIM_TimeBaseInit(TIM1, &TIM_TimeBaseStructure);
-    TIM_OCStructInit(&TIM_OCInitStructure);
-	/* Channel 1, 2,3 in PWM mode */
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1; 
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable; 
-	TIM_OCInitStructure.TIM_OutputNState = TIM_OutputNState_Disable;                  
-	TIM_OCInitStructure.TIM_Pulse = 0; //dummy value
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High; 
-	TIM_OCInitStructure.TIM_OCNPolarity = TIM_OCNPolarity_High;         
-	TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Reset;
-	TIM_OCInitStructure.TIM_OCNIdleState =TIM_OCNIdleState_Reset;  // LOW_SIDE_POLARITY;          
-
-	TIM_OC1Init(TIM1, &TIM_OCInitStructure); 
-	TIM_OC2Init(TIM1, &TIM_OCInitStructure);
-	TIM_OC3Init(TIM1, &TIM_OCInitStructure);
-	//TIM_OC4Init(TIM1, &TIM_OCInitStructure);
-
-	TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
-	TIM_OC2PreloadConfig(TIM1, TIM_OCPreload_Enable);
-	TIM_OC3PreloadConfig(TIM1, TIM_OCPreload_Enable);
-	TIM_OC4PreloadConfig(TIM1, TIM_OCPreload_Enable);
-
-	TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_OC4Ref);
-	TIM_OCStructInit(&TIM_OCInitStructure);
-	/* Channel 4 Configuration in OC */
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM2;  
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Disable;  //TIM_OutputState_Disable; 
-	TIM_OCInitStructure.TIM_OutputNState = TIM_OutputNState_Disable;                  
-	TIM_OCInitStructure.TIM_Pulse = (((PWM_PERIOD_CYCLES) >> 1) - (HTMIN));
-
-	TIM_OC4Init(TIM1, &TIM_OCInitStructure);
-    /* CC4 ENABLE */
-
-    TIM_CCxCmd(TIM1,ADC_TrigTIMCH,TIM_CCx_Enable);
-	/* CC4_TO_ADC_SELConfig  */
-    TIM_CC_TRIGADC(TIM1,ADC_TrigTIMCH, CC_TRIGADC_OCREF);
-    //TIM_BrakInputRemap(TIM1, TIM_Break_Remap_COMP1OUT);
-    /* TIM1 counter enable */
-    TIM_Cmd(TIM1, ENABLE);
-
-    RCC_APBPeriph1ClockCmd(RCC_APBPeriph1_TIM2, ENABLE);
-    TIM_TimeBaseStructure.TIM_Prescaler = 1;
-    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseStructure.TIM_Period = (SystemCoreClock/2/500)-1;   //500Hz freq 2ms once
-    TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-    TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
-    /* TIM Interrupts enable */
-    TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
-    TIM_Cmd(TIM2, ENABLE);
-}
 //关闭所有PWM
 void PWMC_OFFPWM(void){
     PHASE_A_duty(0);
@@ -645,99 +536,6 @@ void PWMC_ONPWM(void){
     Delay_ms(10);
     ADC_ClearITPendingBit(ADC, ADC_IT_EOSEQ);
     ADC_StartOfConversion(ADC);
-}
-
-/**
- * @brief ADC initial
- * @param   None
- * @retval  None
- * 采样电压 电流 两路霍尔的AD
-*/
-void MX_ADC_Init(void){
-    GPIO_InitTypeDef GPIO_InitStruct;
-    ADC_InitTypeDef ADC_InitStructure;
-	RCC_AHBPeriphClockCmd(Voltage_ADC_CLK|Hall_x_GPIO_CLK|Hall_y_GPIO_CLK, ENABLE);	
-      /* ADC Periph clock enable */
-    RCC_APBPeriph2ClockCmd(RCC_APBPeriph2_ADC, ENABLE);
-    /* USER CODE BEGIN TIM1_Init 1 */
-	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AN;
-    GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStruct.GPIO_Pin = Voltage_ADC_PIN;
-	GPIO_Init(Voltage_ADC_PORT, &GPIO_InitStruct);
-	GPIO_InitStruct.GPIO_Pin = Hall_x_GPIO_PIN;
-	GPIO_Init(Hall_x_GPIO_PORT, &GPIO_InitStruct);
-	GPIO_InitStruct.GPIO_Pin = Hall_y_GPIO_PIN;
-	GPIO_Init(Hall_y_GPIO_PORT, &GPIO_InitStruct);
-    //ADC_DeInit(ADC);
-    ADC_StructInit(&ADC_InitStructure);
-    ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
-    ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising;
-    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExtTrig;
-    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-    ADC_InitStructure.ADC_ScanDirection = ADC_ScanDirection_Upward;
-    ADC_Init(ADC, &ADC_InitStructure);
-    /* Convert the ADC1 Channel4 with 239.5 Cycles as sampling time */
-    // (sampletime+12.5)*ADC CLK
-    //ADC_ChannelConfig(ADC, Voltage_ADC_CH, ADC_SampleTime_1_5Cycles);
-    //ADC_ChannelConfig(ADC, Hall_x_CH, ADC_SampleTime_1_5Cycles);
-    ADC_ChannelConfig(ADC, Hall_y_CH|Hall_x_CH|Voltage_ADC_CH, ADC_SampleTime_1_5Cycles);   //ADC_SampleTime_1_5Cycles
-    /* Enable the ADC peripheral */
-    //ADC_ClearITPendingBit(ADC, ADC_IT_EOC);
-    //ADC_Cmd(ADC, ENABLE);
-}
-/**
- * @brief Hall initial
- * @param   None
- * @retval  None
- * 初始化霍尔? 初始化hall变量 XY 霍尔一阶值
-*/
-#ifdef HallfilterFirstEn
-void MX_Hall_init(int16_t xRaw,int16_t yRaw){
-    hallXft.alpha_diff = hallFilter;
-    hallXft.alpha_diff_addV = hallFilterV;
-    hallXft.alpha_diff_len = sizeof(hallFilter)/sizeof(int16_t);
-    hallXft.alpha_raw = hallX_alp_raw;
-    hallXft.alpha_min = hallX_alp_min;
-    hallXft.alpha_max = hallX_alp_max;
-    hallXft.filter = xRaw;
-    hallYft.alpha_diff = hallFilter;
-    hallYft.alpha_diff_addV = hallFilterV;
-    hallYft.alpha_diff_len = sizeof(hallFilter)/sizeof(int16_t);
-    hallYft.alpha_raw = hallY_alp_raw;
-    hallYft.alpha_min = hallY_alp_min;
-    hallYft.alpha_max = hallY_alp_max;
-    hallYft.filter = yRaw;
-    filterInit = 1;
-}
-#endif
-/**
- * @brief hall sample  Out filter value
- * @param xRaw 本次采样的Xhall
- * @param yRaw 本次采样的Yhall
- * 改为采样时候做滑动平均滤波
- * 
-*/
-HallXYs MX_Hall_Sample(uint16_t xRaw,uint16_t yRaw){
-    HallXYs hxy_t;
-    #ifdef HallfilterFirstEn
-    //#ifdef filterFirstOrder
-    //if(filterInit==0){
-    //    MX_Hall_init(xRaw,yRaw);
-    //    hxy_t.Hallx = hallXft.filter;
-    //    hxy_t.Hally = hallYft.filter;
-    //}else{
-    //    hxy_t.Hallx = firstOrderFilter(&hallXft,xRaw);
-    //    hxy_t.Hally = firstOrderFilter(&hallYft,yRaw);
-    //}
-    //#else
-    //hxy_t.Hallx = xRaw;
-    //hxy_t.Hally = yRaw;
-    //#endif
-    #else   //滑动平均滤波
-    hxy_t.Hallx = AvFilter(&avfilterHallX,xRaw);
-    hxy_t.Hally = AvFilter(&avfilterHallY,yRaw);
-    #endif
-	return hxy_t;
 }
 /**
  * @brief uart initial
@@ -847,218 +645,6 @@ void UartSendDatas(uint8_t *p, uint8_t len)
     {
     }
   }
-}
-/**
- * @brief debug output uartdata
- * 
- * 
-*/
-//void SendUartDebug(void){
-    //static uint8_t sendCountTime=0;
-    //uint8_t data[32];
-    //sendCountTime++;
-    //if(debugOutCount!=0){
-    //     if(debugOutCount<sendCountTime){
-    //        sendCountTime = 0;
-            //间隔时间到了可以正常发码
-    //UartSendDatas(data,instNum);    //发送数据
-
-    //    }
-    //    if(debugOutCount!=0xff)
-    //    debugOutCount--;
-    //}
-//}
-/***
- * @brief 获取串口调试信息 P/I/D
- * 
- * 
-*/
-void GetUartDebug(void){
-    uint8_t len = 0;
-    uint8_t data[32];
-    //if(Uart_t.FinishedFlag == SET){
-    //    Uart_t.FinishedFlag = RESET;
-    //    UartSendDatas(Uart_t.Data, Uart_t.Len);
-    //}
-    if((Uart_t.FinishedFlag == SET)&&(Uart_t.Data[0]==0xaa)&&(Uart_t.Data[Uart_t.Len-1]==0x55)){
-        //表示收到一帧完整信号解码调试内容
-            //
-            len = Uart_t.Data[1];   //指令数量  获取/设置 获取可以多个一次输出 设置设置一个?
-            //data[0] = 0xbb;
-            //data[1] = len;
-            uint8_t index = 0;
-            int16_t param = 0;
-            for(uint8_t i=0;i<len;i++){
-                switch(Uart_t.Data[i+2]){
-                    case GetGyroAngle:  //获取陀螺仪物理角度
-                        data[index++] = 0xbb;
-                        param = GetOriGyroA();
-                    break;
-                    case GetMecAngle:
-                        data[index++] = 0xaa;
-                        param = GetMecA();
-                    break;
-                    case GetElAngle:
-                        data[index++] = 0xcc;
-                        param = GetElA();
-                    break;
-                    case GetMecAngleAcc:
-                        data[index++] = 0xa1;
-                        param = GetAccA();
-                    break;
-                    case GetMecAngleGyro:
-                        data[index++] = 0xa2;
-                        param = GetGyroA();
-                    break;
-                    case GetMotorSpeed:
-                        data[index++] = 0xa0;
-                        param = GetSpeedRun();
-                    break;
-                    case GetTorq:
-                        data[index++] = 0xa3;
-                        param = GetTorque();
-                    break;
-                    case GetMHdir:  //获取马达和霍尔方向关系=1 同向 =0 反向
-                        data[index++] = 0xa4;
-                        param = fGetMHdir();
-                    break;
-                    case GetGyroMid:  //获取陀螺仪中点
-                        data[index++] = 0xa5;
-                        param = GetGyroZero();
-                    break;
-                    case SetPosPID_P:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetPosPIDKp(param);
-                        i += 2;
-                    break;
-                    case SetPosPID_I:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetPosPIDKi(param);
-                        i += 2;
-                    break;
-                    case SetPosPID_D:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetPosPIDKd(param);
-                        i += 2;
-                    break;
-                    case SetSpeedPID_P:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetSpeedPIDKp(param);
-                        i += 2;
-                    break;
-                    case SetSpeedPID_I:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetSpeedPIDKi(param);
-                        i += 2;
-                    break;
-                    case SetSpeedPID_D:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetSpeedPIDKd(param);
-                        i += 2;
-                    break;
-                    case SetPIDInt: //设置PID调整间隔
-                        param = (int8_t)Uart_t.Data[i+3];
-                        SetSPIDInterval(param);
-                        i += 1;
-                    break;
-                    case SetDead_Err:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetDeadErr(param);
-                        i += 2;
-                    break;
-                    case SetPosLoopCount:
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        SetPosLoopInv(param);
-                        i += 2;
-                    break;
-                    case SetGyroMid:    //设置陀螺仪中点
-                        param = ((int16_t)Uart_t.Data[i+3]<<8)|((int16_t)Uart_t.Data[i+4]);
-                        fSetGyroInitMid(param);
-                        i += 2;
-                    break;
-                }
-                data[index++] = (uint8_t)((param>>8)&0xff);
-                if(index>31)
-                    break;
-                data[index++] = (uint8_t)((param)&0xff);
-                if(index>31)
-                    break;
-            }
-            //index=0;
-            //data[index++] = 0xaa;
-            //param = GetSpeedRun();
-            //data[index++] = (uint8_t)((param>>8)&0xff);
-            //data[index++] = (uint8_t)((param)&0xff);
-            //param = GetTorque();
-            //data[index++] = (uint8_t)((param>>8)&0xff);
-            //data[index++] = (uint8_t)((param)&0xff);
-            UartSendDatas(data,index);
-        Uart_t.FinishedFlag = RESET;
-    }
-}
-/**
- * 发送串口启动
- * 
-*/
-void sendstart(void){
-    uint8_t data[3];
-    uint8_t index = 3;
-    data[0] = 0xaa;
-    data[1] = 0x0;
-    data[2] = 0x55;
-    UartSendDatas(data,index);
-}
-/**
-  * @brief  Configure SWDIO pin to GPIO function
-  * @param  None
-  * @retval None
-  */
-void SWD_Pin_To_PB5_PD5_Configuration(void)
-{
-  GPIO_InitTypeDef GPIO_InitStructure;
-
-  /* Enable IOMUX clock */
-  RCC_APBPeriph1ClockCmd(RCC_APBPeriph1_IOMUX, ENABLE);
-
-  /* Enable GPIOB adn GPIOD clock */
-  RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
-  RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOD, ENABLE);
-
-  /* Configure SWDIO to PD5 */
-#if defined (HK32F0301MJ4M7C) /* for SOP8 - PIN8*/
-  GPIO_IOMUX_ChangePin(IOMUX_PIN8, IOMUX_PD5_SEL_PD5);
-#elif defined (HK32F0301MD4P7C) /*for TSSOP16 - PIN 15*/
-  GPIO_IOMUX_ChangePin(IOMUX_PIN15, IOMUX_PD5_SEL_PD5);
-#elif defined (HK32G003F4P7) /* for TSSOP20 - PIN 2 */
-  GPIO_IOMUX_ChangePin(IOMUX_PIN2, IOMUX_PD5_SEL_PD5);
-#elif defined (HK32F0301MF4N7C)  /* for QFN20 - PIN19*/
-  GPIO_IOMUX_ChangePin(IOMUX_PIN19, IOMUX_PD5_SEL_PD5);
-#endif
-
-  /* Configure SWCLK to PB5 */
-#if defined (HK32F0301MJ4M7C) /* for SOP8 - PIN5*/
-  GPIO_IOMUX_ChangePin(IOMUX_PIN5, IOMUX_PB5_SEL_PB5);
-#elif defined (HK32F0301MD4P7C) /*for TSSOP16 - PIN 9*/
-  GPIO_IOMUX_ChangePin(IOMUX_PIN9, IOMUX_PB5_SEL_PB5);
-#elif defined (HK32G003F4P7) /* for TSSOP20 - PIN 11 */
-  GPIO_IOMUX_ChangePin(IOMUX_PIN11, IOMUX_PB5_SEL_PB5);
-#elif defined (HK32F0301MF4N7C)  /* for QFN20 - PIN8*/
-  GPIO_IOMUX_ChangePin(IOMUX_PIN8, IOMUX_PB5_SEL_PB5);
-#endif
-
-  GPIO_SetBits(UartTX_PORT,UartTX_PIN);
-  GPIO_InitStructure.GPIO_Pin = UartTX_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(UartTX_PORT, &GPIO_InitStructure);
-  GPIO_SetBits(UartTX_PORT,UartTX_PIN);
-
-  GPIO_InitStructure.GPIO_Pin = UartRX_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_Init(UartRX_PORT, &GPIO_InitStructure);
 }
 /**
  * 

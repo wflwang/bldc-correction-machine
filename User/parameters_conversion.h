@@ -89,12 +89,12 @@
 #define TW_AFTER                       ((uint16_t)(((DEADTIME_NS+MAX_TNTR_NS)*ADV_TIM_CLK_MHz)/1000ul))
 
 /*************** PI divisor  ***************/
-#define SP_KPDIV_LOG LOG2(128)
-#define SP_KIDIV_LOG LOG2(16384)
-#define SP_KDDIV_LOG LOG2(16)
-#define TF_KPDIV_LOG LOG2(16384)
-#define TF_KIDIV_LOG LOG2(16384)
-#define TF_KDDIV_LOG LOG2(8192)
+#define SP_KPDIV_LOG LOG2(SP_KPDIV)
+#define SP_KIDIV_LOG LOG2(SP_KIDIV)
+#define SP_KDDIV_LOG LOG2(SP_KDDIV)
+#define TF_KPDIV_LOG LOG2(TF_KPDIV)
+#define TF_KIDIV_LOG LOG2(TF_KIDIV)
+#define TF_KDDIV_LOG LOG2(TF_KDDIV)
 
 /* USER CODE BEGIN virtual temperature */
 #define M1_TEMP_SW_FILTER_BW_FACTOR    250u

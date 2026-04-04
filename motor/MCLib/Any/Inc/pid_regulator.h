@@ -34,6 +34,7 @@
   */
 typedef struct PID_Handle
 {
+  int16_t   hCompensation;      //PID feed back  前馈补偿
   int16_t   hDefKpGain;           /**< Default @f$K_{pg}@f$ gain */
   int16_t   hDefKiGain;           /**< Default @f$K_{ig}@f$ gain */
   int16_t   hKpGain;              /**< @f$K_{pg}@f$ gain used by PID component */
@@ -84,6 +85,7 @@ typedef struct PID_Handle
                                        must be 9 as 2^9 = 512 */
   int32_t   wPrevProcessVarError; /*!< previous process variable used by the
                                        derivative part of the PID component */
+  int32_t   wLPrevProcessVarError; //last d
 } PID_Handle_t;
 
 /*

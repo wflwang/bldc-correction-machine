@@ -161,6 +161,7 @@ typedef enum{
     ready_IAD = 2,     //电流AD准备好
     ready_HALL = 3,    //hall准备好
     ready_RUN = 4,     //电机准备好 可以运行了
+    Hall_fail,
     mc_under_voltage,  //欠压
     mc_over_voltage,   //过压
     mc_over_MotorTemp,   //马达过热
@@ -175,33 +176,34 @@ typedef enum{
  */
 typedef enum{
     hall_run = 0,               //hall 正常工作中
-    hall_null = 0xff,          //hall 不存在
-    hall_no_ready = 0x80,          //hall 没有校准
-    hall_learning = 1,          //hall 学习中
+    hall_null = 0x7f,          //hall 没有校准
+    hall_no_ready = 0x80,          //hall 失效
+    hall_learnStart = 1,          //hall 学习中
 }hall_state_t;
 
 //hall struct define
-typedef struct{
-    hall_state_t hallState;     //hall状态
-    bool angUpdate;     //hall角度更新了 可以用来更新最新角度了
-    uint8_t hall_val;       //当前hall位置指针 0-7
-    int16_t intTime;      //中断时间 ?*1/64us
-    int16_t m_ang_hall_int_prev;   //上次hall保存的角度
-    int16_t m_ang_hall_int_Next;   //下次hall预测的角度
-    int16_t anginc;    //每次中断变化的角度 相当于角速度*中断时间
-    int16_t hall_real_phase;    //hall实际使用的hall角度
-    int16_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
-    int16_t foc_hall_tableTemp[8];  //hall学习时候临时记录的表格 0-7
-    int16_t foc_hall_table[8];  //hall学习完成后正式使用的表格 0-7
-    int16_t hallFastLearnAng; //hall学习时候可以快速跳过的角度 增加学习效率
-    uint32_t m_ang60_intTime;   //60度时间
-}foc_hall_t;
+//typedef struct{
+//    hall_state_t hallState;     //hall状态
+//    bool angUpdate;     //hall角度更新了 可以用来更新最新角度了
+//    uint8_t hall_val;       //当前hall位置指针 0-7
+//    int16_t intTime;      //中断时间 ?*1/64us
+//    int16_t m_ang_hall_int_prev;   //上次hall保存的角度
+//    int16_t m_ang_hall_int_Next;   //下次hall预测的角度
+//    int16_t anginc;    //每次中断变化的角度 相当于角速度*中断时间
+//    int16_t hall_real_phase;    //hall实际使用的hall角度
+//    int16_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
+//    int16_t foc_hall_tableTemp[8];  //hall学习时候临时记录的表格 0-7
+//    int16_t foc_hall_table[8];  //hall学习完成后正式使用的表格 0-7
+//    int16_t hallFastLearnAng; //hall学习时候可以快速跳过的角度 增加学习效率
+//    uint32_t m_ang60_intTime;   //60度时间
+//}foc_hall_t;
 /**
   * @brief  FOC variables structure
   */
 typedef struct
 {
   bool duty_was_pi;   //bool duty_was_pi_last;   //上次是否是pi控制输出
+  mc_status_t status; //电机状态
   Curr_Components Iab;         /**< @brief Stator current on stator reference frame abc */
   Curr_Components Ialphabeta;  /**< @brief Stator current on stator reference frame alfa-beta*/
   Curr_Components IqdHF;       /**< @brief Stator current on stator reference frame alfa-beta*/
@@ -220,7 +222,7 @@ typedef struct
   CurrRefSource_t bDriveInput; /**< @brief It specifies whether the current reference source must be
                                  *         #INTERNAL or #EXTERNAL*/
   int16_t m_duty_cycle_set;    /**< @brief Duty cycle set value */
-  foc_hall_t foc_hall;         /**< @brief FOC variables related to hall sensor.*/
+  //foc_hall_t foc_hall;         /**< @brief FOC variables related to hall sensor.*/
   int32_t mc_MaxSpeed;          /**< @brief Mechanical speed in 0.1Hz unit. */
   int32_t m_duty_i_term;      //duty模式时候的积分值
   int32_t foc_duty_dowmramp_ki;   /**< @brief Integral term gain for duty cycle down ramp.*/

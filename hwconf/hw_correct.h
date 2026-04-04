@@ -150,6 +150,12 @@
 #define speechVol   7000      //  /32768
 
 
+#define HallCheckAddVd      10   //每次增加的vd
+#define HallCheckEndVd       7000   //hall开始校准的最大vd电压
+#define HallFastStep        10      //快速步进每次 + 10/65536
+#define HallSlowStep        1       //慢速步进每次 + 1/65536
+
+
 // Motor control limits
 #define HW_LIM_CURRENT -20.0, 20.0
 #define HW_LIM_CURRENT_ABS 0.0, 30.0

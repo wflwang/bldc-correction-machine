@@ -102,7 +102,7 @@
 #define PWM_FREQUENCY                        12000
                                              
 #define LOW_SIDE_SIGNALS_ENABLING            LS_PWM_TIMER
-#define SW_DEADTIME_NS                       1000 /*!< Dead-time to be inserted  
+#define SW_DEADTIME_NS                       700 /*!< Dead-time to be inserted  
                                                        by FW, only if low side 
                                                        signals are enabled */
 #define fw_pro    33    //前馈补偿的比例  ?*目标速度/128
@@ -110,25 +110,33 @@
 #define REGULATION_EXECUTION_RATE            1  /*!< FOC execution rate in number of PWM cycles */
 
 /* Gains values for torque and flux control loops */
-#define PID_TORQUE_KP_DEFAULT                1204
-#define PID_TORQUE_KI_DEFAULT                242
+#define PID_TORQUE_KP_DEFAULT                300   //1204
+#define PID_TORQUE_KI_DEFAULT                600   //242
                                              
-#define PID_FLUX_KP_DEFAULT                  1804
-#define PID_FLUX_KI_DEFAULT                  542
+#define PID_FLUX_KP_DEFAULT                  250   //1804
+#define PID_FLUX_KI_DEFAULT                  520   //542
+//弱磁时候开d轴弱磁PI控制 达到最高转速的85%的时候切换到更高的id PI
+#define PID_FLUX_KP_DEFAULT                  470   //1804
+#define PID_FLUX_KI_DEFAULT                  1000  //542
 
 /* Torque/Flux control loop gains dividers*/
 #define TF_KPDIV                             16384
 #define TF_KIDIV                             16384
+#define TF_KDDIV                             16384
 
 /* Speed control loop */
 #define SPEED_LOOP_FREQUENCY_HZ              1000   /*!< Execution rate of speed regulation loop (Hz) */
-#define PID_SPEED_KP_DEFAULT                 2212
-#define PID_SPEED_KI_DEFAULT                 451
+#define PID_SPEED_KP_DEFAULT                 620
+#define PID_SPEED_KI_DEFAULT                 3800
 #define PID_SPEED_KD_DEFAULT                 0
-                                             
+//高速时候切换到高速PID                                             
+#define PID_HSPEED_KP_DEFAULT                 400
+#define PID_HSPEED_KI_DEFAULT                 3800
+#define PID_HSPEED_KD_DEFAULT                 0
 /* Speed PID parameter dividers */           
 #define SP_KPDIV                             128
 #define SP_KIDIV                             16384
+#define SP_KDDIV                             8192
 
 /* Default settings */
 #define DEFAULT_CONTROL_MODE                 STC_SPEED_MODE /*!< STC_TORQUE_MODE or STC_SPEED_MODE */

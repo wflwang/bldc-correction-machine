@@ -360,7 +360,7 @@ int16_t PI_Controller( PID_Handle_t * pHandle, int32_t wProcessVarError )
              that Cortex-M3 assembly instruction ASR (arithmetic shift right)
              is used by the compiler to perform the shifts (instead of LSR
              logical shift right)*/
-  wOutput_32 = ( wProportional_Term >> pHandle->hKpDivisorPOW2 ) + ( pHandle->wIntegralTerm >> pHandle->hKiDivisorPOW2 );
+  wOutput_32 = ( wProportional_Term >> pHandle->hKpDivisorPOW2 ) + ( pHandle->wIntegralTerm >> pHandle->hKiDivisorPOW2 ) + + pHandle->hCompensation;
 #endif
 
   if ( wOutput_32 > hUpperOutputLimit )
@@ -377,12 +377,12 @@ int16_t PI_Controller( PID_Handle_t * pHandle, int32_t wProcessVarError )
   }
   else { /* Nothing to do here */ }
 
-  pHandle->wIntegralTerm += wDischarge;
+  pHandle->wIntegralTerm += wDischarge; //抗积分饱和 超过幅度回退
 
   return ( ( int16_t )( wOutput_32 ) );
 }
 
-#if 0
+#if 1
 #if defined (CCMRAM)
 #if defined (__ICCARM__)
 #pragma location = ".ccmram"
@@ -408,6 +408,8 @@ int16_t PID_Controller( PID_Handle_t * pHandle, int32_t wProcessVarError )
   if ( pHandle->hKdGain != 0 ) /* derivative terms not used */
   {
     wDeltaError = wProcessVarError - pHandle->wPrevProcessVarError;
+    pHandle->wLPrevProcessVarError += wDeltaError;
+    pHandle->wLPrevProcessVarError >>= 1;
     wDifferential_Term = pHandle->hKdGain * wDeltaError;
 
 #ifdef FULL_MISRA_C_COMPLIANCY

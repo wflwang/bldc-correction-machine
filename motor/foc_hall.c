@@ -21,15 +21,6 @@ static int16_t foc_hall_ang_Temptable[8] = {
 };
 
 //hall struct define
-/**
- * @brief get hall state
- * 
- * 
- */
-hall_state_t GetHallState(foc_hall_t * pHandle){
-    return pHandle->hallState;
-}
-
 
 /**
  * @brief hall IRQ
@@ -106,7 +97,7 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
         return; //不计算速度和时间
     }
     pHandle->hall_val = hall_val; //输出新的角度,主程序中可以知道角度的更新 方便映射电角度
-    nowEAngle = pHandle->hall_real_phase;   //获取当前电机的电角度
+    nowEAngle = pHandle->real_phase;   //获取当前电机的电角度
     //0 正常模式? 1,2,3,4,5,6,7(学习) 0xff(hall 没有学习过), 0xfe(hall 不存在)
     switch(pHandle->hallState){
         case hall_run: //正常模式
@@ -221,12 +212,12 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 }
             }
         break;
-        case 0xff:  //hall 没有学习过
+        case hall_null:  //hall 没有学习过
         break;
-        case 1: //学习后第一次触发到
-            lastHallEAngle = pHandle->hall_real_phase;   //获取当前电机的电角度
+        case hall_learnStart: //学习后第一次触发到
+            lastHallEAngle = pHandle->real_phase;   //获取当前电机的电角度
             pHandle->hallState++;
-            memset(pHandle->foc_hall_tableTemp,0,8);  //0-7
+            memset(foc_hall_ang_Temptable,0,8);  //0-7
         break;
         //正转2圈 反转2圈 共4次取平均
         default:    //第二次触发到开始记录 记录当前角度和相对上次变化的角度 推测下一个可能的角度
@@ -244,19 +235,19 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
             //}else if(ang_diff<-32768){
             //    ang_diff += 65536
             //}
-            //是下次hall 可以快速跳过的角度
-            pHandle->hallFastLearnAng = (int16_t)(((int32_t)ang_diff*200)>>8)+nowEAngle;    //下次快速更新到的角度 省去78%的慢速时间 剩余<3s 1ms变化一次
+            //是下次hall 可以快速跳过的角度 下次能快速到达的角度
+            pHandle->hallFastLearnAngDiff = (int16_t)(((int32_t)ang_diff*200)>>8);    //下次快速更新到的角度 省去78%的慢速时间 剩余<3s 1ms变化一次
             //记住当前角度
-            pHandle->foc_hall_tableTemp[hall_val] += nowEAngle;    //赋值当前角度
+            foc_hall_ang_Temptable[hall_val] += nowEAngle;    //赋值当前角度
             lastHallEAngle = nowEAngle;
             pHandle->hallState++;
             if(pHandle->hallState>26){
                 //4轮了 每个点有4轮角度数据 取平均
                 for(uint8_t i=0;i<8;i++){
-                    pHandle->foc_hall_table[i] = (pHandle->foc_hall_tableTemp[i]>>2);    //逐个更新hall table
+                    pHandle->foc_hall_table[i] = (foc_hall_ang_Temptable[i]>>2);    //逐个更新hall table
                 }
                 //结束hall学习
-                pHandle->m_ang_hall_int_prev = pHandle->foc_hall_tableTemp[hall_val]; //给最后校准的角度
+                pHandle->m_ang_hall_int_prev = pHandle->foc_hall_table[hall_val]; //给最后校准的角度
                 pHandle->m_ang60_intTime = MaxAng60IntTime;   //最长换相时间 后续基本插值无效
                 pHandle->anginc = 0;    //每次变化的角度
                 pHandle->angUpdate = true; 
@@ -334,6 +325,16 @@ void M_Hall_Init(foc_hall_t * pHandle){
     HTU_ITConfig(HTU_IT_SW | HTU_IT_ERR | HTU_IT_OVF, ENABLE);
     /* Enable PWM output and Start Counter */
     HTU_CounterCmd(ENABLE);
+}
+
+/**
+ * @brief 获取上次hall学习的角度误差
+ * 
+ * 
+*/
+int16_t GetLastLearnAngDiff(void){
+    int16_t ang_diff = pHandle->real_phase - lastHallEAngle; //上次角度 - 本次角度 = 角度的变化值
+    return ang_diff;
 }
 
 /**

@@ -31,7 +31,8 @@ int main(void) {
     //初始化IO口
     initCorePeripherals();
     //读取电机配置
-    conf_general_init();
+    GetMCConfig();
+    //conf_general_init();
     /* Reconfigure the SysTick interrupt to fire every 500 us. */
     //SysTick_Config(SystemCoreClock / SYS_TICK_FREQUENCY);
     //初始化电机

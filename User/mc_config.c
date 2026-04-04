@@ -40,6 +40,7 @@ PID_Handle_t PIDSpeedHandle_M1 =
 {
     .hDefKpGain          = (int16_t)PID_SPEED_KP_DEFAULT,
     .hDefKiGain          = (int16_t)PID_SPEED_KI_DEFAULT,
+    .hDefKdGain          = (int16_t)PID_SPEED_KD_DEFAULT,
     .wUpperIntegralLimit = (int32_t)IQMAX * (int32_t)SP_KIDIV,
     .wLowerIntegralLimit = -(int32_t)IQMAX * (int32_t)SP_KIDIV,
     .hUpperOutputLimit   = (int16_t)IQMAX,
@@ -48,9 +49,9 @@ PID_Handle_t PIDSpeedHandle_M1 =
     .hKiDivisor          = (uint16_t)SP_KIDIV,
     .hKpDivisorPOW2      = (uint16_t)SP_KPDIV_LOG,
     .hKiDivisorPOW2      = (uint16_t)SP_KIDIV_LOG,
-    .hDefKdGain          = 0x0000U,
-    .hKdDivisor          = 0x0000U,
-    .hKdDivisorPOW2      = 0x0000U,
+    .hKdDivisor          = (uint16_t)SP_KDDIV_LOG,
+    .hKdDivisorPOW2      = (uint16_t)SP_KDDIV_LOG,
+    .hCompensation      = 0,
 };
 
 /**
@@ -71,6 +72,7 @@ PID_Handle_t PIDIqHandle_M1 =
     .hDefKdGain          = 0x0000U,
     .hKdDivisor          = 0x0000U,
     .hKdDivisorPOW2      = 0x0000U,
+    .hCompensation      = 0,
 };
 
 /**
@@ -91,6 +93,7 @@ PID_Handle_t PIDIdHandle_M1 =
     .hDefKdGain          = 0x0000U,
     .hKdDivisor          = 0x0000U,
     .hKdDivisorPOW2      = 0x0000U,
+    .hCompensation      = 0,
 };
 
 /**
@@ -173,37 +176,26 @@ PWMC_R3_F0_Handle_t PWM_Handle_M1 =
 /**
   * @brief  SpeedNPosition sensor parameters Motor 1 - Base Class
   */
-foc_hall_t hall_t = {
-  .hallState = hall_null,
-  .angUpdate = false,
-  .intTime = PWM_PERIOD_CYCLES,
-  .anginc = 0,
-  .last_ang_diff = 0,
-}
-//HALL_Handle_t HALL_M1 =
-//{
-//    ._Super = {
-//        .bElToMecRatio                     =    POLE_PAIR_NUM,
-//        .hMaxReliableMecSpeed01Hz          =    (uint16_t)(1.15 * MAX_APPLICATION_SPEED / 6),
-//        .hMinReliableMecSpeed01Hz          =    (uint16_t)(MIN_APPLICATION_SPEED / 6),
-//        .bMaximumSpeedErrorsNumber         =    MEAS_ERRORS_BEFORE_FAULTS,
-//        .hMaxReliableMecAccel01HzP         =    65535,
-//        .hMeasurementFrequency             =    TF_REGULATION_RATE,
-//    },
-//    .SensorPlacement     = HALL_SENSORS_PLACEMENT,
-//    .PhaseShift          = (int16_t)(HALL_PHASE_SHIFT * 65536 / 360),
-//    .SpeedSamplingFreqHz = MEDIUM_FREQUENCY_TASK_RATE,
-//    .SpeedBufferSize     = HALL_AVERAGING_FIFO_DEPTH,
-//    .TIMClockFreq        = HALL_TIM_CLK,
-//    .TIMx                = HALL_TIM2,
-//
-//    .H1Port             =  M1_HALL_H1_GPIO_Port,
-//    .H1Pin              =  M1_HALL_H1_Pin,
-//    .H2Port             =  M1_HALL_H2_GPIO_Port,
-//    .H2Pin              =  M1_HALL_H2_Pin,
-//    .H3Port             =  M1_HALL_H3_GPIO_Port,
-//    .H3Pin              =  M1_HALL_H3_Pin,
-//};
+foc_hall_t HALL_M1 =
+{
+    ._Super = {
+        .bElToMecRatio                     =    POLE_PAIR_NUM,
+        //.hMaxReliableMecSpeed01Hz          =    (uint16_t)(1.15 * MAX_APPLICATION_SPEED / 6),
+        //.hMinReliableMecSpeed01Hz          =    (uint16_t)(MIN_APPLICATION_SPEED / 6),
+        //.bMaximumSpeedErrorsNumber         =    MEAS_ERRORS_BEFORE_FAULTS,
+        //.hMaxReliableMecAccel01HzP         =    65535,
+        //.hMeasurementFrequency             =    TF_REGULATION_RATE,
+    },
+    .hallState = hall_null,
+    .intTime = PWM_PERIOD_CYCLES,
+    .last_ang_diff = 0,
+    .I_feed = false,      //电流环跳过
+    .anginc = 0,
+    .angUpdate = false,
+    .foc_hall_table = foc_hall_ang_table,
+    //.hElAngle = 0,
+    .real_phase = 0,
+};
 
 /**
   * temperature sensor parameters Motor 1

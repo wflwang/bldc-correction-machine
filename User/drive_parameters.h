@@ -64,6 +64,7 @@
 #define RSHUNT                               0.005
 
 /*  ICSs gains in case of isolated current sensors, amplification gain for shunts based sensing */
+#define OPA_GAIN     PGA1_PGA_GAIN_12
 #define AMPLIFICATION_GAIN                   12.0 //3.2//5.18 
 //#define AMPLIFICATION_GAIN_IBUS              3.2
 
@@ -141,7 +142,7 @@
 /* Default settings */
 #define DEFAULT_CONTROL_MODE                 STC_SPEED_MODE /*!< STC_TORQUE_MODE or STC_SPEED_MODE */
 #define DEFAULT_TARGET_SPEED_RPM             1000
-#define DEFAULT_TORQUE_COMPONENT             4266
+#define DEFAULT_TORQUE_COMPONENT             0  //4266
 #define DEFAULT_FLUX_COMPONENT               0
 
 /**************************    FIRMWARE PROTECTIONS SECTION   *****************/

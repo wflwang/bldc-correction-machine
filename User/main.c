@@ -19,7 +19,7 @@ void SystemClock_Config(void) {
     RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);
     while (RCC_GetSYSCLKSource() != 0x04);
     
-    RCC_HCLKConfig(RCC_SYSCLK_Div1);
+    RCC_HCLKConfig(RCC_SYSCLK_Div1);    //64MHz
     RCC_PCLKConfig(RCC_HCLK_Div1);
 }
 

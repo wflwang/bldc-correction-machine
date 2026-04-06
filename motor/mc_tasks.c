@@ -339,7 +339,7 @@ void TSK_MediumFrequencyTaskM1(void)
         case START:
         {
             //这里要先检测一下 有没有校准hall 和 学习FOC参数 没有的话就先校准一下
-            if(FOCVars[bMotor].status == ready_RUN){    //没有电压问题
+            if((FOCVars[M1].status == ready_RUN)||(FOCVars[M1].status == motor_run)){    //没有电压问题
                 //待机模式才可以初始化hall 并开始校准
                 //if(GetHallState(&HALL_M1)==hall_run){  //获取hall状态
                     //hall 正常工作了 进入下一环节 开始FOC
@@ -516,7 +516,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                 }
             }else if((HALL_M1.hallState > hall_learnStart)&&(HALL_M1.hallState < 50)){
                 //hall 学习中达到了一次以上正确换相
-                if(GetLastLearnAngDiff()>HALL_M1.hallFastLearnAngDiff){
+                if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
                     //超过了 每次增加1级慢慢学习电角度
                     HALL_M1.real_phase += HallSlowStep;   //每次增加 1/65536度
                 }else{
@@ -531,6 +531,15 @@ void FOC_CalcCurrRef(uint8_t bMotor)
         //FOCVars[bMotor].hTeref = STC_CalcTorqueReference(pSTC[bMotor]);
         //FOCVars[bMotor].Iqdref.qI_Component1 = FOCVars[bMotor].hTeref;
     }
+}
+/**
+ * @brief 清除iqd值
+ * 
+ * 
+*/
+void clearRefIdq(void){
+    FOCVars[M1].Iqdref.qI_Component1 = 0;
+    FOCVars[M1].Iqdref.qI_Component2 = 0;
 }
 
 /**
@@ -735,51 +744,123 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
             HALL_M1.real_phase = HALL_M1.m_ang_hall_int_prev;    //真实相位
             HALL_M1.real_phase_Next = HALL_M1.m_ang_hall_int_Next; //下次相位
             HALL_M1.angUpdate = false;   //换相更新完成
-        }else{
-            int16_t minDec = HALL_M1.anginc >>3; 
-            if(minDec==0){
-                minDec = 1; //最小的幅度
-            }
-            HALL_M1.real_phase =  HALL_M1.real_phase + HALL_M1.anginc;    //真实相位
-            if(HALL_M1.anginc > 0)  // 正转
+        }
+        int16_t minDec = HALL_M1.anginc >>3; 
+        if(minDec==0){
+            minDec = 1; //最小的幅度
+        }
+        //min speed is 1*83us 5s-1 1min - 12erpm
+        HALL_M1.real_phase =  HALL_M1.real_phase + HALL_M1.anginc;    //真实相位
+        if(HALL_M1.anginc > 0)  // 正转
+        {   
+            //角度插值已经到了预测的下个角度 但是实际还没有触发下次角度
+            if(HALL_M1.real_phase > HALL_M1.real_phase_Next)
             {
-                if(HALL_M1.real_phase > HALL_M1.real_phase_Next)
-                {
-                    // 不让角度超过目标
-                    HALL_M1.real_phase = HALL_M1.real_phase_Next;  
-                    // 速度自动变小（衰减），防止超前太多
-                    // 下次以更小步距走，等待真实霍尔跳变
-                    HALL_M1.anginc -= minDec;  
-                    // 防止速度变成0，保持极小蠕动
-                    if(HALL_M1.anginc < 1){
-                        //达到下次换相点但是不换相,角度变化很慢了 此时要限制duty_set
-                        duty_set = (duty_set *7) >>3;   //87.5%
-                        if(duty_set < 10) duty_set = 10; // 最低限幅
-                        HALL_M1.anginc = 1;
-                    }
+                // 不让角度超过目标
+                HALL_M1.real_phase = HALL_M1.real_phase_Next;  
+                // 速度自动变小（衰减），防止超前太多
+                // 下次以更小步距走，等待真实霍尔跳变
+                HALL_M1.anginc -= minDec;  
+                // 防止速度变成0，保持极小蠕动  
+                if(HALL_M1.anginc < 1){
+                    //角度变化太慢了 要限制速度?
+                    //达到下次换相点但是不换相,角度变化很慢了 此时要限制duty_set
+                    //不减速处理
+                    //duty_set = (duty_set *7) >>3;   //87.5%
+                    //if(duty_set < 10) duty_set = 10; // 最低限幅
+                    HALL_M1.anginc = 1;
                 }
-            }else if(HALL_M1.anginc < 0){
-                if(HALL_M1.real_phase < HALL_M1.real_phase_Next)
-                {
-                    HALL_M1.real_phase = HALL_M1.real_phase_Next;
-                    // 反向速度衰减
-                    HALL_M1.anginc += minDec;
-                    if(HALL_M1.anginc > -1){
-                        duty_set = (duty_set *7) >>3;   //87.5%
-                        if(duty_set > -10) duty_set = -10;
-                        HALL_M1.anginc = -1;
-                    }
-                }
-            }else{
-                //没有角度增量 是停止了 此时duty要 = 0;
-                duty_set = 0;
             }
+        }else if(HALL_M1.anginc < 0){
+            if(HALL_M1.real_phase < HALL_M1.real_phase_Next)
+            {
+                HALL_M1.real_phase = HALL_M1.real_phase_Next;
+                // 反向速度衰减
+                HALL_M1.anginc += minDec;
+                if(HALL_M1.anginc > -1){
+                    //duty_set = (duty_set *7) >>3;   //87.5%
+                    //if(duty_set > -10) duty_set = -10;
+                    HALL_M1.anginc = -1;
+                }
+            }
+        }else{
+            //没有角度增量 是停止了 此时duty要 = 0;
+            //duty_set = 0; 时间太长 速度太慢 不插值
         }
     }   //其他模式角度由外部提供
     hElAngle = HALL_M1.real_phase;    //hall 算出来的真实角度
     //低速时候速度换直接vd vq控制  高速时候再切换到 电流控制闭环
     //hall 学习校准时候不用电流环 很低速时候不用电流环 无感启动时候也不用电流环
-    if(HALL_M1.hallState==hall_run){
+    speed = SPD_GetAvrgMecSpeed01Hz(pSTC[bMotor]->SPD);
+    if(GetMSpeechEN()){
+          static uint8_t phase = 0;
+          //static int16_t sine_table[4] = {0, 707, 1000, 707};  // 正弦波采样
+          ENC_KTH7823_M1.feed_v = 0;
+          phase = (phase + 1) & 0x07;  // 0-3循环
+          // 注入旋转的电压矢量，但平均转矩为0
+          int16_t amplitude = FOCVars[bMotor].Iqdref.qI_Component2;
+          // 在d-q坐标系中画圆
+          switch((phase)){
+                case 0:  // 0度
+                    Vqd.qV_Component1 = 0;
+                    Vqd.qV_Component2 = amplitude;
+                    break;
+                case 1: //45度
+                case 3:
+                case 5:
+                case 7:
+                    Vqd.qV_Component1 = amplitude>>1;
+                    Vqd.qV_Component2 = amplitude>>1;
+                    break;
+                case 2:  // 90度
+                    Vqd.qV_Component1 = amplitude;
+                    Vqd.qV_Component2 = 0;
+                    break;
+                case 4:  // 180度
+                    Vqd.qV_Component1 = 0;
+                    Vqd.qV_Component2 = -amplitude;
+                    break;
+                case 6:  // 270度
+                    Vqd.qV_Component1 = -amplitude;
+                    Vqd.qV_Component2 = 0;
+                    break;
+          }
+    }
+    else if((HALL_M1.hallState==hall_run)){  //
+        if(HALL_M1.I_feed == false){
+            //加入电流环
+            if((speed>IloopTrigH)||(speed<-IloopTrigH)){  //650 0x400 //0x300 //0x500
+              if(IScount>ISDelayT){
+                HALL_M1.I_feed = true;
+              }else{
+                IScount++;
+              }
+            }else{
+                if(HALL_M1.feed_v>0){
+                    HALL_M1.feed_v -= 2;
+                    if(HALL_M1.feed_v<0)
+                        HALL_M1.feed_v = 0;
+                }
+                if(IScount!=0)
+                    IScount--;
+            }
+        }else{
+            //舍弃电流环
+            if((speed<IloopTrigL)&&(speed>-IloopTrigL)){  //0x500
+              //ENC_KTH7823_M1.I_feed = false;
+              if(IScount==0){
+                HALL_M1.I_feed = false;
+              }else{
+                IScount--;
+              }
+            }else{
+                if(HALL_M1.feed_v<16384){
+                    HALL_M1.feed_v += 1;
+                }
+              if(IScount<ISDelayT)
+                IScount++;
+            }
+        }
         //电流环时候hall一定校准的了
         //hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
         Ialphabeta = MCM_Clarke(Iab);
@@ -788,6 +869,8 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                                           (int32_t)(FOCVars[bMotor].Iqdref.qI_Component1) - Iqd.qI_Component1);
         Vqd.qV_Component2 = PI_Controller(pPIDId[bMotor],
                                           (int32_t)(FOCVars[bMotor].Iqdref.qI_Component2) - Iqd.qI_Component2);
+        Vqd.qV_Component1 = (((Vqd.qV_Component1* HALL_M1.feed_v)>>14) + ((FOCVars[bMotor].Iqdref.qI_Component1*(16384-HALL_M1.feed_v))>>14));
+        Vqd.qV_Component2 = (((Vqd.qV_Component2* HALL_M1.feed_v)>>14) + ((FOCVars[bMotor].Iqdref.qI_Component2*(16384-HALL_M1.feed_v))>>14));
         #ifdef decodedqEm            //         解耦             
         //=====================================================================
         //  VESC 标准 d/q 交叉解耦（MXlemming 高速弱磁必加，角度更稳）
@@ -802,6 +885,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
         #endif
     }else{
+        HALL_M1.feed_v = 0; //舍弃电流环
         Vqd.qV_Component1 = FOCVars[bMotor].Iqdref.qI_Component1;
         Vqd.qV_Component2 = FOCVars[bMotor].Iqdref.qI_Component2;
     }
@@ -938,7 +1022,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
         }
         return; //如果电机还没有开始运行 就不检查安全了
     }else{
-        if(FOCVars[bMotor].status != ready_RUN)
+        if((FOCVars[bMotor].status != ready_RUN)&&(FOCVars[bMotor].status != motor_run))
             return;     //没有正常运行
         vBusx100 = GET_INPUT_VOLTAGE();     //获取VDD 的AD值
         UTILS_LPInt16_FAST(NowVBusx100, vBusx100, VBusFilterConstant);   //更新当前电压值 

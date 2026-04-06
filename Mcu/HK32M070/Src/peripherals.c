@@ -9,34 +9,10 @@
 #include "conf_general.h"
 #include "drive_parameters.h"
 #include "parameters_conversion.h"
+#include "main.h"
 
 
 static __IO uint32_t msTick=0;
-#ifdef HallfilterFirstEn
-static uint8_t filterInit=0;   //一阶滤波是否初始化完成
-#endif
-UartRxBufDef Uart_t;
-filter_t hallXft={0};
-filter_t hallYft={0};
-Avfilter_t avfilterHallX={0};
-Avfilter_t avfilterHallY={0};
-//static uint8_t instNum = 0;
-//static uint8_t debugOutCount=0; //输出调试计次
-//static uint8_t debugOutInterval=0;  //调试输出间隔时间   
-//霍尔滤波主要是过滤掉低频杂波和瞬间脉冲
-//hall 滤波表格
-const int16_t hallFilter[] = {
-    40,80,120,200,400,900
-};
-const int16_t hallFilterV[] = {
-    40,60,90,150,300,500,700
-};
-#define hallX_alp_raw   1000    //当前滤波系数
-#define hallX_alp_min   100    //当前滤波系数
-#define hallX_alp_max   65535    //当前滤波系数
-#define hallY_alp_raw   1000    //当前滤波系数
-#define hallY_alp_min   100    //当前滤波系数
-#define hallY_alp_max   65535    //当前滤波系数
 //extern FOC_Component FOC_Component_M1;
 //#include "targets.h"
 //extern void UART1_IRQHandler(void);
@@ -55,27 +31,18 @@ void initCorePeripherals(void){
     //init hall
     HTU_Init_Config();
     //设置tick time
-    SysTick_Config(SystemCoreClock /SYS_TICK_FREQUENCY);
+    //SysTick_Config(SystemCoreClock /SYS_TICK_FREQUENCY);
     //EE_Read();
     MX_GPIO_Init();
-	EE_ReadFOC(FOC_Component_M1.lc);   //读取存储的FOC 参数
-    //qmi8658x_init(GYPO_SDA_GPIO_PORT,GYPO_SDA_GPIO_PIN,GYPO_SCL_GPIO_PORT,GYPO_SCL_GPIO_PIN);
 
-    while(GetONOFF()==0){
-        //LEDG_Xor();
-        Delay_ms(1);
-		//readQmi8658b();	//读出参数	
-        fScanButton();   //扫描按键功能
-    }
-    //PowerEn_Write(0);
-		//EE_WriteFOC(&FOC_Component_M1.lc);
-    #ifdef cUartDebugEn
-    SWD_Pin_To_PB5_PD5_Configuration();
+    //while(GetONOFF()==0){
+    //    //LEDG_Xor();
+    //    Delay_ms(1);
+	//	//readQmi8658b();	//读出参数	
+    //    fScanButton();   //扫描按键功能
+    //}
     MX_Uart_Init();
-    #endif
-    MX_ADC_Init();
-    MX_TIM_Init();
-    MX_NVIC_init();
+    //MX_NVIC_init();
     //qmi8658x_init(GYPO_SDA_GPIO_PORT,GYPO_SDA_GPIO_PIN,GYPO_SCL_GPIO_PORT,GYPO_SCL_GPIO_PIN);
     //SysTick_Config(SystemCoreClock /SYS_TICK_FREQUENCY);
 }
@@ -128,7 +95,7 @@ void MY_PGA_Init(void)
     PGA_DeInit();
     
     /* PGA Software Calibration */
-    PGA_SW_Calibration(PGA1, PGA1_PGA_GAIN_12);
+    PGA_SW_Calibration(PGA1, OPA_GAIN);
     //PGA_SW_Calibration(PGA2, PGA1_PGA_GAIN_12);
     
     /* PGAx configured as follow*/
@@ -138,7 +105,7 @@ void MY_PGA_Init(void)
     PGA1_InitStruct.PGA1_PBInputSelect = PGA1_PB1; //PGA1_PA Select input from external pin PB1
     PGA1_InitStruct.PGA1_CHInputSelect = PGA1_InputSelectPANA; //PGA1 Input Select Group A(Handmode takes effect)
     PGA1_InitStruct.PSAMSelect = PGA1_PSAMSelectAuto; //Select the channel by ADC(Auto)
-    PGA1_InitStruct.PGA1_GAIN = PGA1_PGA_GAIN_12; //PGA_GAIN = 4
+    PGA1_InitStruct.PGA1_GAIN = OPA_GAIN; //PGA_GAIN = 4
     PGA2_InitStruct.PGA2_NInputSelect = PGA2_NInputSelectAVSS;  //PGA2_NInputSelectN1; //PGA_N Select N1
     PGA2_InitStruct.PGA2_PInputSelect = PGA2_PInputSelect_PGA1OUT;  //PGA2_PInputSelect_P1; //PGA_P Select P1
     PGA2_InitStruct.PGA2_GAIN = PGA2_PGA_GAIN_12; //PGA_GAIN = 4
@@ -167,7 +134,7 @@ void ADC_Init_Config(void)
     GPIO_InitTypeDef GPIO_InitStructure;
     Group_InitTypeDef Group_InitStructure;
     ADC_InitTypeDef ADC_InitStructure;
-    NVIC_InitTypeDef NVIC_InitStructure;
+    //NVIC_InitTypeDef NVIC_InitStructure;
     
     /* ADC GPIO Peripheral clock enable */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_ADC, ENABLE);
@@ -230,10 +197,10 @@ void ADC_Init_Config(void)
     
     /* Configuring ADC interrupts */
 //    ADC_ITConfig(ADC, ADC_IT_GROUPB0_FINISH, ENABLE);
-    NVIC_InitStructure.NVIC_IRQChannel = ADC_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
+    //NVIC_InitStructure.NVIC_IRQChannel = ADC_IRQn;
+    //NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
+    //NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    //NVIC_Init(&NVIC_InitStructure);
     
     /* Enable ADC */
     ADC_Cmd(ADC, ENABLE);
@@ -246,7 +213,7 @@ void ADC_Init_Config(void)
 void ATU_Init_Config(int f_zv)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
-    NVIC_InitTypeDef NVIC_InitStructure;
+    //NVIC_InitTypeDef NVIC_InitStructure;
     ATU_TimeBaseInitTypeDef ATU_TimeBaseInitStruct;
     ATU_OutputInitTypeDef ATU_OutputInitStruct;
     ATU_ProtectIFInitTypeDef ATU_ProtectIFInitStruct;
@@ -296,7 +263,7 @@ void ATU_Init_Config(int f_zv)
     ATU_OutputInitStruct.ATU_OutputMode = ATU_OUTPUT_COMPLEMENTARY_PWM;
     ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
     ATU_OutputInitStruct.ATU_CompareValuexB = (ATU->TPR/2);
-    ATU_OutputInitStruct.ATU_DeadBandTimeA = DEAD_TIME_COUNTS  //1us,ATUclk=64M
+    ATU_OutputInitStruct.ATU_DeadBandTimeA = DEAD_TIME_COUNTS;  //1us,ATUclk=64M
     ATU_OutputInitStruct.ATU_DeadBandTimeB = DEAD_TIME_COUNTS;   //1us,ATUclk=64M
     ATU_OutputInit(ATU_PWMCHANNEL_0, &ATU_OutputInitStruct);
     ATU_OutputInitStruct.ATU_CompareValuexA = (ATU->TPR/2);
@@ -348,7 +315,7 @@ void HTU_Init_Config(void)
 {
     HTU_TimeBaseInitTypeDef HTU_TimeBaseInitStruct;
     GPIO_InitTypeDef  GPIO_InitStructure;
-    NVIC_InitTypeDef NVIC_InitStruct;
+    //NVIC_InitTypeDef NVIC_InitStruct;
     
     /* HTU Peripheral clock enable */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_HTU1, ENABLE);
@@ -386,10 +353,10 @@ void HTU_Init_Config(void)
     //HTU_ITConfig(HTU_IT_SW | HTU_IT_ERR | HTU_IT_OVF, ENABLE);
 
     /* Initializes the NVIC peripheral */
-    NVIC_InitStruct.NVIC_IRQChannel = HTU_IRQn;
-    NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_InitStruct.NVIC_IRQChannelPriority = 2;
-    NVIC_Init(&NVIC_InitStruct);
+    //NVIC_InitStruct.NVIC_IRQChannel = HTU_IRQn;
+    //NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+    //NVIC_InitStruct.NVIC_IRQChannelPriority = 2;
+    //NVIC_Init(&NVIC_InitStruct);
     //使能中断
     /* Enable PWM output and Start Counter */
     //HTU_CounterCmd(ENABLE);    
@@ -501,6 +468,7 @@ void SystemClock_Config(void)
     LL_RCC_SetADCClockSource(LL_RCC_ADC_CLKSOURCE_SYSCLK);
 }
 #endif
+#if 0
 //关闭所有PWM
 void PWMC_OFFPWM(void){
     PHASE_A_duty(0);
@@ -537,6 +505,7 @@ void PWMC_ONPWM(void){
     ADC_ClearITPendingBit(ADC, ADC_IT_EOSEQ);
     ADC_StartOfConversion(ADC);
 }
+#endif
 /**
  * @brief uart initial
  * @param   None
@@ -682,12 +651,133 @@ void delay_us(uint16_t us_x10)
     }
 }
 /**
+  * @brief  UTU IC Port configuration
+  * @param  None
+  * @retval None
+  */
+static void UTU_GPIOInit(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    /* Enable GPIO clock */
+    RCC_AHBPeriphClockCmd(AHPSrc, ENABLE);
+
+    GPIO_StructInit(&GPIO_InitStructure);
+
+//#if (TEST_UTU_IO == TEST_UTU_IOA)
+
+    /* Config AF for Utu IOA */
+    GPIO_PinAFConfig(UTU_IOA_PORT, UTU_IOA_PIN_SRC, UTU_IOA_AF);
+
+    /* Configure IOA & IOB as alternate function push-pull */
+    GPIO_InitStructure.GPIO_Pin = UTU_IOA_PIN;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+    GPIO_Init(UTU_IOA_PORT, &GPIO_InitStructure);
+//#else
+//
+//    /* Config AF for Utu IOB */
+//    GPIO_PinAFConfig(UTU_IOB_PORT, UTU_IOB_PIN_SRC, UTU_IOB_AF);
+//
+//    /* Configure IOA & IOB as alternate function push-pull */
+//    GPIO_InitStructure.GPIO_Pin = UTU_IOB_PIN;
+//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+//    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+//    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+//    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+//    GPIO_Init(UTU_IOA_PORT, &GPIO_InitStructure);
+//#endif
+}
+/**
+  * @brief  UTU configuration
+  * @param  None
+  * @retval None
+  */
+static void UTU_Config(void)
+{
+    UTU_TimeBaseInitTypeDef UTU_timeBaseCfg;
+    UTU_ICInitTypeDef UTU_ICCfg;
+
+    /* config io-port for ICA & ICB */
+    UTU_GPIOInit();
+
+    /* Enable UTU clock */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_UTU1, ENABLE);
+
+    /* config time base */
+    UTU_TimeBaseStructInit(&UTU_timeBaseCfg);   //1/64us once
+    UTU_timeBaseCfg.UTU_Prescaler = UTU_CKD_DIV64;    // 不分频
+    //UTU_timeBaseCfg.UTU_PeriodMode = UTU_CounterMode_Up;
+    UTU_timeBaseCfg.UTU_Period = 0xFFFFFF; // 最大计数1/64
+    UTU_TimeBaseInit(UTU1, &UTU_timeBaseCfg);
+
+    /* config IC struct */
+    UTU_ICStructInit(&UTU_ICCfg);
+
+//#if (TEST_UTU_IO == TEST_UTU_IOA)
+//#else
+//    UTU_ICCfg.UTU_ICSelection = UTU_ICSelection_IO_OTHER; /* select IOB as input */
+//#endif
+
+    //UTU_ICCfg.UTU_Channel = UTU_CHANNEL_A;
+    /* config for ICA capture rising-edge */
+   // UTU_ICCfg.UTU_ClrCnt = UTU_IC_CNT_Clr;
+   // UTU_ICCfg.UTU_ICPolarity = UTU_ICPolarity_Rising;
+   // UTU_ICInit(UTU1, &UTU_ICCfg);
+
+    /* set filter */
+    UTU_ICCfg.UTU_ICFilter = 0x04;
+
+    /* config for ICB  capture falling-edge */
+    //UTU_ICCfg.UTU_ICSelection = 0;
+    UTU_ICCfg.UTU_Channel = UTU_CHANNEL_A;
+    UTU_ICCfg.UTU_ICPolarity = UTU_ICPolarity_BothEdge; //UTU_ICPolarity_Falling;
+
+//#if (TEST_UTU_IO == TEST_UTU_IOA)
+//    UTU_ICCfg.UTU_ICSelection = UTU_ICSelection_IO_OTHER; /* select IOB as input */
+//#else
+    UTU_ICCfg.UTU_ICSelection = UTU_ICSelection_IO_SELF; /* select IOA as input */
+//#endif
+
+    UTU_ICCfg.UTU_ClrCnt = UTU_IC_CNT_Clr; /* 0 */
+    UTU_ICInit(UTU1, &UTU_ICCfg);
+
+    /* UTU NVIC configuration*/
+    //NVIC_Config();
+
+
+    /* config UTU interrupt */
+    //UTU_ITConfig(TARGET_UTU, (UTU_IT_UCRA | UTU_IT_UCFB), ENABLE);
+    UTU_ITConfig(UTU1, (UTU_IT_UCRA), ENABLE);
+
+    /* Enable Timer */
+    //UTU_Cmd(UTU2, ENABLE);
+
+}
+/**
   * @brief NVIC Configuration.
   * @retval None
   */
 void MX_NVIC_init(void)
 {
-    NVIC_InitTypeDef NVIC_InitStruct;
+    NVIC_InitTypeDef NVIC_InitStructure;
+
+    NVIC_InitStructure.NVIC_IRQChannel = ADC_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    NVIC_InitStructure.NVIC_IRQChannel = HTU_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 2;
+    NVIC_Init(&NVIC_InitStruct);
+
+    NVIC_InitStructure.NVIC_IRQChannel = UTU1_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 3;
+    NVIC_Init(&NVIC_InitStruct);
     /* TIM1_BRK_UP_TRG_COM_IRQn interrupt configuration */
     //NVIC_InitStruct.NVIC_IRQChannel=TIM1_IRQn;
     //NVIC_InitStruct.NVIC_IRQChannelPriority = 1;  //0;
@@ -699,14 +789,14 @@ void MX_NVIC_init(void)
     //NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;	
     //NVIC_Init(&NVIC_InitStruct);	
     /* ADC interrupt configuration */
-    NVIC_InitStruct.NVIC_IRQChannel=ADC1_IRQn;
-    NVIC_InitStruct.NVIC_IRQChannelPriority = 0;
-    NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;		
-    NVIC_Init(&NVIC_InitStruct);
-    NVIC_InitStruct.NVIC_IRQChannel=TIM2_IRQn;
-    NVIC_InitStruct.NVIC_IRQChannelPriority = 1;  //0;
-    NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;	
-    NVIC_Init(&NVIC_InitStruct);
+    //NVIC_InitStruct.NVIC_IRQChannel=ADC1_IRQn;
+    //NVIC_InitStruct.NVIC_IRQChannelPriority = 0;
+    //NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;		
+    //NVIC_Init(&NVIC_InitStruct);
+    //NVIC_InitStruct.NVIC_IRQChannel=TIM2_IRQn;
+    //NVIC_InitStruct.NVIC_IRQChannelPriority = 1;  //0;
+    //NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;	
+    //NVIC_Init(&NVIC_InitStruct);
     /* UART1 IRQ Channel configuration */
     #ifdef cUartDebugEn
     NVIC_InitStruct.NVIC_IRQChannel = UART1_IRQn;

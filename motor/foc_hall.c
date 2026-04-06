@@ -107,7 +107,7 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 //上次是否角度不正常 不正常直接赋值正常角度
                 //从误差过来计算角速度时间默认最大
                 //motor->angWspeed = MaxAngWSpeed; //第一次默认角速度时间最长? 基本没有补偿
-                pHandle->anginc = 0;    //每次变化的角度
+                pHandle->anginc = 0;    //每次变化的角度 超时不插值处理
                 pHandle->m_ang60_intTime = 0;   //当前60度时间无效
                 m_ang60_intTime = 0;    //重新更新下一次时间
                 pHandle->m_ang_hall_int_prev  = ang_hall_int; //更新角度
@@ -181,17 +181,18 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     if(abs_ang_diff>hEdegree80){    //>80度 认为只变化80度
                         //本次角度变化过大 限制更新角度 本次误差如果>80度 可能是上次60度变化丢失了 duty限制要降下来
                         pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree80); 
-                        m_ang60_intTime = 0;    //重新更新下一次时间
                     }else if(abs_ang_diff<hEdegree40){  //<40度 直接认为变化60度吗？
                         pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree60); 
-                        m_ang60_intTime = 0;    //重新更新下一次时间
                     }else{
                         pHandle->m_ang_hall_int_prev += ang_diff; //正常更新角度
-                        m_ang60_intTime = 0;    //重新更新下一次时间
                     }
+                    pHandle->m_ang60_intTime = m_ang60_intTime; //更新时间
+                    m_ang60_intTime = 0;    //重新更新下一次时间
                     pHandle->last_ang_diff = ang_diff;    //更新误差 主要是更新误差方向
                     //中断每次增加的角度 *中断时间(单位1/64us) = 每次增加的角度 更新插值大小
-                    pHandle->anginc = pHandle->last_ang_diff * pHandle->intTime / pHandle->m_ang60_intTime;  //每次变化的角度
+                    //计算当前速度下 中断需要补偿的角度
+                    int32_t tmp = (int32_t)pHandle->last_ang_diff * (int32_t)pHandle->intTime * Kpdiff;
+                    pHandle->anginc = tmp / pHandle->m_ang60_intTime;  //每次变化的角度
                     pHandle->angUpdate = true;   //中断允许更新最新角度了 中断中清除
                     //if(ang_diff>0){
                     //    //误差变大
@@ -238,7 +239,7 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
             //是下次hall 可以快速跳过的角度 下次能快速到达的角度
             pHandle->hallFastLearnAngDiff = (int16_t)(((int32_t)ang_diff*200)>>8);    //下次快速更新到的角度 省去78%的慢速时间 剩余<3s 1ms变化一次
             //记住当前角度
-            foc_hall_ang_Temptable[hall_val] += nowEAngle;    //赋值当前角度
+            foc_hall_ang_Temptable[hall_val] += nowEAngle;    //赋值当前电角度
             lastHallEAngle = nowEAngle;
             pHandle->hallState++;
             if(pHandle->hallState>26){
@@ -247,11 +248,12 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     pHandle->foc_hall_table[i] = (foc_hall_ang_Temptable[i]>>2);    //逐个更新hall table
                 }
                 //结束hall学习
-                pHandle->m_ang_hall_int_prev = pHandle->foc_hall_table[hall_val]; //给最后校准的角度
+                pHandle->m_ang_hall_int_prev = nowEAngle; //给最后校准的角度
                 pHandle->m_ang60_intTime = MaxAng60IntTime;   //最长换相时间 后续基本插值无效
-                pHandle->anginc = 0;    //每次变化的角度
+                pHandle->anginc = 0;    //每次变化的角度  不插值处理
+                clearRefIdq();  //清除iqd 电流
                 pHandle->angUpdate = true; 
-                pHandle->hallState = 0; //进入正常模式
+                pHandle->hallState = hall_run; //进入正常模式
             }
         break;
     }
@@ -332,7 +334,7 @@ void M_Hall_Init(foc_hall_t * pHandle){
  * 
  * 
 */
-int16_t GetLastLearnAngDiff(void){
+int16_t GetLastLearnAngDiff(foc_hall_t * pHandle){
     int16_t ang_diff = pHandle->real_phase - lastHallEAngle; //上次角度 - 本次角度 = 角度的变化值
     return ang_diff;
 }

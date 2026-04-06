@@ -68,8 +68,17 @@
 #define PWMIO_PB15      ATU_PWM_REMAP_SOURCE_TIO0A
 
 // Direction pin
-#define HW_DIR_PORT GPIOB
-#define HW_DIR_PIN GPIO_Pin_3
+#define HW_DIR_PORT GPIOA
+#define HW_DIR_PIN GPIO_Pin_13
+#define HW_En_PORT GPIOA
+#define HW_En_PIN GPIO_Pin_11
+
+
+#define AHPSrc          RCC_AHBPeriph_GPIOA
+#define UTU_IOA_PORT    GPIOA
+#define UTU_IOA_PIN     GPIO_Pin_12
+#define UTU_IOA_PIN_SRC GPIO_PinSource12
+#define UTU_IOA_AF  GPIO_AF_2
 
 // Read Hall sensor functions
 #define READ_HALL1() GPIO_ReadInputDataBit(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1)
@@ -149,11 +158,17 @@
 //发声时候的音量
 #define speechVol   7000      //  /32768
 
+#define Kpdiff      1   //和固定放大倍数 方便放大整个数据 防止数据过小时候全是0
+
 
 #define HallCheckAddVd      10   //每次增加的vd
 #define HallCheckEndVd       7000   //hall开始校准的最大vd电压
 #define HallFastStep        10      //快速步进每次 + 10/65536
 #define HallSlowStep        1       //慢速步进每次 + 1/65536
+
+
+#define IloopTrigH      500     //切入电流环的速度
+#define IloopTrigL      200     //切回无电流环的速度
 
 
 // Motor control limits

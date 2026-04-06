@@ -160,7 +160,8 @@ typedef enum{
     ready_VDDAD = 1,   //电压AD准备好
     ready_IAD = 2,     //电流AD准备好
     ready_HALL = 3,    //hall准备好
-    ready_RUN = 4,     //电机准备好 可以运行了
+    ready_RUN = 4,     //电机准备好 可以运行了 电机待机中
+    motor_run = 5,  //电机运行中
     Hall_fail,
     mc_under_voltage,  //欠压
     mc_over_voltage,   //过压

@@ -16,13 +16,13 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "hk32m07x_conf.h"
-//#include "hk32m07x_valid.h"
+#include "hk32m07x_valid.h"
 
 #define M1_VR_VOLTAGE_ADC_RESULT_REG   (ADC->ADDR2B)
 #define M1_BUS_VOLTAGE_ADC_RESULT_REG  (ADC->ADDR3B)
 #define M1_TEMPERATURE_ADC_RESULT_REG  (ADC->ADDR4B)
 
-//ATU PWMÊä³öÅäÖÃ
+//ATU PWMï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 #define PWMIO_PB10      ATU_PWM_REMAP_SOURCE_TIO2A
 #define PWMIO_PB11      ATU_PWM_REMAP_SOURCE_TIO2B
 #define PWMIO_PB12      ATU_PWM_REMAP_SOURCE_TIO1A

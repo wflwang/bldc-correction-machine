@@ -519,6 +519,7 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
         if(ErrorStopCount>180){
           ErrorStopCount = 181;
           hError = 0;
+          //目标不动误差小于阈值超过一定时间认为完全停止了 此时认为电机停止了
           //lastError = 0;
           if(pHandle->PISpeed->wIntegralTerm>0){
             pHandle->PISpeed->wIntegralTerm -= 30;  //8;

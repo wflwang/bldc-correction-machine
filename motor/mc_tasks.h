@@ -51,6 +51,7 @@ void GetMCConfig(void);     //flash读取motor
 
  /* Locks GPIO pins used for Motor Control to prevent accidental reconfiguration */
 void mc_lock_pins (void);
+void clearRefIdq(void);
 /**
   * @}
   */

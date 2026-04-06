@@ -12,6 +12,14 @@
 #include "hk32m07x.h"
 #include "main.h"
 
+
+#define PPMMinLimit 700
+#define PPMMaxLimit 2300
+
+
+#define duplex  //开启双向模式
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -43,6 +51,11 @@ typedef struct{
     app_PPM_t app_PPM;
 }app_config_t;
 
+
+
+int16_t GetPPMValue(void);
+bool GetPWMLost(void);
+uint32_t GetPPMHTime(void);
 
 
 

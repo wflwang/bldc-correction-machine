@@ -15,7 +15,7 @@
 #include "speed_pos_fdbk.h"
 #include "speed_torq_ctrl.h"
 #include "virtual_speed_sensor.h"
-#include <cstdint>
+//#include <cstdint>
 
 //24bit = 262ms
 #define MaxAng60IntTime 0x4000000uL   //60度时间默认最大值 65536*8us=524ms 认为是堵转了

@@ -20,11 +20,13 @@
 #include "mc_type.h"
 #include "mc_tasks.h"
 #include "hw_correct.h"
+#include "drive_parameters.h"
+#include "mc_type.h"
 
 #define CHECK_BOUNDARY
 
-static int speedcount=0;  //出发目标速度计数
-static int speedNum=0;  //记低速出发次数
+//static int speedcount=0;  //出发目标速度计数
+//static int speedNum=0;  //记低速出发次数
 static int ErrorStopCount=0;  //累计大于误差的次数
 //static int32_t MinErrS = cMinErrH;
 static int LhError=0;
@@ -586,7 +588,7 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
       }else{
         //targetLimitIq = IQMAX - (speed_abs-SpeedLimit_MIN_NIq_TH)*(IQMAX-IQBrakelimit)/(SpeedLimit_MAX_NIq_TH-SpeedLimit_MIN_NIq_TH)
         int32_t speed_diff = speed_abs - SpeedLimit_MIN_NIq_TH;
-        int32_t iq_range = CurrentInt16(DefaultMaxBrakeCurrent); - CurrentInt16(DefaultMinBrakeCurrent);;
+        int32_t iq_range = CurrentInt16(DefaultMaxBrakeCurrent) - CurrentInt16(DefaultMinBrakeCurrent);
         int32_t speed_range = SpeedLimit_MAX_NIq_TH - SpeedLimit_MIN_NIq_TH;
         targetLimitIq = CurrentInt16(DefaultMaxBrakeCurrent) - (int16_t)((speed_diff * iq_range) / speed_range); //线性限制刹车力度
       }

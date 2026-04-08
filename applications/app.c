@@ -7,11 +7,13 @@
 
 #include "app.h"
 #include "utils_math.h"
+#include <cstdint>
 
 #define lostPWMCnt 2       //连接阈值 大于这个数才是连上否则都是掉码
 static uint32_t PWM_L=0,PWM_H=0;
 static int cnt=0;
 static int16_t lastPPM = 0;
+static uint8_t updateReady=0;   //有更新标志
 
 /**
   * @brief  This function handles UTU1 Handler.
@@ -26,15 +28,19 @@ void UTU1_IRQHandler(void)
     {
 		//上升沿中断
         PWM_L = UTU_GetCapture(UTU1, UTU_ICSelection_IO_SELF);
+        //响应了一个完整的周期
         if(cnt<lostPWMCnt)
 	    cnt++;
     }
 	if(temp & UTU_IT_UCFA){
-		//下降沿中断
+		//下降沿中断 有数据更新
+        updateReady = 1;    //有更新
         PWM_H = UTU_GetCapture(UTU1, UTU_ICSelection_IO_SELF);
 	}
 	if(temp & UTU_IT_OVF){
 		//最大时间溢出了 可能是最大 也可能是最小
+        //超时也是完整周期
+        updateReady = 1;    //有更新
         PWM_H = 0;
         lastPPM = 0;        //掉码
 		cnt = 0;
@@ -46,10 +52,11 @@ void UTU1_IRQHandler(void)
             if((PWM_H>PPMMinLimit)&&(PWM_H<PPMMaxLimit)){
                 if(cnt==lostPWMCnt){
                     cnt++;
-                    UTILS_LPInt16_FAST(lastPPM,PWM_H,(int16_t)(0.3*32767));
+                    lastPPM = PWM_H;
                 }
                 if(cnt>lostPWMCnt){
                     //在范围内且计时达到可以输出结果
+                    UTILS_LPInt16_FAST(lastPPM,PWM_H,(int16_t)(0.3*32767));
                 }else{
                     lastPPM = 0;        //掉码
                 }
@@ -90,3 +97,16 @@ bool GetPWMLost(void){
     else
     return false;
 }
+
+/**
+ * @brief get app mode?
+ * 
+ * 
+ */
+uint8_t GetPPMUpdate(void){
+    return updateReady;
+}
+void ClrPPMUpDate(void){
+    updateReady = 0;
+}
+

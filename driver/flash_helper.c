@@ -47,7 +47,7 @@ FLASH_Status erase_page(uint32_t start_addr_page,uint32_t pageNum) {
 	//timeout_configure_IWDT_slowest();
 
 	for (uint32_t i = 0;i < pageNum ;i++) {
-    	if(FLASH_ErasePage(ADDR_FLASH_START_PAGE+((start_addr_page+i)*FLASH_PAGE_SIZE)) != FLASH_COMPLETE)
+    	if(FLASH_ErasePage(ADDR_FLASH_START+((start_addr_page+i)*FLASH_PAGE_SIZE)) != FLASH_COMPLETE)
     	{
     	  /* Error occurred while sector erase.
     	      User can add here some code to deal with this error */
@@ -106,7 +106,7 @@ FLASH_Status flash_helper_erase_new_app(void) {
 }
 
 FLASH_Status flash_helper_erase_bootloader(void) {
-	return erase_page(ADDR_FLASH_BOOTLOADER_PAGE,BOOTLOADER_SIZE);
+	return erase_page(BOOTLOADER_BASE_PAGE,BOOTLOADER_SIZE);
 }
 
 FLASH_Status flash_helper_write_new_app_data(uint32_t offset, uint32_t *data, uint32_t len) {
@@ -117,60 +117,43 @@ FLASH_Status flash_helper_write_new_app_data(uint32_t offset, uint32_t *data, ui
  * Stop the system and jump to the bootloader.
  */
 void flash_helper_jump_to_bootloader(void) {
-	typedef void (*pFunction)(void);
+    typedef void (*pFunction)(void);
+    pFunction jump_to_bootloader;
 
-	//mc_interface_release_motor_override();
-	//usbDisconnectBus(&USBD1);
-	//usbStop(&USBD1);
+    // 指向 Bootloader 向量表的基地址（volatile 访问是必要的）
+    const volatile uint32_t* bootloader_address = (volatile uint32_t*)BOOTLOADER_BASE_PAGE;
 
-	//sdStop(&HW_UART_DEV);
-	//palSetPadMode(HW_UART_TX_PORT, HW_UART_TX_PIN, PAL_MODE_INPUT);
-	//palSetPadMode(HW_UART_RX_PORT, HW_UART_RX_PIN, PAL_MODE_INPUT);
+    // 直接读取堆栈指针初始值（向量表第 0 项）和复位向量（第 1 项）
+    uint32_t boot_msp   = bootloader_address[0];
+    uint32_t boot_reset = bootloader_address[1];
 
-	// Disable watchdog
-	//timeout_configure_IWDT_slowest();
+    // 将复位向量地址转换为函数指针（此时 boot_reset 是普通 uint32_t，无 volatile 属性）
+    jump_to_bootloader = (pFunction) boot_reset;
 
-	//chSysDisable();
+    // 关闭全局中断
+    __disable_irq();
 
-	pFunction jump_to_bootloader;
+    // 清除所有挂起的中断
+#ifdef NVIC_ICPR0
+    for (int i = 0; i < (int)(sizeof(NVIC->ICPR) / sizeof(NVIC->ICPR[0])); i++) {
+        NVIC->ICPR[i] = 0xFFFFFFFF;
+    }
+#else
+    NVIC->ICPR[0] = 0xFFFFFFFF;
+#endif
 
-	// Variable that will be loaded with the start address of the application
-	volatile uint32_t* jump_address;
-	const volatile uint32_t* bootloader_address = (volatile uint32_t*)ADDR_FLASH_BOOTLOADER_PAGE;
+    // 禁用所有中断
+#ifdef NVIC_ICER0
+    for (int i = 0; i < (int)(sizeof(NVIC->ICER) / sizeof(NVIC->ICER[0])); i++) {
+        NVIC->ICER[i] = 0xFFFFFFFF;
+    }
+#else
+    NVIC->ICER[0] = 0xFFFFFFFF;
+#endif
 
-	// Get jump address from application vector table
-	jump_address = (volatile uint32_t*) bootloader_address[1];
+    // 设置主堆栈指针（MSP）为 Bootloader 的初始栈地址
+    __set_MSP(boot_msp);
 
-	// Load this address into function pointer
-	jump_to_bootloader = (pFunction) jump_address;
-
-	__disable_irq();
-
-	// 8.2 清除所有挂起的中断 (M0没有ICSR，使用NVIC->ICPR)
-    #ifdef NVIC_ICPR0
-        // 如果定义了多个ICPR寄存器
-        for (int i = 0; i < sizeof(NVIC->ICPR) / sizeof(NVIC->ICPR[0]); i++) {
-            NVIC->ICPR[i] = 0xFFFFFFFF; // 清除所有挂起中断
-        }
-    #else
-        // 单个ICPR寄存器
-        NVIC->ICPR[0] = 0xFFFFFFFF; // 清除所有挂起中断
-    #endif
-    
-    // 8.3 禁用所有中断
-    #ifdef NVIC_ICER0
-        // 如果定义了多个ICER寄存器
-        for (int i = 0; i < sizeof(NVIC->ICER) / sizeof(NVIC->ICER[0]); i++) {
-            NVIC->ICER[i] = 0xFFFFFFFF; // 禁用所有中断
-        }
-    #else
-        // 单个ICER寄存器
-        NVIC->ICER[0] = 0xFFFFFFFF; // 禁用所有中断
-    #endif
-
-	// Set stack pointer
-	__set_MSP((uint32_t) (bootloader_address[0]));
-
-	// Jump to the bootloader
-	jump_to_bootloader();
+    // 跳转到 Bootloader
+    jump_to_bootloader();
 }

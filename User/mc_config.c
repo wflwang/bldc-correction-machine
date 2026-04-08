@@ -12,6 +12,8 @@
 #include "mc_parameters.h"
 #include "mc_config.h"
 #include "hw_correct.h"
+#include "app.h"
+#include "mc_tasks.h"
 
 #define MAX_TWAIT 0                 /* Dummy value for single drive */
 #define FREQ_RATIO 1                /* Dummy value for single drive */
@@ -250,6 +252,29 @@ CircleLimitation_Handle_t CircleLimitationM1 =
     .Circle_limit_table = MMITABLE,
     .Start_index        = START_INDEX,
 };
+
+/**
+ * @brief default APP config
+ * 
+ * 
+ */
+void DefaultAPPConfig(app_config_t *appconf){
+  appconf->app_mode = APP_PPM;
+  appconf->app_PPM.PPM_Dir = ppmdir;
+  appconf->app_PPM.PPMStep = 0;
+  appconf->app_PPM.MaxPPM = PPM_MAX_V;
+  appconf->app_PPM.MinPPM = PPM_MIN_V;
+  appconf->app_PPM.MidPPM = PPM_MID_V;
+  appconf->app_PPM.MaxPPMdead = MaxDeadPPM;
+  appconf->app_PPM.MinPPMdead = MaxDeadPPM;
+  appconf->app_PPM.MidPPMdead = MidDeadPPM;
+  appconf->app_PPM.RampUp = 1; //最大达到最大的时间 20ms单位
+  appconf->app_PPM.RampDown = 1;
+  appconf->app_PPM.GetNowPPM = GetPPMValue;
+  appconf->app_PPM.GetPPMLost = GetPWMLost;
+  appconf->app_PPM.GetMaxSpeed = GetMaxSpeed;
+  appconf->CRC_Data = 0;
+}
 
 
 /**

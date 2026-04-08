@@ -117,8 +117,8 @@
 #define PID_FLUX_KP_DEFAULT                  250   //1804
 #define PID_FLUX_KI_DEFAULT                  520   //542
 //弱磁时候开d轴弱磁PI控制 达到最高转速的85%的时候切换到更高的id PI
-#define PID_FLUX_KP_DEFAULT                  470   //1804
-#define PID_FLUX_KI_DEFAULT                  1000  //542
+#define PID_FLUX_KP_H                  470   //1804
+#define PID_FLUX_KI_H                  1000  //542
 
 /* Torque/Flux control loop gains dividers*/
 #define TF_KPDIV                             16384

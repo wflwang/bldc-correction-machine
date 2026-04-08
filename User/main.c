@@ -7,6 +7,8 @@
 #include "hk32m07x_rcc.h"
 #include "hk32m07x_gpio.h"
 #include "peripherals.h"
+#include "mc_api.h"
+#include "mc_tasks.h"
 
 // System clock configuration
 void SystemClock_Config(void) {
@@ -32,6 +34,7 @@ int main(void) {
     initCorePeripherals();
     //读取电机配置
     GetMCConfig();
+    GetAPPConfig(); //获取APP的配置
     //conf_general_init();
     /* Reconfigure the SysTick interrupt to fire every 500 us. */
     //SysTick_Config(SystemCoreClock / SYS_TICK_FREQUENCY);
@@ -49,9 +52,14 @@ int main(void) {
     // Main loop
     while (1) {
         // Toggle GPIOB pins
-        GPIO_ToggleBits(GPIOB, GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2);
-        
+        //GPIO_ToggleBits(GPIOB, GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2);
+        if(GetPPMUpdate()==1){
+                //有新数据进来
+            ClrPPMUpDate();
+            int speed = UPDATA_SPEED(&appconf.app_PPM);
+            MC_ProgramSpeedRampMotor1(speed,20);    //更新速度
+        }
         // Simple delay
-        for (volatile int i = 0; i < 1000000; i++);
+        //for (volatile int i = 0; i < 1000000; i++);
     }
 }

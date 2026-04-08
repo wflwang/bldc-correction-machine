@@ -2,6 +2,9 @@
  * Hardware configuration for HK32M070-based BLDC controller
  * Gimbal application
  */
+ 
+#ifndef __HW_CORRECT_H
+#define __HW_CORRECT_H
 
 #ifndef HW_HEADER
 #define HW_HEADER "hw_correct.h"
@@ -59,7 +62,23 @@
 //#define HW_PWM2_PIN GPIO_Pin_9
 //#define HW_PWM3_PORT GPIOA
 //#define HW_PWM3_PIN GPIO_Pin_10
+//uart config
+#define bps_rate    115200
+#define UartTX_PORT GPIOA
+#define UartRX_PORT GPIOA
+#define UartTX_PIN  GPIO_Pin_7
+#define UartRX_PIN  GPIO_Pin_6
+#define UartTX_SOURCE   GPIO_PinSource7
+#define UartRX_SOURCE   GPIO_PinSource6
+#define UartTX_GPIO_AF  GPIO_AF_3
+#define UartRX_GPIO_AF  GPIO_AF_3
+#define UartTX_CLK  RCC_AHBPeriph_GPIOA
+#define UartRX_CLK  RCC_AHBPeriph_GPIOA
+#define UartCLKEn() RCC_APB2PeriphClockCmd(RCC_APB2Periph_UART2, ENABLE);
+#define UartCH      UART2
 
+
+//PWM IO config
 #define PWMIO_PB10      ATU_PWM_REMAP_SOURCE_TIO2B
 #define PWMIO_PB11      ATU_PWM_REMAP_SOURCE_TIO2A
 #define PWMIO_PB12      ATU_PWM_REMAP_SOURCE_TIO1B
@@ -69,16 +88,20 @@
 
 // Direction pin
 #define HW_DIR_PORT GPIOA
-#define HW_DIR_PIN GPIO_Pin_13
-#define HW_En_PORT GPIOA
-#define HW_En_PIN GPIO_Pin_11
+#define HW_DIR_PIN  GPIO_Pin_13
+#define HW_En_PORT  GPIOA
+#define HW_En_PIN   GPIO_Pin_11
+
+//LED control
 
 
+
+//*********************PPM input
 #define AHPSrc          RCC_AHBPeriph_GPIOA
 #define UTU_IOA_PORT    GPIOA
 #define UTU_IOA_PIN     GPIO_Pin_12
 #define UTU_IOA_PIN_SRC GPIO_PinSource12
-#define UTU_IOA_AF  GPIO_AF_2
+#define UTU_IOA_AF      GPIO_AF_2
 
 // Read Hall sensor functions
 #define READ_HALL1() GPIO_ReadInputDataBit(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1)
@@ -200,3 +223,6 @@
 // Fault codes
 #define FAULT_CODE_NONE 0
 #define FAULT_CODE_HALL_SENSOR_ERROR 1
+
+#endif
+

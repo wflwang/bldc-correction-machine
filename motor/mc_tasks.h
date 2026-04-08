@@ -14,6 +14,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "mc_tuning.h"
 #include "mc_interface.h"
+#include "app.h"
 
 /** @addtogroup MCSDK
   * @{
@@ -48,10 +49,13 @@ void TSK_DualDriveFIFOUpdate(void *pDrive);
 void TSK_HardwareFaultTask(void);
 uint8_t GetMaxTerefReady(void);
 void GetMCConfig(void);     //flash读取motor
+void GetAPPConfig(void);  //读取APP data
+int32_t GetMaxSpeed(void);  //获取最大转速
 
  /* Locks GPIO pins used for Motor Control to prevent accidental reconfiguration */
 void mc_lock_pins (void);
 void clearRefIdq(void);
+app_mode_t GetAPPMode(void);
 /**
   * @}
   */

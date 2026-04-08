@@ -21,8 +21,9 @@
 
 #include <string.h>
 #include <stdlib.h>
+#if 0
 /* Private variables ---------------------------------------------------------*/
-const int16_t hSin_Cos_Table[256] = {\
+static const int16_t hSin_Cos_Table[256] = {\
     0x0000,0x00C9,0x0192,0x025B,0x0324,0x03ED,0x04B6,0x057F,\
     0x0648,0x0711,0x07D9,0x08A2,0x096A,0x0A33,0x0AFB,0x0BC4,\
     0x0C8C,0x0D54,0x0E1C,0x0EE3,0x0FAB,0x1072,0x113A,0x1201,\
@@ -55,7 +56,7 @@ const int16_t hSin_Cos_Table[256] = {\
     0x7E9C,0x7EB9,0x7ED5,0x7EEF,0x7F09,0x7F21,0x7F37,0x7F4D,\
     0x7F61,0x7F74,0x7F86,0x7F97,0x7FA6,0x7FB4,0x7FC1,0x7FCD,\
     0x7FD8,0x7FE1,0x7FE9,0x7FF0,0x7FF5,0x7FF9,0x7FFD,0x7FFE};
-
+#endif
 #define SIN_MASK        0x0300u
 #define U0_90           0x0200u
 #define U90_180         0x0300u
@@ -67,6 +68,7 @@ const int16_t hSin_Cos_Table[256] = {\
  * outside of the range it will be less truncated to the closest
  * angle. Angle units: Degrees
  */
+#if 0
 float utils_map_angle(float angle, float min, float max) {
 	if (max == min) {
 		return -1;
@@ -89,7 +91,8 @@ float utils_map_angle(float angle, float min, float max) {
 
 	return res;
 }
-
+#endif
+#if 0
 /**
  * Truncate absolute values less than tres to zero. The value
  * tres will be mapped to 0 and the value max to max.
@@ -777,3 +780,5 @@ const float utils_tab_cos_32_2[] = {
 	-1.000000, -0.923880, -0.707107, -0.382683, -0.000000, 0.382683, 0.707107, 0.923880,
 	1.000000, 0.923880, 0.707107, 0.382683, 0.000000, -0.382683, -0.707107, -0.923880,
 	-1.000000, -0.923880, -0.707107, -0.382683, -0.000000, 0.382683, 0.707107, 0.923880};
+	
+#endif

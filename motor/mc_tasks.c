@@ -12,9 +12,10 @@
 #include "mc_type.h"
 #include "mc_math.h"
 #include "mc_config.h"
-//#include "mc_interface.h"
+#include "mc_interface.h"
 #include "mc_tuning.h"
 #include "state_machine.h"
+#include "mc_api.h"
 #include "mc_tasks.h"
 #include "parameters_conversion.h"
 #include <stdint.h>
@@ -31,6 +32,7 @@ static int16_t NowTempMotorx100 = 0;   //当前马达电压*100
 static int16_t NowTempPCBx100 = 0;   //当前PCB电压*100
 static int IsSpeech = 0;  //是否发声
 static int IScount = 0; //电流环速度环切换时间
+static int32_t Maxspeed = 1000;     //最大限制转速 
 
 mc_config_t mcconf;     //初始化 马达配置
 app_config_t appconf;   //app config
@@ -365,7 +367,6 @@ void TSK_MediumFrequencyTaskM1(void)
         break;
 
         case RUN:
-
             MCI_ExecBufferedCommands( oMCInterface[M1] );
             FOC_CalcCurrRef( M1 );
 
@@ -1016,7 +1017,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
         }else if(vBusx100 > vMaxBus){
             FOCVars[bMotor].status = mc_over_voltage;   //过压了
         }else{
-            FOCVars[bMotor].mc_MaxSpeed = vBusx100*FOCVars[bMotor].mc_KV/100;   //算出最大转速
+            Maxspeed = vBusx100*FOCVars[bMotor].mc_KV/100;   //算出最大转速
             //初始化电压 根据上电电压算出最大转速
             FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
         }
@@ -1126,6 +1127,13 @@ void TSK_HardwareFaultTask(void)
 
     /* USER CODE END TSK_HardwareFaultTask 1 */
 }
+/**
+ * @brief get max speed
+ * 
+ */
+int32_t GetMaxSpeed(void){
+    return Maxspeed;
+}
 
 /**
  * @brief 从flash中读取 APPConfig 并矫正数据是否正确
@@ -1134,6 +1142,13 @@ void TSK_HardwareFaultTask(void)
  */
 void GetAPPConfig(void){
   EE_ReadConfig(ADDR_FLASH_EEPROM_APPCONF,&appconf,sizeof(app_config_t));
+  uint16_t crc = crc16((uint8_t)&appconf,sizeof(app_config_t)-2);
+  if(appconf.CRC_Data!=crc){
+    DefaultAPPConfig(&appconf);      //用默认马达配置 读取数据失败 要重新学习
+    //HALL_M1.hallState = hall_null;  //hall 不存在 要重新学习
+  }else{ 
+    //HALL_M1.hallState = hall_run;  //读取数据成功 hall可以直接运行
+  }
 }
 /**
  * @brief 从flash中读取 MCConfig 并矫正数据是否正确
@@ -1149,6 +1164,16 @@ void GetMCConfig(void){
   }else{ 
     HALL_M1.hallState = hall_run;  //读取数据成功 hall可以直接运行
   }
+}
+
+/**
+ * @brief  get app mode
+ * 
+ * 
+ * 
+ */
+app_mode_t GetAPPMode(void){
+    return appconf.app_mode;
 }
 
 /**

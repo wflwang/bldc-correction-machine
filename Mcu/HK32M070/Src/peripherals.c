@@ -6,7 +6,7 @@
 
 #include "peripherals.h"
 #include "hw_correct.h"
-#include "conf_general.h"
+//#include "conf_general.h"
 #include "drive_parameters.h"
 #include "parameters_conversion.h"
 #include "main.h"
@@ -30,6 +30,7 @@ void initCorePeripherals(void){
     ATU_Init_Config();
     //init hall
     HTU_Init_Config();
+    UTU_Config();   //PPM scan
     //设置tick time
     //SysTick_Config(SystemCoreClock /SYS_TICK_FREQUENCY);
     //EE_Read();
@@ -41,7 +42,7 @@ void initCorePeripherals(void){
 	//	//readQmi8658b();	//读出参数	
     //    fScanButton();   //扫描按键功能
     //}
-    MX_Uart_Init();
+    UART2_Config();
     //MX_NVIC_init();
     //qmi8658x_init(GYPO_SDA_GPIO_PORT,GYPO_SDA_GPIO_PIN,GYPO_SCL_GPIO_PORT,GYPO_SCL_GPIO_PIN);
     //SysTick_Config(SystemCoreClock /SYS_TICK_FREQUENCY);
@@ -51,7 +52,7 @@ void initCorePeripherals(void){
   * @param  None
   * @retval None
   */
-static void SYSCFG_Config(void)
+void SYSCFG_Config(void)
 {
     /*Enable the SYSCFG clock*/
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
@@ -210,7 +211,7 @@ void ADC_Init_Config(void)
   * @param  f_zv PWM 频率 中心对称PWM实际频率/2
   * @retval None
   */
-void ATU_Init_Config(int f_zv)
+void ATU_Init_Config(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     //NVIC_InitTypeDef NVIC_InitStructure;
@@ -367,7 +368,7 @@ void HTU_Init_Config(void)
   * @param  None
   * @retval None
   */
-static void UART2_Config(void)
+void UART2_Config(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     UART_InitTypeDef UART_InitStructure;
@@ -529,75 +530,25 @@ void MX_Uart_Init(void){
     GPIO_InitStructure.GPIO_Pin = UartRX_PIN;
     GPIO_Init(UartRX_PORT, &GPIO_InitStructure);
 
-    RCC_APBPeriph2ClockCmd(RCC_APBPeriph2_UART1, ENABLE);
+    UartCLKEn();
     UART_InitStructure.UART_BaudRate = bps_rate;
     UART_InitStructure.UART_WordLength = UART_WordLength_8b;
     UART_InitStructure.UART_StopBits = UART_StopBits_1;
     UART_InitStructure.UART_Parity = UART_Parity_No;
     UART_InitStructure.UART_Mode = UART_Mode_Rx | UART_Mode_Tx;
-    UART_Init(UART1, &UART_InitStructure);
-    UART_ITConfig(UART1, UART_IT_RXNE, ENABLE);
-    UART_ITConfig(UART1, UART_IT_IDLE, DISABLE);
-    Uart_t.Index = 0;
-    Uart_t.Len = 0;
-    Uart_t.FinishedFlag = RESET;
+    UART_Init(UartCH, &UART_InitStructure);
+    UART_ITConfig(UartCH, UART_IT_RXNE, ENABLE);
+    //UART_ITConfig(UartCH, UART_IT_IDLE, DISABLE);
+    //Uart_t.Index = 0;
+    //Uart_t.Len = 0;
+    //Uart_t.FinishedFlag = RESET;
     //Uart1Rx.Index = 0;
     //Uart1Rx.Len = 0;
     //Uart1Rx.FinishedFlag = RESET;
     /* Enable the UART1 */
-    UART_Cmd(UART1, ENABLE);
+    UART_Cmd(UartCH, ENABLE);
 }
-/**
- * @brief tim2 int
- * 
- * 
-*/
-void TIM2_IRQHandler(void)
-{
-    //if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET)
-    //{
-    //    // 处理比较中断
-    //    TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
-    //}  
-    if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET)
-    {
-        // 处理更新中断
-        TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
-        getOrientation_1ms();   //读取一次陀螺仪值
-    }
-}
-/**
-  * @brief  This function handles UART1 global interrupt request.
-  * @param  None
-  * @retval None
-  */
-void UART1_IRQHandler(void)
-{
-	if( UART_GetITStatus(UART1, UART_IT_RXNE) != RESET )
-	{
-		UART_ClearITPendingBit(UART1, UART_IT_RXNE);
-        //if(Uart_t.FinishedFlag != SET){
-            /* receive data */
-            Uart_t.Data[Uart_t.Index] = UART_ReceiveData(UART1);
-            Uart_t.Index = (Uart_t.Index+1)&(RX_BUFFER_SIZE-1);
-            //LEDG_Xor();
-    
-		    if(Uart_t.Index == 1)
-		    {
-		    	UART_ITConfig(UART1, UART_IT_IDLE, ENABLE);
-		    }
-        //}
-	}
-	
-	if(UART_GetITStatus(UART1, UART_IT_IDLE) != RESET)
-	{
-		UART_ClearITPendingBit(UART1, UART_IT_IDLE);
-		UART_ITConfig(UART1, UART_IT_IDLE, DISABLE);
-		Uart_t.Len = Uart_t.Index;
-		Uart_t.Index = 0;
-		Uart_t.FinishedFlag = SET;
-	}
-}
+
 /**
   * @brief  UART1 Send some data.
   * @param  p - the start address of data to be send
@@ -608,9 +559,9 @@ void UartSendDatas(uint8_t *p, uint8_t len)
 {
   while( len -- )
   {
-    UART_SendData(UART1, *p++);
+    UART_SendData(UartCH, *p++);
 
-    while( UART_GetFlagStatus(UART1, UART_FLAG_TC) == RESET )
+    while( UART_GetFlagStatus(UartCH, UART_FLAG_TC) == RESET )
     {
     }
   }
@@ -695,7 +646,7 @@ static void UTU_GPIOInit(void)
   * @param  None
   * @retval None
   */
-static void UTU_Config(void)
+void UTU_Config(void)
 {
     UTU_TimeBaseInitTypeDef UTU_timeBaseCfg;
     UTU_ICInitTypeDef UTU_ICCfg;
@@ -710,7 +661,8 @@ static void UTU_Config(void)
     UTU_TimeBaseStructInit(&UTU_timeBaseCfg);   //1/64us once
     UTU_timeBaseCfg.UTU_Prescaler = UTU_CKD_DIV64;    // 不分频
     //UTU_timeBaseCfg.UTU_PeriodMode = UTU_CounterMode_Up;
-    UTU_timeBaseCfg.UTU_Period = 0xFFFFFF; // 最大计数1/64
+    //最大计时20.5ms 超时溢出
+    UTU_timeBaseCfg.UTU_Period = 20500; //0xFFFFFF; // 最大计数1/64
     UTU_TimeBaseInit(UTU1, &UTU_timeBaseCfg);
 
     /* config IC struct */
@@ -757,6 +709,23 @@ static void UTU_Config(void)
 
 }
 /**
+ * @brief GPIO config
+ * 
+ * 
+ */
+void MX_GPIO_Init(void){
+    GPIO_InitTypeDef GPIO_InitStructure;
+    /* Enable GPIO clock */
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+    GPIO_InitStructure.GPIO_Pin = HW_DIR_PIN;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;    //开启上拉
+    GPIO_Init(HW_En_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin = HW_En_PIN;
+    GPIO_Init(HW_DIR_PORT, &GPIO_InitStructure);
+}
+/**
   * @brief NVIC Configuration.
   * @retval None
   */
@@ -765,18 +734,18 @@ void MX_NVIC_init(void)
     NVIC_InitTypeDef NVIC_InitStructure;
 
     NVIC_InitStructure.NVIC_IRQChannel = ADC_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
     NVIC_InitStructure.NVIC_IRQChannel = HTU_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_InitStructure.NVIC_IRQChannelPriority = 2;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
     NVIC_Init(&NVIC_InitStruct);
 
     NVIC_InitStructure.NVIC_IRQChannel = UTU1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_InitStructure.NVIC_IRQChannelPriority = 3;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 2;
     NVIC_Init(&NVIC_InitStruct);
     /* TIM1_BRK_UP_TRG_COM_IRQn interrupt configuration */
     //NVIC_InitStruct.NVIC_IRQChannel=TIM1_IRQn;
@@ -798,12 +767,12 @@ void MX_NVIC_init(void)
     //NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;	
     //NVIC_Init(&NVIC_InitStruct);
     /* UART1 IRQ Channel configuration */
-    #ifdef cUartDebugEn
-    NVIC_InitStruct.NVIC_IRQChannel = UART1_IRQn;
-    NVIC_InitStruct.NVIC_IRQChannelPriority = 0x01;
-    NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;		
+    //#ifdef cUartDebugEn
+    NVIC_InitStructure.NVIC_IRQChannel = UART2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 3;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;		
     NVIC_Init(&NVIC_InitStruct);
-    #endif
+    //#endif
 
     /* UART1_IRQn interrupt configuration */
     //NVIC_InitStruct.NVIC_IRQChannel=UART1_IRQn;

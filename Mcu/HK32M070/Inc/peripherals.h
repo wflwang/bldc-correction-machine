@@ -27,29 +27,20 @@ typedef struct
 
 //init GPIO
 void MX_GPIO_Init(void);
-//init tim
-void MX_TIM_Init(void);
 void ADC_Init_Config(void);
+void SYSCFG_Config(void);
 void MY_PGA_Init(void);
 void MX_NVIC_init(void);
 void ATU_Init_Config(void);
 void HTU_Init_Config(void);
 void initCorePeripherals(void);
 void Delay_ms(__IO uint32_t Delay);
-void PWMC_OFFPWM(void);
-void PWMC_ONPWM(void);
-//切换IO口 SWD到正常IO
-void SWD_Pin_To_PB5_PD5_Configuration(void);
-void MX_Uart_Init(void);
-void UartSendDatas(uint8_t *p, uint8_t len);
+void UART2_Config(void);
 void delay_us(uint16_t us_x10);
-#ifdef HallfilterFirstEn
-void MX_Hall_init(int16_t xRaw,int16_t yRaw);
-#endif
 void GetUartDebug(void);
 void UartSendDatas(uint8_t *p, uint8_t len);
-void sendstart(void);
 uint32_t Get1msTick(void);
+void UTU_Config(void);
 
 
 #endif

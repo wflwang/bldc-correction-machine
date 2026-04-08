@@ -189,7 +189,7 @@ void STC_StopRamp( SpeednTorqCtrl_Handle_t * pHandle );
   * @{
  */
 /* It computes the new value of motor torque reference */
-int16_t STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle );
+Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle );
 
 /*  Get the current motor torque reference. */
 int16_t STC_GetTorqueRef( SpeednTorqCtrl_Handle_t * pHandle );

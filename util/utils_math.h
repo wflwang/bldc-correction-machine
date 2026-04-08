@@ -130,28 +130,30 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
 #define ONE_BY_SQRT2			(0.7071067811865475)
 #define ONE_BY_SQRT2_int32		759250125	//>>30
 
+#if 0
 // Tables
 extern const float utils_tab_sin_32_1[];
 extern const float utils_tab_sin_32_2[];
 extern const float utils_tab_cos_32_1[];
 extern const float utils_tab_cos_32_2[];
+#endif
 
 // Inline functions
-static inline void utils_step_towards(float *value, float goal, float step) {
-    if (*value < goal) {
-        if ((*value + step) < goal) {
-            *value += step;
-        } else {
-            *value = goal;
-        }
-    } else if (*value > goal) {
-        if ((*value - step) > goal) {
-            *value -= step;
-        } else {
-            *value = goal;
-        }
-    }
-}
+//static inline void utils_step_towards(float *value, float goal, float step) {
+//    if (*value < goal) {
+//        if ((*value + step) < goal) {
+//            *value += step;
+//        } else {
+//            *value = goal;
+//        }
+//    } else if (*value > goal) {
+//        if ((*value - step) > goal) {
+//            *value -= step;
+//        } else {
+//            *value = goal;
+//        }
+//    }
+//}
 
 /**
  * Make sure that 0 <= angle < 360
@@ -159,16 +161,16 @@ static inline void utils_step_towards(float *value, float goal, float step) {
  * @param angle
  * The angle to normalize.
  */
-static inline void utils_norm_angle(float *angle) {
-//	*angle = fmodf(*angle, 360.0);
-//	if (*angle < 0.0) {
-//		*angle += 360.0;
-//	}
-
-	// This is much faster than fmodf
-	while (*angle < 0.0) { *angle += 360.0; }
-	while (*angle > 360.0) { *angle -= 360.0; }
-}
+//static inline void utils_norm_angle(float *angle) {
+////	*angle = fmodf(*angle, 360.0);
+////	if (*angle < 0.0) {
+////		*angle += 360.0;
+////	}
+//
+//	// This is much faster than fmodf
+//	while (*angle < 0.0) { *angle += 360.0; }
+//	while (*angle > 360.0) { *angle -= 360.0; }
+//}
 
 /**
  * Make sure that -pi <= angle < pi,
@@ -177,11 +179,11 @@ static inline void utils_norm_angle(float *angle) {
  * The angle to normalize in radians.
  * WARNING: Don't use too large angles.
  */
-static inline void utils_norm_angle_rad(float *angle) {
-	while (*angle < -M_PI) { *angle += 2.0 * M_PI; }
-	while (*angle >=  M_PI) { *angle -= 2.0 * M_PI; }
-}
-
+//static inline void utils_norm_angle_rad(float *angle) {
+//	while (*angle < -M_PI) { *angle += 2.0 * M_PI; }
+//	while (*angle >=  M_PI) { *angle -= 2.0 * M_PI; }
+//}
+#if 0
 static inline void utils_truncate_number(float *number, float min, float max) {
 	if (*number > max) {
 		*number = max;
@@ -287,5 +289,7 @@ static inline float utils_angle_difference_rad(float angle1, float angle2) {
 	while (difference > M_PI) difference -= 2.0 * M_PI;
 	return difference;
 }
+
+#endif
 
 #endif  /* UTILS_MATH_H_ */

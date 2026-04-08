@@ -224,7 +224,7 @@ typedef struct
                                  *         #INTERNAL or #EXTERNAL*/
   int16_t m_duty_cycle_set;    /**< @brief Duty cycle set value */
   //foc_hall_t foc_hall;         /**< @brief FOC variables related to hall sensor.*/
-  int32_t mc_MaxSpeed;          /**< @brief Mechanical speed in 0.1Hz unit. */
+  //int32_t mc_MaxSpeed;          /**< @brief Mechanical speed in 0.1Hz unit. */
   int32_t m_duty_i_term;      //duty模式时候的积分值
   int32_t foc_duty_dowmramp_ki;   /**< @brief Integral term gain for duty cycle down ramp.*/
   int32_t foc_duty_dowmramp_kp;   /**< @brief Proportional term gain for duty cycle down ramp.*/

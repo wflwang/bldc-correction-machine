@@ -9,27 +9,29 @@
 #include "peripherals.h"
 #include "mc_api.h"
 #include "mc_tasks.h"
+#include "motorcontrol.h"
 
+extern app_config_t appconf;   //app config
 // System clock configuration
-void SystemClock_Config(void) {
-    RCC_DeInit();
-    
-    // Use 64MHz internal HSI clock
-    RCC_HSICmd(ENABLE);
-    while (RCC_GetFlagStatus(RCC_FLAG_HSIRDY) == RESET);
-    
-    RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);
-    while (RCC_GetSYSCLKSource() != 0x04);
-    
-    RCC_HCLKConfig(RCC_SYSCLK_Div1);    //64MHz
-    RCC_PCLKConfig(RCC_HCLK_Div1);
-}
+//void SystemClock_Config(void) {
+//    RCC_DeInit();
+//    
+//    // Use 64MHz internal HSI clock
+//    RCC_HSICmd(ENABLE);
+//    while (RCC_GetFlagStatus(RCC_FLAG_HSIRDY) == RESET);
+//    
+//    RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);
+//    while (RCC_GetSYSCLKSource() != 0x04);
+//    
+//    RCC_HCLKConfig(RCC_SYSCLK_Div1);    //64MHz
+//    RCC_PCLKConfig(RCC_HCLK_Div1);
+//}
 
 
 // Main function
 int main(void) {
     // System initialization
-    SystemClock_Config();
+    //SystemClock_Config();
     //初始化IO口
     initCorePeripherals();
     //读取电机配置
@@ -43,7 +45,7 @@ int main(void) {
     /* Motor configuration */    
     MX_MotorControl_Init();
     /* Initialize interrupts */
-    MX_NVIC_Init();
+    MX_NVIC_init();
     //初始化马达部分 和中断
     Delay_ms(50);
     MC_StartMotor1();   //启动电机 速度为0

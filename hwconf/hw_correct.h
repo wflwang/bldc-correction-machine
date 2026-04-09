@@ -6,6 +6,7 @@
 #ifndef __HW_CORRECT_H
 #define __HW_CORRECT_H
 
+#include <cstdint>
 #ifndef HW_HEADER
 #define HW_HEADER "hw_correct.h"
 #endif
@@ -34,17 +35,12 @@
 
 #define default_KV  125 //默认KV值125
 
-// 电压值
-#define vMinBus 1200    //最低电压 12V*100
-#define vMaxBus 5300   //最高电压 53V*100
-#define Int16FilterDiv 32768    //int16 滤波分母
-#define VBusFilterConstant (int16_t)(0.04*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
-
 #define MotorTempEn     //使能motor temp
 #define MosTempEn       //使能MOS temp
 #define TempBeta    3490    //温度传感器B值
 //#define vMinMotorTemp 1200    //最低电机 temp 12V*100
 #define vMaxMotorTemp 15000   //最高电机 temp 150c*100
+#define vMaxPCBTemp 15000
 //#define vMinMosTemp 1200    //最低mos temp 12V*100
 #define vMaxMosTemp 10000   //最高mos temp 100c*100
 #define VTempMotorFilterConstant (int16_t)(0.02*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
@@ -125,14 +121,31 @@
 #endif
 
 // Get input voltage 得出的是当前电压
-#define GET_INPUT_VOLTAGE() 	((uint16_t)(100.0 * (V_REG / 4095.0) * (float)GetVBusAD()  * ((VIN_R1 + VIN_R2) / VIN_R2)))
+//#define GET_INPUT_VOLTAGE() 	((uint16_t)(100.0 * (V_REG / 4095.0) * (float)GetVBusAD()  * ((VIN_R1 + VIN_R2) / VIN_R2)))
 //最终温度扩大100倍保留精度
 #define NTC_RES_MOTOR(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
 #define NTC_TEMP_MOTOR(beta)	((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(GetMotorTempAD()) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
 #define NTC_RES_PCB(adc_val)	(10000.0 / ((4095.0 / (float)adc_val) - 1.0)) // Motor temp sensor on low side
 #define NTC_TEMP_PCB(beta)	    ((uint16_t)(100.0f*(1.0 / ((logf(NTC_RES_MOTOR(GetPCBTempAD()) / 10000.0) / beta) + (1.0 / 298.15)) - 273.15)))
 
-#define VBusVol(x)  (x*VIN_R2*4095.0/(VIN_R1 + VIN_R2)/V_REG) 
+// 电压值
+//电压对应的AD值
+#define VBusVol(x)  ((uint16_t)(x*VIN_R2*4095.0/(VIN_R1 + VIN_R2)/V_REG)) //AD
+#define vMinBus VBusVol(12.0)    //最低电压 12V*100
+#define vMaxBus VBusVol(53.0)   //最高电压 53V*100
+#define Int16FilterDiv 32768    //int16 滤波分母
+#define VBusFilterConstant (int16_t)(0.04*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
+//电压AD 换算成电压值
+#define ScaleMV (uint16_t)((V_REG * 32768.0 * (VIN_R1 + VIN_R2) / (4095.0 * VIN_R2)) + 0.5)
+static inline uint16_t get_input_voltage(uint16_t adc_val) {
+    // 单位：0.01V
+    return (uint32_t)((uint32_t)adc_val * ScaleMV)>>15;
+}
+static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
+    return (uint32_t)(((uint64_t)adc_val * kv * ScaleMV) >> 15);
+}
+//#define GET_INPUT_VOLTAGE(AD) 	((uint16_t)(100.0 * (V_REG / 4095.0) * AD  * ((VIN_R1 + VIN_R2) / VIN_R2)))
+
 //低压级别
 #define LvdLVL1     14.0
 #define LvdLVL2     11.0
@@ -169,6 +182,7 @@
 #define IQBrakelimit                   6000 //最大刹车限幅
 
 //限制前进时候最大转矩增速
+#define ISDelayT        15 //200   //800   //I Speed change delay
 #define MaxFBSpeedADD   5350  //最大速度误差
 #define LIMIT_AddAcc_ALPHA 18000 //加速幅度   /65536  扭矩变化的一阶滤波
 #define MaxTorqAcc      20000   //最大增加的电流扭矩 上个版本每次增加6% 现在最大增加到30%
@@ -188,6 +202,9 @@
 #define HallCheckEndVd       7000   //hall开始校准的最大vd电压
 #define HallFastStep        10      //快速步进每次 + 10/65536
 #define HallSlowStep        1       //慢速步进每次 + 1/65536
+
+//获取角度值
+#define hEdegree(x)     (x*65536/360)
 
 
 #define IloopTrigH      500     //切入电流环的速度

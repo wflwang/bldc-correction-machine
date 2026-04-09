@@ -217,7 +217,7 @@ void ATU_Init_Config(void)
     //NVIC_InitTypeDef NVIC_InitStructure;
     ATU_TimeBaseInitTypeDef ATU_TimeBaseInitStruct;
     ATU_OutputInitTypeDef ATU_OutputInitStruct;
-    ATU_ProtectIFInitTypeDef ATU_ProtectIFInitStruct;
+    //ATU_ProtectIFInitTypeDef ATU_ProtectIFInitStruct;
     ATU_ProtectOutputInitTypeDef ATU_ProtectOutputInitStruct;
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_ATU1, DISABLE);
     /* ATU Peripheral clock enable */
@@ -327,22 +327,22 @@ void HTU_Init_Config(void)
     
     /* Configure hall PIN */
     GPIO_StructInit(&GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin  = M1_HALL_H1_Pin;
+    GPIO_InitStructure.GPIO_Pin  = HW_HALL_ENC_PIN1;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF; // I/O AF Function
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4; // I/O output speed
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;    //GPIO_PuPd_DOWN; //Pull-DOWN
     GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable; //Schmit function
-    GPIO_Init(M1_HALL_H1_GPIO_Port, &GPIO_InitStructure);
+    GPIO_Init(HW_HALL_ENC_GPIO1, &GPIO_InitStructure);
     
-    GPIO_InitStructure.GPIO_Pin  =  M1_HALL_H2_Pin;
-    GPIO_Init(M1_HALL_H2_GPIO_Port, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin  =  HW_HALL_ENC_PIN2;
+    GPIO_Init(HW_HALL_ENC_GPIO2, &GPIO_InitStructure);
     
-    GPIO_InitStructure.GPIO_Pin  =  M1_HALL_H3_Pin;
-    GPIO_Init(M1_HALL_H3_GPIO_Port, &GPIO_InitStructure);     
+    GPIO_InitStructure.GPIO_Pin  =  HW_HALL_ENC_PIN3;
+    GPIO_Init(HW_HALL_ENC_GPIO3, &GPIO_InitStructure);     
     
-    GPIO_PinAFConfig(M1_HALL_H1_GPIO_Port, M1_HALL_H1_Pin_NO, GPIO_AF_1);
-    GPIO_PinAFConfig(M1_HALL_H2_GPIO_Port, M1_HALL_H2_Pin_NO, GPIO_AF_1);
-    GPIO_PinAFConfig(M1_HALL_H3_GPIO_Port, M1_HALL_H3_Pin_NO, GPIO_AF_1);
+    GPIO_PinAFConfig(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1_No, GPIO_AF_1);
+    GPIO_PinAFConfig(HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2_No, GPIO_AF_1);
+    GPIO_PinAFConfig(HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3_No, GPIO_AF_1);
 
     /* Configure HTU TimeBase */
     HTU_TimeBaseStructInit(&HTU_TimeBaseInitStruct);
@@ -741,12 +741,12 @@ void MX_NVIC_init(void)
     NVIC_InitStructure.NVIC_IRQChannel = HTU_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
-    NVIC_Init(&NVIC_InitStruct);
+    NVIC_Init(&NVIC_InitStructure);
 
     NVIC_InitStructure.NVIC_IRQChannel = UTU1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 2;
-    NVIC_Init(&NVIC_InitStruct);
+    NVIC_Init(&NVIC_InitStructure);
     /* TIM1_BRK_UP_TRG_COM_IRQn interrupt configuration */
     //NVIC_InitStruct.NVIC_IRQChannel=TIM1_IRQn;
     //NVIC_InitStruct.NVIC_IRQChannelPriority = 1;  //0;
@@ -771,7 +771,7 @@ void MX_NVIC_init(void)
     NVIC_InitStructure.NVIC_IRQChannel = UART2_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 3;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;		
-    NVIC_Init(&NVIC_InitStruct);
+    NVIC_Init(&NVIC_InitStructure);
     //#endif
 
     /* UART1_IRQn interrupt configuration */

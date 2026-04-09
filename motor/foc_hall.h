@@ -39,7 +39,7 @@ typedef struct
     int16_t real_phase;     //hall 应用的真实角度
     int16_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
     //int16_t foc_hall_tableTemp[8];  //hall学习时候临时记录的表格 0-7
-    int16_t foc_hall_table[8];  //hall学习完成后正式使用的表格 0-7
+    int16_t *foc_hall_table;  //hall学习完成后正式使用的表格 0-7
     int16_t hallFastLearnAngDiff; //hall学习时候可以快速跳过的角度增量 增加学习效率
     uint32_t m_ang60_intTime;   //60度时间
     //bool bElDiffMec;  //马达电角度方向是否和磁编角度不同
@@ -89,7 +89,7 @@ typedef struct
 } foc_hall_t;
 
 
-void M_Hall_Init(void);
+void M_Hall_Init(foc_hall_t * pHandle,mc_config_t *mcconf);
 /**
  * @brief get hall state
  * 

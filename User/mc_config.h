@@ -27,6 +27,7 @@ extern RevUpCtrl_Handle_t RevUpControlM1;
 #include "sto_pll_speed_pos_fdbk.h"
 //#include "mc_config.h"
 #include "foc_hall.h"
+#include "app.h"
 
 extern PID_Handle_t PIDSpeedHandle_M1;
 extern PID_Handle_t PIDIqHandle_M1;
@@ -41,12 +42,13 @@ extern SpeednTorqCtrl_Handle_t SpeednTorqCtrlM1;
 extern VirtualSpeedSensor_Handle_t VirtualSpeedSensorM1;
 extern STO_Handle_t STO_M1;
 extern STO_PLL_Handle_t STO_PLL_M1;
-extern RDivider_Handle_t RealBusVoltageSensorParamsM1;
+//extern RDivider_Handle_t RealBusVoltageSensorParamsM1;
 extern CircleLimitation_Handle_t CircleLimitationM1;
 extern foc_hall_t HALL_M1; 
 
 extern RampExtMngr_Handle_t RampExtMngrHFParamsM1;
 void DefaultMCConfig(mc_config_t *mcconf);
+void DefaultAPPConfig(app_config_t *appconf);
 
 #define NBR_OF_MOTORS 1
 #endif /* __MC_CONFIG_H */

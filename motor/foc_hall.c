@@ -10,6 +10,11 @@
 #include "hk32m07x.h"
 #include "utils_math.h"
 #include "mc_type.h"
+#include "mc_config.h"
+#include "hw_correct.h"
+#include <stdlib.h>
+#include <string.h>
+#include "mc_tasks.h"
 
 static volatile uint32_t m_ang60_intTime=0;  //60度换向时间单位是 1/8us 最长 512s
 static int16_t lastHallEAngle = 0;  //上次hall保存的电角度
@@ -19,6 +24,8 @@ int16_t foc_hall_ang_table[8] = {    //0 7 fail
 static int16_t foc_hall_ang_Temptable[8] = {
     0,0,10922,21845,32767,-21845,-10922,0
 };
+static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid );
+static void M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid );
 
 //hall struct define
 
@@ -62,7 +69,7 @@ void HTU_IRQHandler(void){
  * 和跳变时间 下次时间由本次时间的2/3 快速掠过 后段1/3再电机慢慢变化角度检测跳变点
  * 
 */
-void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
+static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
 {
     foc_hall_t * pHandle = ( foc_hall_t * ) pHandleVoid;
     int ang_diff;   //两次有效的角度偏差
@@ -70,6 +77,9 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     //uint32_t wCaptBuf;
     //uint16_t hPrscBuf;
     int16_t nowEAngle= 0;   //当前电角度
+	int16_t ang_hall_int;
+	int16_t tempL_int_diff;
+	//int16_t tempR_int_diff;
     //uint32_t hHighSpeedCapture;
     //霍尔值
     uint8_t hall_val = GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2
@@ -102,7 +112,7 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     switch(pHandle->hallState){
         case hall_run: //正常模式
             //120度hall 顺序 1-3-2-6-4-5-1  / 5-4-6-2-3-1-5
-            int16_t ang_hall_int = pHandle->foc_hall_table[hall_val];	//当前值对应表格位置的角度值
+            ang_hall_int = pHandle->foc_hall_table[hall_val];	//当前值对应表格位置的角度值
             if(m_ang60_intTime>=MaxAng60IntTime){   //如果上次超时了 认为速度过慢/堵转了 重新开始hall 角度
                 //上次是否角度不正常 不正常直接赋值正常角度
                 //从误差过来计算角速度时间默认最大
@@ -155,12 +165,12 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                         tempR_int = pHandle->foc_hall_table[4];
                         break;
                 }
-                int16_t tempL_int_diff = tempL_int-ang_hall_int; //下次误差预测
-                int16_t tempR_int_diff = tempR_int-ang_hall_int;
+                tempL_int_diff = tempL_int-ang_hall_int; //下次误差预测
+                //tempR_int_diff = tempR_int-ang_hall_int;
 
                 if(ang_diff>0){
                     //角度变大 预测下次角度不能超过右边的值
-                    if(tempL_int_diff>0){ //方向一致
+                    if(tempL_int_diff>0){ //方向一致 本次角度的下一个角度 也是增加
                         pHandle->m_ang_hall_int_Next = tempL_int;   //下次插值的终点
                     }else{ 
                         pHandle->m_ang_hall_int_Next = tempR_int;   //下次插值的终点
@@ -178,11 +188,11 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 int16_t abs_ang_diff = abs(ang_diff);
                 if(DirCMPint16(ang_diff,pHandle->last_ang_diff)==0){   //误差变化方向是否一致 
                     //误差方向一致
-                    if(abs_ang_diff>hEdegree80){    //>80度 认为只变化80度
+                    if(abs_ang_diff>hEdegree(80)){    //>80度 认为只变化80度
                         //本次角度变化过大 限制更新角度 本次误差如果>80度 可能是上次60度变化丢失了 duty限制要降下来
-                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree80); 
-                    }else if(abs_ang_diff<hEdegree40){  //<40度 直接认为变化60度吗？
-                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree60); 
+                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree(80)); 
+                    }else if(abs_ang_diff<hEdegree(40)){  //<40度 直接认为变化60度吗？
+                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree(60)); 
                     }else{
                         pHandle->m_ang_hall_int_prev += ang_diff; //正常更新角度
                     }
@@ -257,21 +267,6 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
             }
         break;
     }
-
-
-
-    //这里加入学习模式和正常模式区别
-    //学习模式 每次触发正确的变化就学习一次,学习模式正反转都要学习
-    //开环时候自动学习?
-    //正常模式每次触发就计算一次角度和速度
-    //霍尔角度设定在0-0xffff(0-65535)之间
-    //根据速度的方向 映射不同表格 正转还是反转表
-    //正常角度是在 -32768(0x8000) ~ 32767（0x7fff)
-    //本次只更新角度切换点 实际角度在AD中断中去判断
-    //这里只算出当前hall切换点角度和当前hall角速度
-    //不考虑角度不对情况
-    //if(ang_hall_int<65536){
-
 }
 
 #if defined (CCMRAM)
@@ -288,7 +283,7 @@ void * M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
  * @retval none
  * 霍尔计数器溢出了
 */
-void * M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
+static void M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
 {
     foc_hall_t * pHandle = ( foc_hall_t * ) pHandleVoid;
     m_ang60_intTime += 0x1000000;  //+24bit 溢出的时间  262,144us
@@ -304,7 +299,7 @@ void * M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
             //长时间不换相 且角度不合法 说明hall坏了 角度不动 速度慢慢降到0 且不能再启动 直到hall恢复正常
             pHandle->hallState |= 0x80;    //hall 失效/丢失
             pHandle->anginc = 0;    //每次变化的角度
-            return; //不计算速度和时间
+            //return; //不计算速度和时间
         }else{
             //角度合法 说明电机堵转了 没有动 此时目标角度设置为当前hall角度 当前值慢慢靠近这个角度
             pHandle->anginc = 0;    //每次变化的角度0 长时间不换相 认为电机堵转了 角度不动 速度慢慢降到0 且不能再启动 直到hall恢复正常
@@ -315,9 +310,9 @@ void * M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
  * @brief hall init config 
  * 
  */
-void M_Hall_Init(foc_hall_t * pHandle){
+void M_Hall_Init(foc_hall_t * pHandle,mc_config_t *mcconf){
     m_ang60_intTime = MaxAng60IntTime;  //60度最长换相时间
-    //pHandle->foc_hall_table = foc_hall_ang_table;
+    pHandle->foc_hall_table = mcconf->foc_hall_table;
     //pHandle->foc_hall_tableTemp = foc_hall_ang_Temptable;
     pHandle->anginc  = 0;
     //motor->m_ang_hall_int_prev = 65536; //给一个错误的角度

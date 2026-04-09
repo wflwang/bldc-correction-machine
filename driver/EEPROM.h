@@ -30,6 +30,4 @@
 //void EE_WriteFOC(Learn_Componets *lc);
 FLASH_Status EE_WriteConfig(uint32_t flash_addr, const void *src, uint32_t size);
 void EE_ReadConfig(uint32_t flash_addr, void *dst, uint32_t size);
-FLASH_Status EE_WriteConfig(uint32_t flash_addr, const void *src, uint32_t size);
-
 #endif

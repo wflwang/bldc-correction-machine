@@ -8,6 +8,7 @@
 #include "app.h"
 #include "utils_math.h"
 #include <cstdint>
+#include "mc_tasks.h"
 
 #define lostPWMCnt 2       //连接阈值 大于这个数才是连上否则都是掉码
 static uint32_t PWM_L=0,PWM_H=0;
@@ -65,6 +66,7 @@ void UTU1_IRQHandler(void)
         case APP_Uart:
         break;
         case APP_PWM:
+			lastPPM = (PWM_L<<15) / PWM_H;
         break;
     }
     UTU_ClearFlag(UTU1, (uint16_t)temp);

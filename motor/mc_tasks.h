@@ -56,6 +56,8 @@ int32_t GetMaxSpeed(void);  //获取最大转速
 void mc_lock_pins (void);
 void clearRefIdq(void);
 app_mode_t GetAPPMode(void);
+bool GetISChangeState(void);
+int16_t GetNowVBusAD(void);
 /**
   * @}
   */

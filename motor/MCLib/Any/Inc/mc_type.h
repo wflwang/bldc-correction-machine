@@ -255,8 +255,8 @@ typedef struct{
   int16_t TempMotorLVL2;              //电机温度级别2
   int16_t TempMotorLVL1Iq;      //电机温度级别1 限制电流
   int16_t TempMotorLVL2Iq;      //电机温度级别2 限制电流
-  int16_t foc_hall_table[8];  //hall 校准好的角度表格
-  int16_t mc_KV;    //电机KV值
+  int16_t *foc_hall_table;  //hall 校准好的角度表格
+  uint16_t mc_KV;    //电机KV值
   int32_t Fluxlink; //磁链
   int32_t Ld;     //d轴电感
   int32_t Lq;   //q轴电感

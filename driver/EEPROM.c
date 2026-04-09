@@ -93,7 +93,7 @@ FLASH_Status EE_WriteConfig(uint32_t flash_addr, const void *src, uint32_t size)
 void EE_ReadConfig(uint32_t flash_addr, void *dst, uint32_t size)
 {
     uint8_t *p_dst = (uint8_t*)dst;
-    uint8_t *p_src = (uint8_t*)flash_addr;
+    uint8_t *p_src = (uint8_t*)(uintptr_t)flash_addr;
 
     for(uint32_t i=0; i<size; i++)
     {

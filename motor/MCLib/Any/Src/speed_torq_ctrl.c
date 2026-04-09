@@ -22,6 +22,7 @@
 #include "hw_correct.h"
 #include "drive_parameters.h"
 #include "mc_type.h"
+#include <stdlib.h>
 
 #define CHECK_BOUNDARY
 
@@ -487,20 +488,20 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
     /* Compute speed error */
     hTargetSpeed = ( int16_t )( wCurrentReference >>16 );
     //hMeasuredSpeed = SPD_GetAvrgMecSpeed01Hz( pHandle->SPD );
-    if(GetBrakeStatus()==1){
-      //中点刹车时候 当前速度如果小于目标速度 直接赋值给目标速度
-      if(hTargetSpeed>0){ //目标为正
-        if(hTargetSpeed>hMeasuredSpeed){
-          //当前小于目标
-            hTargetSpeed = hMeasuredSpeed;
-        }
-      }else if(hTargetSpeed<0){
-         if(hTargetSpeed<hMeasuredSpeed){
-          //当前小于目标
-            hTargetSpeed = hMeasuredSpeed;
-        }       
-      }
-    }
+    //if(GetBrakeStatus()==1){
+    //  //中点刹车时候 当前速度如果小于目标速度 直接赋值给目标速度
+    //  if(hTargetSpeed>0){ //目标为正
+    //    if(hTargetSpeed>hMeasuredSpeed){
+    //      //当前小于目标
+    //        hTargetSpeed = hMeasuredSpeed;
+    //    }
+    //  }else if(hTargetSpeed<0){
+    //     if(hTargetSpeed<hMeasuredSpeed){
+    //      //当前小于目标
+    //        hTargetSpeed = hMeasuredSpeed;
+    //    }       
+    //  }
+    //}
     hError = hTargetSpeed - hMeasuredSpeed;
     //当Iq扭矩已经达到最大了时候不应该再增加误差了 这时已经没用了
     if(hError>0){
@@ -559,16 +560,16 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
     //本次速度正 误差负 / 本次速度负 误差正  需要减速
     bool is_brakeing = ((((hError<0)&&(hMeasuredSpeed>0))||((hError>0)&&(hMeasuredSpeed<0)))&&GetISChangeState());
     // 2. 判断母线电压是否超过安全阈值 当电压超过限制电压1.5v时候 -d 到最大20%
-    bool is_over_voltage = (GetNowVBus() > GetVBusLimit());
+    bool is_over_voltage = (GetNowVBusAD() > GetVBusLimit());
     int16_t weak_Id = 0;  //当前弱磁电流
     if(is_brakeing&&is_over_voltage){
       //当刹车且母线电压大于设定的预置时候有能量回收此时要给-IdRef?
       //-IdRef 最大给到20% 
-      uint16_t diff = (GetNowVBus() - GetVBusLimit());
+      uint16_t diff = (GetNowVBusAD() - GetVBusLimit());
       if(diff>VBusVol(MaxBoostVol)){ //升高对应电压时候对应的最大-Id
         weak_Id = CurrentInt16(MaxWeakId);  //最大-Id
       }else{
-        weak_Id = diff*CurrentInt16(MaxWeakId)/VBusTrigAD(MaxBoostVol);
+        weak_Id = diff*CurrentInt16(MaxWeakId)/VBusVol(MaxBoostVol);
       }
     }
     // 应用一阶低通滤波

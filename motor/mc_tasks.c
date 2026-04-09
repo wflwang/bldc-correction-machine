@@ -24,10 +24,12 @@
 #include "EEPROM.h"
 #include "app.h"
 #include "crc.h"
+#include <math.h>
+#include "utils_math.h"
 /* USER CODE BEGIN Includes */
 
 int16_t AVrspeed = 0;
-static int16_t NowVBusx100 = 0;   //当前母线电压*100
+static int16_t NowVBusAD = 0;   //当前母线电压AD
 static int16_t NowTempMotorx100 = 0;   //当前马达电压*100
 static int16_t NowTempPCBx100 = 0;   //当前PCB电压*100
 static int IsSpeech = 0;  //是否发声
@@ -79,7 +81,7 @@ uint8_t bMCBootCompleted = 0;
 /* Private functions ---------------------------------------------------------*/
 static void TSK_MediumFrequencyTaskM1(void);
 static void FOC_Clear(uint8_t bMotor);
-static void FOC_InitAdditionalMethods(uint8_t bMotor);
+//static void FOC_InitAdditionalMethods(uint8_t bMotor);
 static void FOC_CalcCurrRef(uint8_t bMotor);
 static uint16_t FOC_CurrController(uint8_t bMotor);
 void TSK_SetChargeBootCapDelayM1(uint16_t hTickCount);
@@ -132,7 +134,7 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     pPIDSpeed[M1] = &PIDSpeedHandle_M1;
     pSTC[M1] = &SpeednTorqCtrlM1;
 
-    M_Hall_Init(&HALL_M1);
+    M_Hall_Init(&HALL_M1,&mcconf);
     //HALL_Init (&HALL_M1);
     //开启一次AD转换，触发一次中断，读取一次电压，给FOC一个初始的v_bus值
     //ADC_StartConversion(ADC1, ADC_CHANNEL_0); // 触发一次AD
@@ -155,13 +157,13 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     /********************************************************/
     /*   Bus voltage sensor component initialization        */
     /********************************************************/
-    pBusSensorM1 = &RealBusVoltageSensorParamsM1;
-    RVBS_Init(pBusSensorM1);
+    //pBusSensorM1 = &RealBusVoltageSensorParamsM1;
+    //RVBS_Init(pBusSensorM1);
 
     /*************************************************/
     /*   Power measurement component initialization  */
     /*************************************************/
-    pMPM[M1] = &PQD_MotorPowMeasM1;
+    //pMPM[M1] = &PQD_MotorPowMeasM1;
     pMPM[M1]->pVBS = &(pBusSensorM1->_Super);
     pMPM[M1]->pFOCVars = &FOCVars[M1];
 
@@ -244,6 +246,16 @@ int GetMSpeechEN(void){
 void SetMSpeechEN(int state){
   IsSpeech = state;
 }
+bool GetISChangeState(void){
+  return HALL_M1.I_feed;
+}
+/**
+ * @brief get now VBus VDD*100
+ * 
+ */
+int16_t GetNowVBusAD(void){
+    return NowVBusAD;
+}
 
 /**
  * @brief  Executes the Medium Frequency Task functions for each drive instance.
@@ -292,11 +304,11 @@ void MC_Scheduler(void)
 void TSK_MediumFrequencyTaskM1(void)
 {
     State_t StateM1;
-    int16_t wAux = 0;
+    //int16_t wAux = 0;
     //计算hall的平均机械速度和电机功率
-    (void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
+    //(void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
     //PQD_CalcElMotorPower( pMPM[M1] );
-    AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
+    //AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
 
     StateM1 = STM_GetState( &STM[M1] );
 
@@ -327,7 +339,7 @@ void TSK_MediumFrequencyTaskM1(void)
             break;
 
         case CLEAR:
-            HALL_Clear( &HALL_M1 );
+            //HALL_Clear( &HALL_M1 );
 
             if ( STM_NextState( &STM[M1], START ) == true )
             {
@@ -378,7 +390,7 @@ void TSK_MediumFrequencyTaskM1(void)
         case ANY_STOP:
             R3F0XX_SwitchOffPWM( pwmcHandle[M1] );
             FOC_Clear( M1 );
-            MPM_Clear( (MotorPowMeas_Handle_t*) pMPM[M1] );
+            //MPM_Clear( (MotorPowMeas_Handle_t*) pMPM[M1] );
             TSK_SetStopPermanencyTimeM1( STOPPERMANENCY_TICKS );
 
             STM_NextState( &STM[M1], STOP );
@@ -463,12 +475,12 @@ void FOC_Clear(uint8_t bMotor)
   * @param  bMotor related motor it can be M1 or M2
   * @retval none
   */
-void FOC_InitAdditionalMethods(uint8_t bMotor)
-{
+//void FOC_InitAdditionalMethods(uint8_t bMotor)
+//{
     /* USER CODE BEGIN FOC_InitAdditionalMethods 0 */
 
     /* USER CODE END FOC_InitAdditionalMethods 0 */
-}
+//}
 
 /**
   * @brief  It computes the new values of Iqdref (current references on qd
@@ -531,6 +543,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
         }
         //FOCVars[bMotor].hTeref = STC_CalcTorqueReference(pSTC[bMotor]);
         //FOCVars[bMotor].Iqdref.qI_Component1 = FOCVars[bMotor].hTeref;
+		#endif
     }
 }
 /**
@@ -792,11 +805,11 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     hElAngle = HALL_M1.real_phase;    //hall 算出来的真实角度
     //低速时候速度换直接vd vq控制  高速时候再切换到 电流控制闭环
     //hall 学习校准时候不用电流环 很低速时候不用电流环 无感启动时候也不用电流环
-    speed = SPD_GetAvrgMecSpeed01Hz(pSTC[bMotor]->SPD);
+    int16_t speed = SPD_GetAvrgMecSpeed01Hz(pSTC[bMotor]->SPD);
     if(GetMSpeechEN()){
           static uint8_t phase = 0;
           //static int16_t sine_table[4] = {0, 707, 1000, 707};  // 正弦波采样
-          ENC_KTH7823_M1.feed_v = 0;
+          HALL_M1.feed_v = 0;
           phase = (phase + 1) & 0x07;  // 0-3循环
           // 注入旋转的电压矢量，但平均转矩为0
           int16_t amplitude = FOCVars[bMotor].Iqdref.qI_Component2;
@@ -994,7 +1007,7 @@ void TSK_SafetyTask(void)
   */
 void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
 {
-    uint16_t vBusx100;   //母线电压*100
+    uint16_t vBusAD;   //母线电压*100
     uint16_t vTempMotorx100;   //马达温度*100
     uint16_t vTempPCBx100;   //PCB温度*100
     static int countVolUnder = 0;   //连续过压欠压的次数
@@ -1005,19 +1018,20 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
     //uint16_t errMask[NBR_OF_MOTORS] = {VBUS_TEMP_ERR_MASK};
     if(FOCVars[bMotor].status == not_ready){
         //电机准备中
-        vBusx100 = GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+        vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
         vTempMotorx100 = NTC_TEMP_MOTOR(TempBeta);
         vTempPCBx100 = NTC_TEMP_PCB(TempBeta);
-        NowVBusx100 = vBusx100;   //更新当前电压值
+        NowVBusAD = vBusAD;   //更新当前电压值
         NowTempMotorx100 = vTempMotorx100;
         NowTempPCBx100 = vTempPCBx100;
-        if(vBusx100 < vMinBus){   //
+        if(vBusAD < vMinBus){   //
             //电机过低 不工作
             FOCVars[bMotor].status = mc_under_voltage;   //欠压了
-        }else if(vBusx100 > vMaxBus){
+        }else if(vBusAD > vMaxBus){
             FOCVars[bMotor].status = mc_over_voltage;   //过压了
         }else{
-            Maxspeed = vBusx100*FOCVars[bMotor].mc_KV/100;   //算出最大转速
+            Maxspeed = get_MaxSpeed(vBusAD,FOCVars[bMotor].mc_KV);
+            //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //算出最大转速
             //初始化电压 根据上电电压算出最大转速
             FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
         }
@@ -1025,11 +1039,11 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
     }else{
         if((FOCVars[bMotor].status != ready_RUN)&&(FOCVars[bMotor].status != motor_run))
             return;     //没有正常运行
-        vBusx100 = GET_INPUT_VOLTAGE();     //获取VDD 的AD值
-        UTILS_LPInt16_FAST(NowVBusx100, vBusx100, VBusFilterConstant);   //更新当前电压值 
+        vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+        UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //更新当前电压值 
         UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //更新Motor温度
         UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //更新PCB温度
-        if(NowVBusx100 < vMinBus){   //
+        if(NowVBusAD < vMinBus){   //
             //电机过低 不工作
             countVolUnder++;
             if(countVolUnder > 2000){    //1s
@@ -1037,7 +1051,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
             }
         }else
             countVolUnder = 0;
-        if(NowVBusx100 > vMaxBus){
+        if(NowVBusAD > vMaxBus){
             countVolOver++;
             if(countVolOver > 2000){    //1s
                 FOCVars[bMotor].status = mc_over_voltage;   //过压了
@@ -1141,8 +1155,8 @@ int32_t GetMaxSpeed(void){
  * 
  */
 void GetAPPConfig(void){
-  EE_ReadConfig(ADDR_FLASH_EEPROM_APPCONF,&appconf,sizeof(app_config_t));
-  uint16_t crc = crc16((uint8_t)&appconf,sizeof(app_config_t)-2);
+  EE_ReadConfig((uint32_t)ADDR_FLASH_EEPROM_APPCONF,&appconf,sizeof(app_config_t));
+  uint16_t crc = crc16((uint8_t* )&appconf,sizeof(app_config_t)-2);
   if(appconf.CRC_Data!=crc){
     DefaultAPPConfig(&appconf);      //用默认马达配置 读取数据失败 要重新学习
     //HALL_M1.hallState = hall_null;  //hall 不存在 要重新学习
@@ -1156,8 +1170,8 @@ void GetAPPConfig(void){
  * 
  */
 void GetMCConfig(void){
-  EE_ReadConfig(ADDR_FLASH_EEPROM_MCCONF,&mcconf,sizeof(mc_config_t));
-  uint16_t crc = crc16((uint8_t)&mcconf,sizeof(mc_config_t)-2);
+  EE_ReadConfig((uint32_t)ADDR_FLASH_EEPROM_MCCONF,&mcconf,sizeof(mc_config_t));
+  uint16_t crc = crc16((uint8_t* )&mcconf,sizeof(mc_config_t)-2);
   if(mcconf.CRC_Data!=crc){
     DefaultMCConfig(&mcconf);      //用默认马达配置 读取数据失败 要重新学习
     HALL_M1.hallState = hall_null;  //hall 不存在 要重新学习

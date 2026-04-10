@@ -41,6 +41,7 @@ void GetUartDebug(void);
 void UartSendDatas(uint8_t *p, uint8_t len);
 uint32_t Get1msTick(void);
 void UTU_Config(void);
+void Inc1msTick(void);
 
 
 #endif

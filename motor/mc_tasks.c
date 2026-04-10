@@ -26,6 +26,7 @@
 #include "crc.h"
 #include <math.h>
 #include "utils_math.h"
+#include "peripherals.h"
 /* USER CODE BEGIN Includes */
 
 int16_t AVrspeed = 0;
@@ -33,8 +34,14 @@ static int16_t NowVBusAD = 0;   //当前母线电压AD
 static int16_t NowTempMotorx100 = 0;   //当前马达电压*100
 static int16_t NowTempPCBx100 = 0;   //当前PCB电压*100
 static int IsSpeech = 0;  //是否发声
+#ifndef cTestSVPWM
 static int IScount = 0; //电流环速度环切换时间
+#endif
+#define SYSTICK_DIVIDER (SYS_TICK_FREQUENCY/1000)
+
 static int32_t Maxspeed = 1000;     //最大限制转速 
+
+int32_t Count1ms = 0;   //1ms count
 
 mc_config_t mcconf;     //初始化 马达配置
 app_config_t appconf;   //app config
@@ -242,7 +249,7 @@ void MC_RunMotorControlTasks(void)
 int GetMSpeechEN(void){
   return IsSpeech;
 }
-//设置发射状态
+//设置发声状态
 void SetMSpeechEN(int state){
   IsSpeech = state;
 }
@@ -292,6 +299,17 @@ void MC_Scheduler(void)
     }
 
 }
+/**
+ * @brief Get now speed
+ * 计算速度环的速度 要稳定,同时不能有太大延迟
+ * 
+ */
+void Hall_CalcAvrgMecSpeed01Hz( foc_hall_t * pHandle)
+{
+  //->两次速度差
+  /*Stores average mechanical speed [01Hz]*/
+  pHandle->_Super.hAvrMecSpeed01Hz /= pHandle->erpm*pHandle->_Super.bElToMecRatio; //1ms 内的平均速度 和
+}
 
 /**
   * @brief Executes medium frequency periodic Motor Control tasks
@@ -304,12 +322,13 @@ void MC_Scheduler(void)
 void TSK_MediumFrequencyTaskM1(void)
 {
     State_t StateM1;
+    Count1ms++; //1ms add
     //int16_t wAux = 0;
     //计算hall的平均机械速度和电机功率
     //(void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
     //PQD_CalcElMotorPower( pMPM[M1] );
     //AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
-
+	Hall_CalcAvrgMecSpeed01Hz( &HALL_M1);
     StateM1 = STM_GetState( &STM[M1] );
 
     switch ( StateM1 )
@@ -504,8 +523,12 @@ void FOC_CalcCurrRef(uint8_t bMotor)
     #endif
     if (FOCVars[bMotor].bDriveInput == INTERNAL)
     {
+        Curr_Components iqdtemp;
         #ifdef cTestSVPWM
-        FOCVars[bMotor].hTeref = cTestSVPWM;    //测试SVPWM Iq大小
+        iqdtemp.qI_Component1 = 0;
+        iqdtemp.qI_Component2 = cTestSVPWM;
+        HALL_M1.real_phase += TesTAngAdd;   //每次增加 1/65536度
+        FOCVars[bMotor].Iqdref = iqdtemp;    //测试SVPWM Iq大小
         #else
         if(GetMSpeechEN()){ //有播放声音
             FOCVars[bMotor].Iqdref.qI_Component1 = 0;  //实际转起来是给q轴
@@ -537,7 +560,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                 }
             }else{
                 //正常给扭矩
-                Curr_Components iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
+                iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
                 FOCVars[bMotor].Iqdref = iqdtemp;
             }
         }
@@ -629,29 +652,34 @@ bool TSK_StopPermanencyTimeHasElapsedM1(void)
   *
   * @retval Number of the  motor instance which FOC loop was executed.
   */
-uint8_t TSK_HighFrequencyTask(void)
+//uint8_t TSK_HighFrequencyTask(void)
+void ADC_IRQHandler(void)
 {
-    uint8_t bMotorNbr = 0;
-    uint16_t hFOCreturn;
-    //HALL_CalcElAngle (&HALL_M1);
-
-    hFOCreturn = FOC_CurrController(M1);
-
-    if (hFOCreturn == MC_FOC_DURATION)
+    //uint8_t bMotorNbr = 0;
+    if ((ADC->ADIFR & ADC_IT_GROUPB0_FINISH)!= RESET)
     {
-        STM_FaultProcessing(&STM[M1], MC_FOC_DURATION, 0);
-    }
-    else
-    {
-        /* USER CODE BEGIN HighFrequencyTask SINGLEDRIVE_3 */
+        /* Clears the ADCx's interrupt pending bits */
+        ADC->ADIFR |= ADC_IT_GROUPB0_FINISH;        
+        uint16_t hFOCreturn;
+        //HALL_CalcElAngle (&HALL_M1);
 
-        /* USER CODE END HighFrequencyTask SINGLEDRIVE_3 */
+        hFOCreturn = FOC_CurrController(M1);
+
+        if (hFOCreturn == MC_FOC_DURATION)
+        {
+            STM_FaultProcessing(&STM[M1], MC_FOC_DURATION, 0);
+        }
+        else
+        {
+            /* USER CODE BEGIN HighFrequencyTask SINGLEDRIVE_3 */
+            /* USER CODE END HighFrequencyTask SINGLEDRIVE_3 */
+        }
     }
 
     /* USER CODE BEGIN HighFrequencyTask 1 */
 
     /* USER CODE END HighFrequencyTask 1 */
-    return bMotorNbr;
+    //return bMotorNbr;
 }
 
 #if defined (CCMRAM)
@@ -840,6 +868,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                     break;
           }
     }
+    #ifndef cTestSVPWM
     else if((HALL_M1.hallState==hall_run)){  //
         if(HALL_M1.I_feed == false){
             //加入电流环
@@ -898,7 +927,9 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //FOCVars[bMotor].Vqd = Vqd;
         //Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
         #endif
-    }else{
+    }
+    #endif
+    else{
         HALL_M1.feed_v = 0; //舍弃电流环
         Vqd.qV_Component1 = FOCVars[bMotor].Iqdref.qI_Component1;
         Vqd.qV_Component2 = FOCVars[bMotor].Iqdref.qI_Component2;
@@ -906,6 +937,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     //=====================================================================
     //  VESC 风格：内切圆 → 六边形 平滑渐进过调制（适配你的代码）
     //=====================================================================
+    #ifndef  cTestSVPWM
     Volt_Components Vqd_circle;
     int32_t mag_sq;
     int32_t circle_max_sq;
@@ -965,6 +997,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 
     // 最终输出
     Vqd = Vqd_final;
+    #endif
 
     Valphabeta = MCM_Rev_Park(Vqd, hElAngle);
     hCodeError = PWMC_SetPhaseVoltage(pwmcHandle[bMotor], Valphabeta);
@@ -983,6 +1016,82 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     FOCVars[bMotor].Valphabeta = Valphabeta;
     FOCVars[bMotor].hElAngle = hElAngle;
     return (hCodeError);
+}
+
+/**
+ * @brief printf Motor control int data
+ * 
+ * 
+ * 
+ */
+void printfMC(uint8_t mode){
+    //uint8_t dataUart[15];
+	switch(mode){
+		case 0:
+            printf("motor ok\n");
+			//dataUart[0] = 'm';
+			//dataUart[1] = 'o';
+			//dataUart[2] = 't';
+			//dataUart[3] = 'o';
+			//dataUart[4] = 'r';
+			//dataUart[5] = ' ';
+			//dataUart[6] = 'o';
+			//dataUart[7] = 'k';
+			//dataUart[8] = '\n';
+			//UartSendDatas(dataUart,9);
+			break;
+		case 1:
+            printf("%u,%u,%u,%u,%u,%d\n",(uint16_t)FOCVars[0].hElAngle,(uint16_t)FOCVars[0].Ialphabeta.qI_Component1,\
+            (uint16_t)FOCVars[0].Ialphabeta.qI_Component2,(uint16_t)FOCVars[0].Valphabeta.qV_Component1,(uint16_t)FOCVars[0].Valphabeta.qV_Component2,\
+            HALL_M1.erpm);
+			//dataUart[0] = 0xaa;
+			//dataUart[1] = (FOCVars[0].hElAngle&0xff);
+			//dataUart[2] = (FOCVars[0].hElAngle>>8)&0xff;
+			//dataUart[3] = (FOCVars[0].Ialphabeta.qI_Component1&0xff);
+			//dataUart[4] = (FOCVars[0].Ialphabeta.qI_Component1>>8)&0xff;
+			//dataUart[5] = (FOCVars[0].Ialphabeta.qI_Component2&0xff);
+			//dataUart[6] = (FOCVars[0].Ialphabeta.qI_Component2>>8)&0xff;
+			//dataUart[7] = (FOCVars[0].Valphabeta.qV_Component1&0xff);
+			//dataUart[8] = (FOCVars[0].Valphabeta.qV_Component1>>8)&0xff;
+			//dataUart[9] = (FOCVars[0].Valphabeta.qV_Component2&0xff);
+			//dataUart[10] = (FOCVars[0].Valphabeta.qV_Component2>>8)&0xff;
+			//dataUart[11] = HALL_M1.erpm&0xff;
+			//dataUart[12] = (HALL_M1.erpm>>8)&0xff;
+			//dataUart[13] = (HALL_M1.erpm>>16)&0xff;
+			//dataUart[14] = (HALL_M1.erpm>>24)&0xff;
+			//UartSendDatas(dataUart,sizeof(dataUart));
+			break;
+	}
+}
+/**
+  * @brief  Retargets the C library printf function to the UART.
+  * @param  None
+  * @retval None
+  */
+int fputc(int ch, FILE *f)
+{
+    uint32_t Timeout = 0;
+    FlagStatus Status;
+
+    UART_SendData(UART2, (uint8_t) ch);
+
+    do
+    {
+        Status = UART_GetFlagStatus(UART2, UART_FLAG_TXE);
+        Timeout++;
+    } while ((Status == RESET) && (Timeout != 0xFFFF));
+
+    return (ch);
+}
+/**
+  * @brief  This function handles SysTick exception,Run MotorControl Tasks.
+  * @param  None
+  * @retval None
+  */
+void SysTick_Handler(void)
+{
+    Inc1msTick();
+    MC_RunMotorControlTasks();
 }
 
 /**
@@ -1132,13 +1241,10 @@ MCT_Handle_t* GetMCT(uint8_t bMotor)
 void TSK_HardwareFaultTask(void)
 {
     /* USER CODE BEGIN TSK_HardwareFaultTask 0 */
-
     /* USER CODE END TSK_HardwareFaultTask 0 */
-
     R3F0XX_SwitchOffPWM(pwmcHandle[M1]);
     STM_FaultProcessing(&STM[M1], MC_SW_ERROR, 0);
     /* USER CODE BEGIN TSK_HardwareFaultTask 1 */
-
     /* USER CODE END TSK_HardwareFaultTask 1 */
 }
 /**
@@ -1188,6 +1294,59 @@ void GetMCConfig(void){
  */
 app_mode_t GetAPPMode(void){
     return appconf.app_mode;
+}
+
+uint8_t aRxBuffer[64];
+uint8_t RxCounter = 0;  //接收计数
+uint8_t NewDataBuffLen = 0; //新数据的长度
+uint8_t NewDataStart = 0;   //新数据开始位置
+uint8_t LastDataStart = 0;  //上次数据开始的位置
+uint8_t IDLEflag = 0;   //是否开启空闲中断
+/**
+  * @brief  This function handles USART interrupt request.
+  * @param  None
+  * @retval None
+  */
+void UART2_IRQHandler(void)
+{
+    if (UART_GetITStatus(UART2, UART_IT_RXNE) == SET)
+    {
+        /* Read one byte from the receive data register */
+        aRxBuffer[RxCounter++] = (UART_ReceiveData(UART2));
+        UART_ClearFlag(UART2,UART_FLAG_RXNE);
+        if(RxCounter>=64)
+            RxCounter = 0;
+        if(IDLEflag==0){
+            IDLEflag = 1;
+            UART_ClearFlag(UART2, UART_FLAG_IDLE);
+            UART_ITConfig(UART2, UART_IT_IDLE, ENABLE);
+        }
+    }
+    if(UART_GetITStatus(UART2, UART_IT_IDLE) == SET){
+        IDLEflag = 0;
+        // ?【必须加】HK32M070 清除空闲中断标准方式
+        UART_ReceiveData(UART2);
+        UART_ClearFlag(UART2, UART_FLAG_IDLE);
+        UART_ITConfig(UART2, UART_IT_IDLE, DISABLE);
+        if(RxCounter>=NewDataStart)
+            NewDataBuffLen = RxCounter-NewDataStart;
+        else{
+            NewDataBuffLen = 64+RxCounter-NewDataStart;
+        }
+        LastDataStart = NewDataStart;
+        NewDataStart = RxCounter;
+    }
+}
+/**
+ * @brief Get Uart RX Data
+ * 
+ * 
+ */
+void ScanUartRX(void){
+    if(NewDataBuffLen>0){
+        //有新数据进来 读出读到的uartRX 数据
+        NewDataBuffLen = 0;
+    }
 }
 
 /**

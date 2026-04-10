@@ -15,6 +15,7 @@
 #include "mc_tuning.h"
 #include "mc_interface.h"
 #include "app.h"
+#include "foc_hall.h"
 
 /** @addtogroup MCSDK
   * @{
@@ -58,6 +59,12 @@ void clearRefIdq(void);
 app_mode_t GetAPPMode(void);
 bool GetISChangeState(void);
 int16_t GetNowVBusAD(void);
+void Hall_CalcAvrgMecSpeed01Hz( foc_hall_t * pHandle);
+void SetMSpeechEN(int state);
+int GetMSpeechEN(void);
+void Delay_ms(__IO uint32_t Delay);
+void printfMC(uint8_t mode);
+void ScanUartRX(void);
 /**
   * @}
   */

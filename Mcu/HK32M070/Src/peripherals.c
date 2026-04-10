@@ -538,7 +538,7 @@ void MX_Uart_Init(void){
     UART_InitStructure.UART_Mode = UART_Mode_Rx | UART_Mode_Tx;
     UART_Init(UartCH, &UART_InitStructure);
     UART_ITConfig(UartCH, UART_IT_RXNE, ENABLE);
-    //UART_ITConfig(UartCH, UART_IT_IDLE, DISABLE);
+    UART_ITConfig(UartCH, UART_IT_IDLE, DISABLE);
     //Uart_t.Index = 0;
     //Uart_t.Len = 0;
     //Uart_t.FinishedFlag = RESET;
@@ -566,6 +566,7 @@ void UartSendDatas(uint8_t *p, uint8_t len)
     }
   }
 }
+
 /**
  * 
  * delay function
@@ -581,6 +582,9 @@ void Delay_ms(__IO uint32_t Delay)
 }
 uint32_t Get1msTick(void){
     return msTick;
+}
+void Inc1msTick(void){
+    msTick++;
 }
 /***
  * @brief 
@@ -721,9 +725,11 @@ void MX_GPIO_Init(void){
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;    //开启上拉
-    GPIO_Init(HW_En_PORT, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = HW_En_PIN;
     GPIO_Init(HW_DIR_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+    GPIO_InitStructure.GPIO_Pin = HW_En_PIN;
+    GPIO_Init(HW_En_PORT, &GPIO_InitStructure);
+    SetEn(0);
 }
 /**
   * @brief NVIC Configuration.

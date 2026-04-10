@@ -106,7 +106,6 @@
 #define SW_DEADTIME_NS                       700 /*!< Dead-time to be inserted  
                                                        by FW, only if low side 
                                                        signals are enabled */
-#define fw_pro    33    //前馈补偿的比例  ?*目标速度/128
 /* Torque and flux regulation loops */
 #define REGULATION_EXECUTION_RATE            1  /*!< FOC execution rate in number of PWM cycles */
 

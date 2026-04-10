@@ -73,6 +73,7 @@ typedef struct
     uint16_t Maxspeed;  //最大速度
     uint16_t NowVBus; //当前母线电压
     uint16_t MaxLimitVBus;  //最大限制母线电压 超过就要弱磁
+    int32_t erpm;   //当前电转速
     //uint16_t tabAngleIndex;  //表格位置
     //uint16_t tabAnglePage;  //表格page位置 128*16 = 2048 = 2*1024 全角度 128int16 = 256int8
     //uint16_t tabMinAngIdx;  //定位到的指针

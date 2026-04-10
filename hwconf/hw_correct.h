@@ -15,6 +15,9 @@
 #define HW_NAME "HK32M070-correct"
 #endif
 
+#define cTestSVPWM  4000        //开环电流
+#define TesTAngAdd  6       //开环测试每次变化的角度
+
 // Hall sensor pins
 #define HW_HALL_ENC_GPIO1 GPIOA
 #define HW_HALL_ENC_PIN1 GPIO_Pin_0
@@ -59,7 +62,11 @@
 //#define HW_PWM3_PORT GPIOA
 //#define HW_PWM3_PIN GPIO_Pin_10
 //uart config
+
+#define MainOutMCTime   1   //打印内部数据的时间间隔 这个数加1
+
 #define bps_rate    115200
+
 #define UartTX_PORT GPIOA
 #define UartRX_PORT GPIOA
 #define UartTX_PIN  GPIO_Pin_7
@@ -87,6 +94,8 @@
 #define HW_DIR_PIN  GPIO_Pin_13
 #define HW_En_PORT  GPIOA
 #define HW_En_PIN   GPIO_Pin_11
+#define SetEn(x)    ((x) ? GPIO_SetBits(HW_En_PORT, HW_En_PIN) : GPIO_ResetBits(HW_En_PORT, HW_En_PIN))
+#define XorEn()     GPIO_Toggle(HW_En_PORT, HW_En_PIN)
 
 //LED control
 
@@ -205,6 +214,10 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 
 //获取角度值
 #define hEdegree(x)     (x*65536/360)
+//速度比例常数 64000000*60(1min)/65536(1圈)
+#define ScaleErpm       (64000000UL*60UL/65536UL)
+//转速前馈补偿
+#define fw_pro    93    //前馈补偿的比例  ?*目标速度/128
 
 
 #define IloopTrigH      500     //切入电流环的速度

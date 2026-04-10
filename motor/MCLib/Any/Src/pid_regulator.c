@@ -360,7 +360,7 @@ int16_t PI_Controller( PID_Handle_t * pHandle, int32_t wProcessVarError )
              that Cortex-M3 assembly instruction ASR (arithmetic shift right)
              is used by the compiler to perform the shifts (instead of LSR
              logical shift right)*/
-  wOutput_32 = ( wProportional_Term >> pHandle->hKpDivisorPOW2 ) + ( pHandle->wIntegralTerm >> pHandle->hKiDivisorPOW2 ) + + pHandle->hCompensation;
+  wOutput_32 = ( wProportional_Term >> pHandle->hKpDivisorPOW2 ) + ( pHandle->wIntegralTerm >> pHandle->hKiDivisorPOW2 ) + pHandle->hCompensation;
 #endif
 
   if ( wOutput_32 > hUpperOutputLimit )

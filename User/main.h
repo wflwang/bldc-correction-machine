@@ -49,7 +49,7 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-void Delay_ms(__IO uint32_t Delay);
+void speechEn(uint32_t time,uint32_t count);
 #ifdef __cplusplus
 }
 #endif

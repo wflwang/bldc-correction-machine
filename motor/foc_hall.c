@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mc_tasks.h"
+#include "hw_correct.h"
+#include "utils_math.h"
 
 static volatile uint32_t m_ang60_intTime=0;  //60度换向时间单位是 1/8us 最长 512s
 static int16_t lastHallEAngle = 0;  //上次hall保存的电角度
@@ -106,6 +108,7 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
         //此时错误不算时间 也不更新速度,下次计数应该用错误计数的值和下次值的累加和
         return; //不计算速度和时间
     }
+    XorEn();
     pHandle->hall_val = hall_val; //输出新的角度,主程序中可以知道角度的更新 方便映射电角度
     nowEAngle = pHandle->real_phase;   //获取当前电机的电角度
     //0 正常模式? 1,2,3,4,5,6,7(学习) 0xff(hall 没有学习过), 0xfe(hall 不存在)
@@ -202,7 +205,10 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     //中断每次增加的角度 *中断时间(单位1/64us) = 每次增加的角度 更新插值大小
                     //计算当前速度下 中断需要补偿的角度
                     int32_t tmp = (int32_t)pHandle->last_ang_diff * (int32_t)pHandle->intTime * Kpdiff;
-                    pHandle->anginc = tmp / pHandle->m_ang60_intTime;  //每次变化的角度
+                    //变化的角度 * 中断时间(1/64us) / 变化的时间(1/64us) = 每次中断变化的角度;
+                    pHandle->anginc = tmp / pHandle->m_ang60_intTime;  //每次中断变化的角度 
+                    int32_t erpm = ScaleErpm*(int32_t)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
+                    pHandle->erpm = UTILS_LPInt16_FAST(pHandle->erpm,erpm,(int32_t)(0.3*32767)); //获取本次电角速度
                     pHandle->angUpdate = true;   //中断允许更新最新角度了 中断中清除
                     //if(ang_diff>0){
                     //    //误差变大

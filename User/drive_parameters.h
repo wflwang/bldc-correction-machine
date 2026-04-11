@@ -25,7 +25,7 @@
 #define HALL_TIM_CLK                         64000000uL
 #define ADC_REFERENCE_VOLTAGE                5
 /***************** MOTOR ELECTRICAL PARAMETERS  ******hDTCompCnt************************/
-#define POLE_PAIR_NUM                        4       /*!< Number of motor pole pairs */
+#define POLE_PAIR_NUM                        40 //4       /*!< Number of motor pole pairs */
 #define RS                                   3.2     /*!< Stator resistance, ohm */
 #define LS                                   0.00043 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
 #define LdS                                   0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */

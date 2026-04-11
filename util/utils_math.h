@@ -104,6 +104,7 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
  */
 #define UTILS_LP_FAST(value, sample, filter_constant)	(value -= (filter_constant) * ((value) - (sample)))
 #define UTILS_LPInt16_FAST(value, sample, filter_constant)	(value -= (((filter_constant) * ((value) - (sample)))>>15))
+#define UTILS_LPInt32_FAST(value, sample, filter_constant)	(value -= (((filter_constant) * ((value) - (sample)))>>15))
 
 /**
  * A fast approximation of a moving average filter with N samples. See

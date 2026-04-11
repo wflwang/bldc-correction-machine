@@ -6585,28 +6585,6 @@
 		)
 		(uuid "fb2323d2-1aae-4344-a14a-07cc60aa22ab")
 	)
-	(global_label "VDD_3.3v"
-		(shape input)
-		(at 276.86 135.89 90)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "04175083-6cb0-4fbc-b927-ff2da59f1c71")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 276.86 124.3172 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-	)
 	(global_label "bemf_U"
 		(shape input)
 		(at 72.39 63.5 0)
@@ -15798,6 +15776,72 @@
 			(project "纠编机"
 				(path "/6ad7bea8-3496-40b6-a338-5894bb8aab93"
 					(reference "D6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+BATT")
+		(at 276.86 135.89 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "bfc939c2-d51e-449a-818d-7b828a0775cb")
+		(property "Reference" "#PWR037"
+			(at 276.86 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+BATT"
+			(at 276.86 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 276.86 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 276.86 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+BATT\""
+			(at 276.86 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "51126def-1aee-4c00-adad-5e496531b196")
+		)
+		(instances
+			(project "纠编机"
+				(path "/6ad7bea8-3496-40b6-a338-5894bb8aab93"
+					(reference "#PWR037")
 					(unit 1)
 				)
 			)

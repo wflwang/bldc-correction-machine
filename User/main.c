@@ -18,21 +18,21 @@ extern app_config_t appconf;   //app config
 // System clock configuration
 void SystemClock_Config(void)
 {
-    RCC_DeInit();  // 复位时钟
+    RCC_DeInit();
 
-    // 开启内部 HSI
-    RCC_HSICmd(ENABLE);
-    while(RCC_GetFlagStatus(RCC_FLAG_HSIRDY) == RESET);
+    // 1. 开启 HSI64
+    RCC->CR |= RCC_CR_HSION;
+    while((RCC->CR & RCC_CR_HSIRDY) == 0);
 
-    // 选择 HSI 作为系统时钟
-    RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);
+    // 2. 直接用寄存器切换到 HSI (SW=00)
+    RCC->CFGR &= ~(3U << 0);    // SW[1:0] = 00 → HSI 作 SYSCLK
 
-    // ✅ 关键：HK32M070 必须判断 0x00
-    while(RCC_GetSYSCLKSource() != 0x00);
+    // 3. 等待切换完成 (SWS=00)
+    while((RCC->CFGR & (3U << 2)) != 0);
 
-    // HCLK = SYSCLK
-    RCC_HCLKConfig(RCC_SYSCLK_Div1);
-    RCC_PCLKConfig(RCC_HCLK_Div1);
+    // 4. 分频
+    RCC->CFGR &= ~(0xF << 4);   // AHB 不分频
+    RCC->CFGR &= ~(3U << 8);    // APB 不分频
 }
 
 
@@ -41,6 +41,11 @@ int main(void) {
     // System initialization
     //SystemClock_Config();
     //初始化IO口
+	//Delay_ms(500);
+	int wait=100;
+	while(wait--){
+	delay_us(60000);
+	};
     initCorePeripherals();
     //读取电机配置
     GetMCConfig();
@@ -50,7 +55,8 @@ int main(void) {
     //SysTick_Config(SystemCoreClock / SYS_TICK_FREQUENCY);
     //初始化电机
     //mc_interface_init();
-    /* Motor configuration */    
+    /* Motor configuration */ 
+	//Delay_ms(500);	
     MX_MotorControl_Init();
     /* Initialize interrupts */
     MX_NVIC_init();
@@ -64,6 +70,7 @@ int main(void) {
     
     // Main loop
     while (1) {
+		//XorEn();
         // Toggle GPIOB pins
         //GPIO_ToggleBits(GPIOB, GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2);
         #ifdef MainOutMCTime
@@ -71,6 +78,8 @@ int main(void) {
             Count1ms = 0;   //10ms once
             printfMC(1); //输出电机信息
         }
+		//Delay_ms(1);
+		//printfMC(1); //输出电机信息
         ScanUartRX();
         #endif
         if(GetPPMUpdate()==1){

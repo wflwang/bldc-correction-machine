@@ -523,13 +523,29 @@ void FOC_CalcCurrRef(uint8_t bMotor)
     #endif
     if (FOCVars[bMotor].bDriveInput == INTERNAL)
     {
-        Curr_Components iqdtemp;
         #ifdef cTestSVPWM
+        static Curr_Components iqdtemp={0};
+        static int32_t ETestAngle = 0;
+        static int32_t count=0;
         iqdtemp.qI_Component1 = 0;
-        iqdtemp.qI_Component2 = cTestSVPWM;
-        HALL_M1.real_phase += TesTAngAdd;   //每次增加 1/65536度
+        if(count<(cTestSVPWM*2)){
+            count++;
+            if(iqdtemp.qI_Component2<cTestSVPWM)
+            iqdtemp.qI_Component2++;
+        }else{
+            //if((ETestAngle>>16)>=HALL_M1._Super.bElToMecRatio){
+            //    if(iqdtemp.qI_Component2!=0)
+            //        iqdtemp.qI_Component2--;
+            //    ETestAngle = (ETestAngle&0xffff0000);
+            //}else{
+                ETestAngle += TesTAngAdd;
+                //iqdtemp.qI_Component2 = cTestSVPWM;
+            //}
+        }
+        HALL_M1.real_phase = (int16_t)ETestAngle;   //每次增加 1/65536度
         FOCVars[bMotor].Iqdref = iqdtemp;    //测试SVPWM Iq大小
         #else
+        Curr_Components iqdtemp;
         if(GetMSpeechEN()){ //有播放声音
             FOCVars[bMotor].Iqdref.qI_Component1 = 0;  //实际转起来是给q轴
             FOCVars[bMotor].Iqdref.qI_Component2  = speechVol;  //音量
@@ -660,20 +676,21 @@ void ADC_IRQHandler(void)
     {
         /* Clears the ADCx's interrupt pending bits */
         ADC->ADIFR |= ADC_IT_GROUPB0_FINISH;        
-        uint16_t hFOCreturn;
+        //uint16_t hFOCreturn;
         //HALL_CalcElAngle (&HALL_M1);
 
-        hFOCreturn = FOC_CurrController(M1);
+        //hFOCreturn = FOC_CurrController(M1);
+		FOC_CurrController(M1);
 
-        if (hFOCreturn == MC_FOC_DURATION)
-        {
-            STM_FaultProcessing(&STM[M1], MC_FOC_DURATION, 0);
-        }
-        else
-        {
+        //if (hFOCreturn == MC_FOC_DURATION)
+        //{
+        //    STM_FaultProcessing(&STM[M1], MC_FOC_DURATION, 0);
+        //}
+        //else
+        //{
             /* USER CODE BEGIN HighFrequencyTask SINGLEDRIVE_3 */
             /* USER CODE END HighFrequencyTask SINGLEDRIVE_3 */
-        }
+        //}
     }
 
     /* USER CODE BEGIN HighFrequencyTask 1 */
@@ -1025,7 +1042,11 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
  * 
  */
 void printfMC(uint8_t mode){
-    //uint8_t dataUart[15];
+    //uint8_t dataUart[50];
+    int16_t a = FOCVars[0].Iab.qI_Component1;
+    int16_t b = FOCVars[0].Iab.qI_Component2;
+    int16_t c = -a-b;
+    uint16_t vol = get_input_voltageX10(NowVBusAD);
 	switch(mode){
 		case 0:
             printf("motor ok\n");
@@ -1041,25 +1062,31 @@ void printfMC(uint8_t mode){
 			//UartSendDatas(dataUart,9);
 			break;
 		case 1:
-            printf("%u,%u,%u,%u,%u,%d\n",(uint16_t)FOCVars[0].hElAngle,(uint16_t)FOCVars[0].Ialphabeta.qI_Component1,\
-            (uint16_t)FOCVars[0].Ialphabeta.qI_Component2,(uint16_t)FOCVars[0].Valphabeta.qV_Component1,(uint16_t)FOCVars[0].Valphabeta.qV_Component2,\
-            HALL_M1.erpm);
+            printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%u,%u\n",FOCVars[0].hElAngle,FOCVars[0].Iqdref.qI_Component1,\
+            FOCVars[0].Iqdref.qI_Component2,FOCVars[0].Valphabeta.qV_Component1,FOCVars[0].Valphabeta.qV_Component2,\
+            HALL_M1.erpm,a,b,c,HALL_M1.hall_val,vol);
 			//dataUart[0] = 0xaa;
-			//dataUart[1] = (FOCVars[0].hElAngle&0xff);
-			//dataUart[2] = (FOCVars[0].hElAngle>>8)&0xff;
-			//dataUart[3] = (FOCVars[0].Ialphabeta.qI_Component1&0xff);
-			//dataUart[4] = (FOCVars[0].Ialphabeta.qI_Component1>>8)&0xff;
-			//dataUart[5] = (FOCVars[0].Ialphabeta.qI_Component2&0xff);
-			//dataUart[6] = (FOCVars[0].Ialphabeta.qI_Component2>>8)&0xff;
-			//dataUart[7] = (FOCVars[0].Valphabeta.qV_Component1&0xff);
-			//dataUart[8] = (FOCVars[0].Valphabeta.qV_Component1>>8)&0xff;
-			//dataUart[9] = (FOCVars[0].Valphabeta.qV_Component2&0xff);
-			//dataUart[10] = (FOCVars[0].Valphabeta.qV_Component2>>8)&0xff;
-			//dataUart[11] = HALL_M1.erpm&0xff;
-			//dataUart[12] = (HALL_M1.erpm>>8)&0xff;
-			//dataUart[13] = (HALL_M1.erpm>>16)&0xff;
-			//dataUart[14] = (HALL_M1.erpm>>24)&0xff;
-			//UartSendDatas(dataUart,sizeof(dataUart));
+			//dataUart[0] = (FOCVars[0].hElAngle&0xff);
+			//dataUart[1] = (FOCVars[0].hElAngle>>8)&0xff;
+			//dataUart[2] = (FOCVars[0].Iqdref.qI_Component1&0xff);
+			//dataUart[3] = (FOCVars[0].Iqdref.qI_Component1>>8)&0xff;
+			//dataUart[4] = (FOCVars[0].Iqdref.qI_Component2&0xff);
+			//dataUart[5] = (FOCVars[0].Iqdref.qI_Component2>>8)&0xff;
+			//dataUart[6] = (FOCVars[0].Valphabeta.qV_Component1&0xff);
+			//dataUart[7] = (FOCVars[0].Valphabeta.qV_Component1>>8)&0xff;
+			//dataUart[8] = (FOCVars[0].Valphabeta.qV_Component2&0xff);
+			//dataUart[9] = (FOCVars[0].Valphabeta.qV_Component2>>8)&0xff;
+			//dataUart[10] = HALL_M1.erpm&0xff;
+			//dataUart[11] = (HALL_M1.erpm>>8)&0xff;
+			//dataUart[12] = (HALL_M1.erpm>>16)&0xff;
+			//dataUart[13] = (HALL_M1.erpm>>24)&0xff;
+			//dataUart[14] = (a&0xff);
+			//dataUart[15] = (a>>8)&0xff;
+			//dataUart[16] = (b&0xff);
+			//dataUart[17] = (b>>8)&0xff;
+			//dataUart[18] = (c&0xff);
+			//dataUart[19] = (c>>8)&0xff;
+			//UartSendDatas(dataUart,20);
 			break;
 	}
 }
@@ -1119,39 +1146,54 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
     uint16_t vBusAD;   //母线电压*100
     uint16_t vTempMotorx100;   //马达温度*100
     uint16_t vTempPCBx100;   //PCB温度*100
+    static int initTime = 0;
     static int countVolUnder = 0;   //连续过压欠压的次数
     static int countVolOver = 0;   //连续过压欠压的次数
+	#ifdef MotorTempEn
     static int countTempMotorOver = 0;   //连续过压欠压的次数
+	#endif
+	#ifdef MosTempEn
     static int countTempMosOver = 0;   //连续过压欠压的次数
+	#endif
     //uint16_t CodeReturn = MC_NO_ERROR;
     //uint16_t errMask[NBR_OF_MOTORS] = {VBUS_TEMP_ERR_MASK};
+    vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+    vTempMotorx100 = NTC_TEMP_MOTOR(TempBeta);
+    vTempPCBx100 = NTC_TEMP_PCB(TempBeta);
     if(FOCVars[bMotor].status == not_ready){
         //电机准备中
-        vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
-        vTempMotorx100 = NTC_TEMP_MOTOR(TempBeta);
-        vTempPCBx100 = NTC_TEMP_PCB(TempBeta);
-        NowVBusAD = vBusAD;   //更新当前电压值
-        NowTempMotorx100 = vTempMotorx100;
-        NowTempPCBx100 = vTempPCBx100;
-        if(vBusAD < vMinBus){   //
-            //电机过低 不工作
-            FOCVars[bMotor].status = mc_under_voltage;   //欠压了
-        }else if(vBusAD > vMaxBus){
-            FOCVars[bMotor].status = mc_over_voltage;   //过压了
+        if(initTime==0){
+            NowVBusAD = vBusAD;   //更新当前电压值
+            NowTempMotorx100 = vTempMotorx100;
+            NowTempPCBx100 = vTempPCBx100;
         }else{
-            Maxspeed = get_MaxSpeed(vBusAD,FOCVars[bMotor].mc_KV);
-            //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //算出最大转速
-            //初始化电压 根据上电电压算出最大转速
-            FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
+            vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+            UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //更新当前电压值 
+            UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //更新Motor温度
+            UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //更新PCB温度
+        }
+        initTime++;
+        if(initTime>200){
+            if(NowVBusAD < vMinBus){   //
+                //电机过低 不工作
+                FOCVars[bMotor].status = mc_under_voltage;   //欠压了
+            }else if(NowVBusAD > vMaxBus){
+                FOCVars[bMotor].status = mc_over_voltage;   //过压了
+            }else{
+                Maxspeed = get_MaxSpeed(NowVBusAD,FOCVars[bMotor].mc_KV)+baseSpeed;
+                //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //算出最大转速
+                //初始化电压 根据上电电压算出最大转速
+                FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
+            }
         }
         return; //如果电机还没有开始运行 就不检查安全了
     }else{
-        if((FOCVars[bMotor].status != ready_RUN)&&(FOCVars[bMotor].status != motor_run))
-            return;     //没有正常运行
-        vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+        //vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
         UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //更新当前电压值 
         UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //更新Motor温度
         UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //更新PCB温度
+		if((FOCVars[bMotor].status != ready_RUN)&&(FOCVars[bMotor].status != motor_run))
+            return;     //没訍战鲁拢詪袗
         if(NowVBusAD < vMinBus){   //
             //电机过低 不工作
             countVolUnder++;

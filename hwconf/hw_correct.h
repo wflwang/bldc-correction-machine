@@ -15,8 +15,8 @@
 #define HW_NAME "HK32M070-correct"
 #endif
 
-#define cTestSVPWM  4000        //开环电流
-#define TesTAngAdd  6       //开环测试每次变化的角度
+#define cTestSVPWM  2800        //开环电流
+#define TesTAngAdd  16       //开环测试每次变化的角度
 
 // Hall sensor pins
 #define HW_HALL_ENC_GPIO1 GPIOA
@@ -37,9 +37,10 @@
 #define ADC_IND_EXT 3
 
 #define default_KV  125 //默认KV值125
+#define baseSpeed   200 //最小增加转速
 
-#define MotorTempEn     //使能motor temp
-#define MosTempEn       //使能MOS temp
+//#define MotorTempEn     //使能motor temp
+//#define MosTempEn       //使能MOS temp
 #define TempBeta    3490    //温度传感器B值
 //#define vMinMotorTemp 1200    //最低电机 temp 12V*100
 #define vMaxMotorTemp 15000   //最高电机 temp 150c*100
@@ -50,9 +51,9 @@
 #define VTempPCBFilterConstant (int16_t)(0.02*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
 
 //获取AD值
-#define GetVBusAD()         (ADC->ADDR1B)
-#define GetPCBTempAD()      (ADC->ADDR2B)
-#define GetMotorTempAD()    (ADC->ADDR3B)
+#define GetVBusAD()         (ADC->ADDR1B>>4)
+#define GetPCBTempAD()      (ADC->ADDR2B>>4)
+#define GetMotorTempAD()    (ADC->ADDR3B>>4)
 
 // Motor control pins
 //#define HW_PWM1_PORT GPIOA
@@ -117,10 +118,10 @@
 #define V_REG   3.3
 #endif
 #ifndef VIN_R1  
-#define VIN_R1  47000.0
+#define VIN_R1  470.0
 #endif
 #ifndef VIN_R2
-#define VIN_R2  2200.0
+#define VIN_R2  22.0
 #endif
 #ifndef CURRENT_AMP_GAIN
 #define CURRENT_AMP_GAIN    12.0
@@ -143,12 +144,16 @@
 #define vMinBus VBusVol(12.0)    //最低电压 12V*100
 #define vMaxBus VBusVol(53.0)   //最高电压 53V*100
 #define Int16FilterDiv 32768    //int16 滤波分母
-#define VBusFilterConstant (int16_t)(0.04*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
+#define VBusFilterConstant (int16_t)(0.2*Int16FilterDiv) //母线电压滤波常数 0.02 100次更新大约63% 200次更新大约86% 400次更新大约95% 800次更新大约98% 1600次更新大约99%
 //电压AD 换算成电压值
 #define ScaleMV (uint16_t)((V_REG * 32768.0 * (VIN_R1 + VIN_R2) / (4095.0 * VIN_R2)) + 0.5)
 static inline uint16_t get_input_voltage(uint16_t adc_val) {
     // 单位：0.01V
-    return (uint32_t)((uint32_t)adc_val * ScaleMV)>>15;
+    return (uint16_t)(((uint32_t)adc_val * ScaleMV)>>15);
+}
+static inline uint16_t get_input_voltageX10(uint16_t adc_val) {
+    // 单位：0.01V
+    return (uint16_t)(((uint32_t)adc_val * ScaleMV*10)>>15);
 }
 static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
     return (uint32_t)(((uint64_t)adc_val * kv * ScaleMV) >> 15);

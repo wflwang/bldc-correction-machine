@@ -330,8 +330,8 @@ void HTU_Init_Config(void)
     GPIO_InitStructure.GPIO_Pin  = HW_HALL_ENC_PIN1;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF; // I/O AF Function
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4; // I/O output speed
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;    //GPIO_PuPd_DOWN; //Pull-DOWN
-    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable; //Schmit function
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;    //GPIO_PuPd_DOWN; //Pull-DOWN
+    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Enable;    //GPIO_Schmit_Disable; //Schmit function
     GPIO_Init(HW_HALL_ENC_GPIO1, &GPIO_InitStructure);
     
     GPIO_InitStructure.GPIO_Pin  =  HW_HALL_ENC_PIN2;
@@ -537,7 +537,7 @@ void MX_Uart_Init(void){
     UART_InitStructure.UART_Parity = UART_Parity_No;
     UART_InitStructure.UART_Mode = UART_Mode_Rx | UART_Mode_Tx;
     UART_Init(UartCH, &UART_InitStructure);
-    UART_ITConfig(UartCH, UART_IT_RXNE, ENABLE);
+    //UART_ITConfig(UartCH, UART_IT_RXNE, ENABLE);
     UART_ITConfig(UartCH, UART_IT_IDLE, DISABLE);
     //Uart_t.Index = 0;
     //Uart_t.Len = 0;
@@ -560,8 +560,8 @@ void UartSendDatas(uint8_t *p, uint8_t len)
   while( len -- )
   {
     UART_SendData(UartCH, *p++);
-
-    while( UART_GetFlagStatus(UartCH, UART_FLAG_TC) == RESET )
+    int i=10000;
+    while( (UART_GetFlagStatus(UartCH, UART_FLAG_TC) == RESET)&&(i--) )
     {
     }
   }

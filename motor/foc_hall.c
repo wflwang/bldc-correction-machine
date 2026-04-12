@@ -109,6 +109,8 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
         return; //不计算速度和时间
     }
     XorEn();
+    //if(hall_val==5)
+    //    XorEn();
     pHandle->hall_val = hall_val; //输出新的角度,主程序中可以知道角度的更新 方便映射电角度
     nowEAngle = pHandle->real_phase;   //获取当前电机的电角度
     //0 正常模式? 1,2,3,4,5,6,7(学习) 0xff(hall 没有学习过), 0xfe(hall 不存在)
@@ -208,7 +210,7 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     //变化的角度 * 中断时间(1/64us) / 变化的时间(1/64us) = 每次中断变化的角度;
                     pHandle->anginc = tmp / pHandle->m_ang60_intTime;  //每次中断变化的角度 
                     int32_t erpm = ScaleErpm*(int32_t)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
-                    pHandle->erpm = UTILS_LPInt16_FAST(pHandle->erpm,erpm,(int32_t)(0.3*32767)); //获取本次电角速度
+                    pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.3*32767)); //获取本次电角速度
                     pHandle->angUpdate = true;   //中断允许更新最新角度了 中断中清除
                     //if(ang_diff>0){
                     //    //误差变大

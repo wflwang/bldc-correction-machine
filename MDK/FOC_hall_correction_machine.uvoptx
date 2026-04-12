@@ -140,7 +140,7 @@
         <SetRegEntry>
           <Number>0</Number>
           <Key>CMSIS_AGDI</Key>
-          <Name>-X"CMSIS-DAP_CZ" -UCZ_2023_6688 -O206 -S8 -C0 -P00000000 -N00("ARM CoreSight SW-DP") -D00(0BB11477) -L00(0) -TO65554 -TC10000000 -TT10000000 -TP20 -TDS8007 -TDT0 -TDC1F -TIEFFFFFFFF -TIP8 -FO7 -FD20000000 -FC1000 -FN1 -FF0HK32M07x_MEM_32K.FLM -FS08000000 -FL08000 -FP0($$Device:HK32M070K6U7$Flash\HK32M07x_MEM_32K.FLM)</Name>
+          <Name>-X"CMSIS-DAP_CZ" -UCZ_2023_6688 -O206 -S8 -C0 -P00000000 -N00("ARM CoreSight SW-DP") -D00(0BB11477) -L00(0) -TO65554 -TC10000000 -TT10000000 -TP20 -TDS8007 -TDT0 -TDC1F -TIEFFFFFFFF -TIP8 -FO15 -FD20000000 -FC1000 -FN1 -FF0HK32M07x_MEM_32K.FLM -FS08000000 -FL08000 -FP0($$Device:HK32M070K6U7$Flash\HK32M07x_MEM_32K.FLM)</Name>
         </SetRegEntry>
         <SetRegEntry>
           <Number>0</Number>
@@ -154,6 +154,16 @@
           <count>0</count>
           <WinNumber>1</WinNumber>
           <ItemText>mcconf</ItemText>
+        </Ww>
+        <Ww>
+          <count>1</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>HALL_M1</ItemText>
+        </Ww>
+        <Ww>
+          <count>2</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>ADC</ItemText>
         </Ww>
       </WatchWindow1>
       <MemoryWindow1>

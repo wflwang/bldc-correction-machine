@@ -27,7 +27,7 @@
 #define HW_HALL_ENC_PIN2_No GPIO_PinSource1
 #define HW_HALL_ENC_GPIO3 GPIOA
 #define HW_HALL_ENC_PIN3 GPIO_Pin_2
-#define HW_HALL_ENC_PIN3_No GPIO_PinSource3
+#define HW_HALL_ENC_PIN3_No GPIO_PinSource2
 #define HW_HALL_TIMER   HTU
 
 // ADC channels

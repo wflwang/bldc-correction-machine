@@ -18,7 +18,7 @@
 //#include <cstdint>
 
 //24bit = 262ms
-#define MaxAng60IntTime 0x4000000uL   //60度时间默认最大值 65536*8us=524ms 认为是堵转了
+#define MaxAng60IntTime 0x5000000uL   //60度时间默认最大值 65536*8us=524ms 认为是堵转了
 typedef struct
 {
     SpeednPosFdbk_Handle_t _Super;

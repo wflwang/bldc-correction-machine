@@ -11,8 +11,10 @@
 #include "mc_tasks.h"
 #include "motorcontrol.h"
 #include "hw_correct.h"
+#include "app.h"
 
 extern int32_t Count1ms;        //1ms count
+extern int nowSpeed;
 
 extern app_config_t appconf;   //app config
 // System clock configuration
@@ -84,9 +86,10 @@ int main(void) {
         #endif
         if(GetPPMUpdate()==1){
             //有新数据进来
+            //XorEn();
             ClrPPMUpDate();
             int speed = UPDATA_SPEED(&appconf.app_PPM);
-            MC_ProgramSpeedRampMotor1(speed,20);    //更新速度
+            MC_ProgramSpeedRampMotor1((int16_t)speed,20);    //更新速度
         }
         // Simple delay
         //for (volatile int i = 0; i < 1000000; i++);

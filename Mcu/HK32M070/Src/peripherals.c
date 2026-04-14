@@ -331,7 +331,7 @@ void HTU_Init_Config(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF; // I/O AF Function
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4; // I/O output speed
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;    //GPIO_PuPd_DOWN; //Pull-DOWN
-    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Enable;    //GPIO_Schmit_Disable; //Schmit function
+    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;   //GPIO_Schmit_Enable;    //GPIO_Schmit_Disable; //Schmit function
     GPIO_Init(HW_HALL_ENC_GPIO1, &GPIO_InitStructure);
     
     GPIO_InitStructure.GPIO_Pin  =  HW_HALL_ENC_PIN2;
@@ -346,7 +346,7 @@ void HTU_Init_Config(void)
 
     /* Configure HTU TimeBase */
     HTU_TimeBaseStructInit(&HTU_TimeBaseInitStruct);
-    HTU_TimeBaseInitStruct.HTU_NFCR = 0x0F;
+    HTU_TimeBaseInitStruct.HTU_NFCR = 0x0f; //0x0F;
     HTU_TimeBaseInitStruct.HTU_Period = 0xFFFFFF;
     HTU_TimeBaseInitStruct.HTU_ClockDivision = HTU_CLK_DIV_1;   //64/1 = 64M?
     HTU_TimeBaseInit(&HTU_TimeBaseInitStruct);
@@ -379,17 +379,17 @@ void UART2_Config(void)
 
 
     /* 将UART Tx的GPIO配置为推挽复用模式*/
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Pin = UartTX_PIN;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4;
     GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-    GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_3);
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;    //GPIO_PuPd_NOPULL;    //GPIO_PuPd_UP;
+    GPIO_Init(UartTX_PORT, &GPIO_InitStructure);
+    GPIO_PinAFConfig(UartTX_PORT, UartTX_SOURCE, GPIO_AF_3);
     /* 将UART Rx的GPIO配置为浮空输入模式*/
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
-    GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_3);
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin = UartRX_PIN;
+    GPIO_PinAFConfig(UartRX_PORT, UartRX_SOURCE, GPIO_AF_3);
+    GPIO_Init(UartRX_PORT, &GPIO_InitStructure);
 
     /* 配置串口的工作参数 */ 
     /* 配置波特率*/
@@ -407,8 +407,9 @@ void UART2_Config(void)
       
     /* 使能RXNE中断*/
     UART_ITConfig(UART2, UART_IT_RXNE, ENABLE);
-
-    /* 使能串口*/
+    //UART_ITConfig(UART2, UART_IT_IDLE, ENABLE);
+    //UART_ClearFlag(UART2, UART_FLAG_IDLE);
+    UART_ClearFlag(UART2, UART_FLAG_RXNE);
     UART_Cmd(UART2, ENABLE);    
 }
 /**/
@@ -659,7 +660,7 @@ void UTU_Config(void)
     UTU_GPIOInit();
 
     /* Enable UTU clock */
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_UTU1, ENABLE);
+    RCC_APBUTUCmd(RCC_APBUTU, ENABLE);
 
     /* config time base */
     UTU_TimeBaseStructInit(&UTU_timeBaseCfg);   //1/64us once
@@ -667,7 +668,7 @@ void UTU_Config(void)
     //UTU_timeBaseCfg.UTU_PeriodMode = UTU_CounterMode_Up;
     //最大计时20.5ms 超时溢出
     UTU_timeBaseCfg.UTU_Period = 20500; //0xFFFFFF; // 最大计数1/64
-    UTU_TimeBaseInit(UTU1, &UTU_timeBaseCfg);
+    UTU_TimeBaseInit(UTU_CLK, &UTU_timeBaseCfg);
 
     /* config IC struct */
     UTU_ICStructInit(&UTU_ICCfg);
@@ -698,7 +699,7 @@ void UTU_Config(void)
 //#endif
 
     UTU_ICCfg.UTU_ClrCnt = UTU_IC_CNT_Clr; /* 0 */
-    UTU_ICInit(UTU1, &UTU_ICCfg);
+    UTU_ICInit(UTU_CLK, &UTU_ICCfg);
 
     /* UTU NVIC configuration*/
     //NVIC_Config();
@@ -706,10 +707,10 @@ void UTU_Config(void)
 
     /* config UTU interrupt */
     //UTU_ITConfig(TARGET_UTU, (UTU_IT_UCRA | UTU_IT_UCFB), ENABLE);
-    UTU_ITConfig(UTU1, (UTU_IT_UCRA), ENABLE);
+    UTU_ITConfig(UTU_CLK, (UTU_IT_UCRA|UTU_IT_UCFA|UTU_IT_OVF), ENABLE);
 
     /* Enable Timer */
-    //UTU_Cmd(UTU2, ENABLE);
+    UTU_Cmd(UTU_CLK, ENABLE);
 
 }
 /**
@@ -749,7 +750,7 @@ void MX_NVIC_init(void)
     NVIC_InitStructure.NVIC_IRQChannelPriority = 1;
     NVIC_Init(&NVIC_InitStructure);
 
-    NVIC_InitStructure.NVIC_IRQChannel = UTU1_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannel = UTU2_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 2;
     NVIC_Init(&NVIC_InitStructure);

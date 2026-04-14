@@ -58,10 +58,12 @@ Volt_Components Circle_Limitation( CircleLimitation_Handle_t * pHandle, Volt_Com
     table_element = pHandle->Circle_limit_table[( uint8_t )uw_temp];
 
     sw_temp = Vqd.qV_Component1 * ( int32_t )table_element;
-    local_vqd.qV_Component1 = ( int16_t )( sw_temp / 32768 );
+    //local_vqd.qV_Component1 = ( int16_t )( sw_temp / 32768 );
+    local_vqd.qV_Component1 = ( int16_t )( sw_temp >>15 );
 
     sw_temp = Vqd.qV_Component2 * ( int32_t )( table_element );
-    local_vqd.qV_Component2 = ( int16_t )( sw_temp / 32768 );
+    //local_vqd.qV_Component2 = ( int16_t )( sw_temp / 32768 );
+    local_vqd.qV_Component2 = ( int16_t )( sw_temp >>15 );
   }
 
   return ( local_vqd );

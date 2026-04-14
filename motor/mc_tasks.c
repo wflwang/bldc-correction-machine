@@ -40,6 +40,7 @@ static int IScount = 0; //电流环速度环切换时间
 #define SYSTICK_DIVIDER (SYS_TICK_FREQUENCY/1000)
 
 static int32_t Maxspeed = 1000;     //最大限制转速 
+//int nowSpeed=0;
 
 int32_t Count1ms = 0;   //1ms count
 
@@ -308,7 +309,11 @@ void Hall_CalcAvrgMecSpeed01Hz( foc_hall_t * pHandle)
 {
   //->两次速度差
   /*Stores average mechanical speed [01Hz]*/
-  pHandle->_Super.hAvrMecSpeed01Hz /= pHandle->erpm*pHandle->_Super.bElToMecRatio; //1ms 内的平均速度 和
+  int div = pHandle->erpm*pHandle->_Super.bElToMecRatio;
+  if(div==0)
+    pHandle->_Super.hAvrMecSpeed01Hz = 0;
+  else
+	pHandle->_Super.hAvrMecSpeed01Hz = div; //1ms 内的平均速度 和
 }
 
 /**
@@ -513,6 +518,8 @@ void FOC_Clear(uint8_t bMotor)
   */
 void FOC_CalcCurrRef(uint8_t bMotor)
 {
+    static int32_t ETestAngle = 0;
+    static int32_t count=0;
     #ifdef speedLoopInt    //速度环调整变慢
     static int pidInter;
     if(pidInter<speedLoopInt){
@@ -521,12 +528,11 @@ void FOC_CalcCurrRef(uint8_t bMotor)
     }
     pidInter=0;
     #endif
+    static int piddelay=0;
     if (FOCVars[bMotor].bDriveInput == INTERNAL)
     {
         #ifdef cTestSVPWM
         static Curr_Components iqdtemp={0};
-        static int32_t ETestAngle = 0;
-        static int32_t count=0;
         iqdtemp.qI_Component1 = 0;
         if(count<(cTestSVPWM*2)){
             count++;
@@ -558,22 +564,45 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                 //开始学习 先给hall一个初始角度 在给一个固定vd
                 HALL_M1.real_phase = 0;     //电角度先定位到0度 再慢慢增加vd 到一定值 再慢慢增加角度
                 FOCVars[bMotor].Iqdref.qI_Component1 = 0;
-                if(FOCVars[bMotor].Iqdref.qI_Component2<HallCheckEndVd){
-                    FOCVars[bMotor].Iqdref.qI_Component2 += HallCheckAddVd;
+                if(count<(HallCheckEndVd*2)){
+                    count++;
+                    if(FOCVars[bMotor].Iqdref.qI_Component2<HallCheckEndVd){
+                        FOCVars[bMotor].Iqdref.qI_Component2 += HallCheckAddVd;
+                    }
                 }else{
                     //vd电压达到了再增加角度
                     FOCVars[bMotor].Iqdref.qI_Component2 = HallCheckEndVd;
-                    HALL_M1.real_phase += HallFastStep;   //每次增加 1/65536度
+                    //HALL_M1.real_phase += HallFastStep;   //每次增加 1/65536度
                     HALL_M1.hallState = hall_learnStart;    //hall 开始学习
                 }
-            }else if((HALL_M1.hallState > hall_learnStart)&&(HALL_M1.hallState < 50)){
+            }else if((HALL_M1.hallState >= 1)&&(HALL_M1.hallState < 50)){
                 //hall 学习中达到了一次以上正确换相
-                if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
-                    //超过了 每次增加1级慢慢学习电角度
-                    HALL_M1.real_phase += HallSlowStep;   //每次增加 1/65536度
-                }else{
-                    HALL_M1.real_phase += HallFastStep;   //每次增加 1/65536度
-                }
+                //if((uint8_t)HALL_M1.hallState < 13){
+                    piddelay++;
+                    if(piddelay>20){
+                        piddelay = 0;
+                        if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
+                        //超过了 每次增加1级慢慢学习电角度
+                            ETestAngle += HallSlowStep;
+                            //HALL_M1.real_phase += HallSlowStep;   //每次增加 1/65536度
+                        }else{
+                            ETestAngle += HallFastStep;
+                            //HALL_M1.real_phase += HallFastStep;   //每次增加 1/65536度
+                        }
+                        if (ETestAngle > 32767)
+		                    ETestAngle -= 65536;
+	                    else if (ETestAngle < -32768)
+		                    ETestAngle += 65536;
+                        HALL_M1.real_phase = (int16_t)ETestAngle;
+                    }
+                //}else{
+                //    if(GetLastLearnAngDiff(&HALL_M1)<(-HALL_M1.hallFastLearnAngDiff)){
+                        //超过了 每次增加1级慢慢学习电角度
+                //        HALL_M1.real_phase -= HallSlowStep;   //每次增加 1/65536度
+                //    }else{
+                //        HALL_M1.real_phase -= HallFastStep;   //每次增加 1/65536度
+                //    }
+                //}
             }else{
                 //正常给扭矩
                 iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
@@ -808,12 +837,14 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         if(minDec==0){
             minDec = 1; //最小的幅度
         }
+        int16_t diff = 0;
         //min speed is 1*83us 5s-1 1min - 12erpm
         HALL_M1.real_phase =  HALL_M1.real_phase + HALL_M1.anginc;    //真实相位
         if(HALL_M1.anginc > 0)  // 正转
         {   
+            diff = HALL_M1.real_phase-HALL_M1.real_phase_Next;
             //角度插值已经到了预测的下个角度 但是实际还没有触发下次角度
-            if(HALL_M1.real_phase > HALL_M1.real_phase_Next)
+            if(diff >= 0)
             {
                 // 不让角度超过目标
                 HALL_M1.real_phase = HALL_M1.real_phase_Next;  
@@ -831,7 +862,8 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                 }
             }
         }else if(HALL_M1.anginc < 0){
-            if(HALL_M1.real_phase < HALL_M1.real_phase_Next)
+            diff = HALL_M1.real_phase-HALL_M1.real_phase_Next;
+            if(diff <= 0)
             {
                 HALL_M1.real_phase = HALL_M1.real_phase_Next;
                 // 反向速度衰减
@@ -1019,13 +1051,13 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     Valphabeta = MCM_Rev_Park(Vqd, hElAngle);
     hCodeError = PWMC_SetPhaseVoltage(pwmcHandle[bMotor], Valphabeta);
 
-    int32_t vq2 = Vqd.qV_Component1*Vqd.qV_Component1;
-    int32_t vd2 = Vqd.qV_Component2*Vqd.qV_Component2;
-    //motor_now->m_motor_state.duty_now = ((vq2+vd2)>>16);    //当前算出的duty大小
-    if(Vqd.qV_Component1<0)
-        FOCVars[bMotor].now_duty = -((vq2+vd2)>>16);
-    else
-        FOCVars[bMotor].now_duty = ((vq2+vd2)>>16);     //max is 0x2fff
+    //int32_t vq2 = (int32_t)Vqd.qV_Component1*Vqd.qV_Component1;
+    //int32_t vd2 = (int32_t)Vqd.qV_Component2*Vqd.qV_Component2;
+    ////motor_now->m_motor_state.duty_now = ((vq2+vd2)>>16);    //当前算出的duty大小
+    //if(Vqd.qV_Component1<0)
+    //    FOCVars[bMotor].now_duty = -((vq2+vd2)>>16);
+    //else
+    //    FOCVars[bMotor].now_duty = ((vq2+vd2)>>16);     //max is 0x2fff
     FOCVars[bMotor].Vqd = Vqd;
     FOCVars[bMotor].Iab = Iab;
     FOCVars[bMotor].Ialphabeta = Ialphabeta;
@@ -1042,7 +1074,9 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
  * 
  */
 void printfMC(uint8_t mode){
-    //uint8_t dataUart[50];
+    #if 0
+    uint8_t dataUart[50];
+    #endif
     int16_t a = FOCVars[0].Iab.qI_Component1;
     int16_t b = FOCVars[0].Iab.qI_Component2;
     int16_t c = -a-b;
@@ -1062,31 +1096,48 @@ void printfMC(uint8_t mode){
 			//UartSendDatas(dataUart,9);
 			break;
 		case 1:
-            printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%u,%u\n",FOCVars[0].hElAngle,FOCVars[0].Iqdref.qI_Component1,\
+            #if 1
+            printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%u,%u,%d\n",FOCVars[0].hElAngle,FOCVars[0].Iqdref.qI_Component1,\
             FOCVars[0].Iqdref.qI_Component2,FOCVars[0].Valphabeta.qV_Component1,FOCVars[0].Valphabeta.qV_Component2,\
-            HALL_M1.erpm,a,b,c,HALL_M1.hall_val,vol);
-			//dataUart[0] = 0xaa;
-			//dataUart[0] = (FOCVars[0].hElAngle&0xff);
-			//dataUart[1] = (FOCVars[0].hElAngle>>8)&0xff;
-			//dataUart[2] = (FOCVars[0].Iqdref.qI_Component1&0xff);
-			//dataUart[3] = (FOCVars[0].Iqdref.qI_Component1>>8)&0xff;
-			//dataUart[4] = (FOCVars[0].Iqdref.qI_Component2&0xff);
-			//dataUart[5] = (FOCVars[0].Iqdref.qI_Component2>>8)&0xff;
-			//dataUart[6] = (FOCVars[0].Valphabeta.qV_Component1&0xff);
-			//dataUart[7] = (FOCVars[0].Valphabeta.qV_Component1>>8)&0xff;
-			//dataUart[8] = (FOCVars[0].Valphabeta.qV_Component2&0xff);
-			//dataUart[9] = (FOCVars[0].Valphabeta.qV_Component2>>8)&0xff;
-			//dataUart[10] = HALL_M1.erpm&0xff;
-			//dataUart[11] = (HALL_M1.erpm>>8)&0xff;
-			//dataUart[12] = (HALL_M1.erpm>>16)&0xff;
-			//dataUart[13] = (HALL_M1.erpm>>24)&0xff;
-			//dataUart[14] = (a&0xff);
-			//dataUart[15] = (a>>8)&0xff;
-			//dataUart[16] = (b&0xff);
-			//dataUart[17] = (b>>8)&0xff;
-			//dataUart[18] = (c&0xff);
-			//dataUart[19] = (c>>8)&0xff;
-			//UartSendDatas(dataUart,20);
+            HALL_M1.erpm,a,b,c,HALL_M1.hall_val,vol,oMCInterface[0]->hFinalSpeed);
+			#else
+			dataUart[0] = (FOCVars[0].hElAngle&0xff);
+			dataUart[1] = (FOCVars[0].hElAngle>>8)&0xff;
+            dataUart[2] = ',';
+			dataUart[3] = (FOCVars[0].Iqdref.qI_Component1&0xff);
+			dataUart[4] = (FOCVars[0].Iqdref.qI_Component1>>8)&0xff;
+            dataUart[5] = ',';
+			dataUart[6] = (FOCVars[0].Iqdref.qI_Component2&0xff);
+			dataUart[7] = (FOCVars[0].Iqdref.qI_Component2>>8)&0xff;
+            dataUart[8] = ',';
+			dataUart[9] = (FOCVars[0].Valphabeta.qV_Component1&0xff);
+			dataUart[10] = (FOCVars[0].Valphabeta.qV_Component1>>8)&0xff;
+            dataUart[11] = ',';
+			dataUart[12] = (FOCVars[0].Valphabeta.qV_Component2&0xff);
+			dataUart[13] = (FOCVars[0].Valphabeta.qV_Component2>>8)&0xff;
+            dataUart[14] = ',';
+			dataUart[15] = HALL_M1.erpm&0xff;
+			dataUart[16] = (HALL_M1.erpm>>8)&0xff;
+			dataUart[17] = (HALL_M1.erpm>>16)&0xff;
+			dataUart[18] = (HALL_M1.erpm>>24)&0xff;
+            dataUart[19] = ',';
+			dataUart[20] = (a&0xff);
+			dataUart[21] = (a>>8)&0xff;
+            dataUart[22] = ',';
+			dataUart[23] = (b&0xff);
+			dataUart[24] = (b>>8)&0xff;
+            dataUart[25] = ',';
+			dataUart[26] = (c&0xff);
+			dataUart[27] = (c>>8)&0xff;
+            dataUart[28] = ',';
+			dataUart[29] = (HALL_M1.hall_val);
+			dataUart[30] = (vol)&0xff;
+			dataUart[31] = (vol>>8)&0xff;
+            dataUart[32] = ',';
+			dataUart[33] = (oMCInterface[0]->hFinalSpeed)&0xff;
+			dataUart[34] = (oMCInterface[0]->hFinalSpeed>>8)&0xff;
+			UartSendDatas(dataUart,35);
+            #endif
 			break;
 	}
 }
@@ -1106,7 +1157,7 @@ int fputc(int ch, FILE *f)
     {
         Status = UART_GetFlagStatus(UART2, UART_FLAG_TXE);
         Timeout++;
-    } while ((Status == RESET) && (Timeout != 0xFFFF));
+    } while ((Status == RESET) && (Timeout != 0xFFFFFF));
 
     return (ch);
 }
@@ -1180,7 +1231,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
             }else if(NowVBusAD > vMaxBus){
                 FOCVars[bMotor].status = mc_over_voltage;   //过压了
             }else{
-                Maxspeed = get_MaxSpeed(NowVBusAD,FOCVars[bMotor].mc_KV)+baseSpeed;
+                Maxspeed = get_MaxSpeed(NowVBusAD,mcconf.mc_KV)+baseSpeed;
                 //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //算出最大转速
                 //初始化电压 根据上电电压算出最大转速
                 FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
@@ -1341,6 +1392,7 @@ app_mode_t GetAPPMode(void){
 uint8_t aRxBuffer[64];
 uint8_t RxCounter = 0;  //接收计数
 uint8_t NewDataBuffLen = 0; //新数据的长度
+uint8_t TempDataBuffLen = 0; //新数据的长度
 uint8_t NewDataStart = 0;   //新数据开始位置
 uint8_t LastDataStart = 0;  //上次数据开始的位置
 uint8_t IDLEflag = 0;   //是否开启空闲中断
@@ -1351,32 +1403,44 @@ uint8_t IDLEflag = 0;   //是否开启空闲中断
   */
 void UART2_IRQHandler(void)
 {
+    // ===================== 【关键】清除所有错误（适配你的寄存器） =====================
+    if(UART2->ISR & (UART_ISR_ORE | UART_ISR_FE | UART_ISR_NF | UART_ISR_PE))
+    {
+        // 用 ICR 清除错误（你的MCU唯一正确方式）
+        UART2->ICR = UART_ICR_ORECF | UART_ICR_FECF | UART_ICR_NCF | UART_ICR_PECF;
+        return;
+    }
     if (UART_GetITStatus(UART2, UART_IT_RXNE) == SET)
     {
-        /* Read one byte from the receive data register */
-        aRxBuffer[RxCounter++] = (UART_ReceiveData(UART2));
-        UART_ClearFlag(UART2,UART_FLAG_RXNE);
-        if(RxCounter>=64)
-            RxCounter = 0;
-        if(IDLEflag==0){
-            IDLEflag = 1;
-            UART_ClearFlag(UART2, UART_FLAG_IDLE);
-            UART_ITConfig(UART2, UART_IT_IDLE, ENABLE);
+        // 1. 读数据 → 自动清 RXNE，不需要手动清！
+        aRxBuffer[RxCounter++] = UART_ReceiveData(UART2);
+        if(RxCounter >= 64) RxCounter = 0;
+
+        // 2. 计算当前帧已接收长度（环形缓冲正确算法）
+        uint16_t curr_len;
+        if(RxCounter >= NewDataStart)
+            curr_len = RxCounter - NewDataStart;
+        else
+            curr_len = 64 + RxCounter - NewDataStart;
+
+        // 3. 收到第1个字节 → 记录长度
+        if(curr_len == 1)
+        {
+            uint8_t len = aRxBuffer[NewDataStart];
+            if(len > 0 && len < 32)
+                TempDataBuffLen = len;
+            else
+                TempDataBuffLen = 0;
         }
-    }
-    if(UART_GetITStatus(UART2, UART_IT_IDLE) == SET){
-        IDLEflag = 0;
-        // ?【必须加】HK32M070 清除空闲中断标准方式
-        UART_ReceiveData(UART2);
-        UART_ClearFlag(UART2, UART_FLAG_IDLE);
-        UART_ITConfig(UART2, UART_IT_IDLE, DISABLE);
-        if(RxCounter>=NewDataStart)
-            NewDataBuffLen = RxCounter-NewDataStart;
-        else{
-            NewDataBuffLen = 64+RxCounter-NewDataStart;
+
+        // 4. 收够长度 → 帧完成
+        if(TempDataBuffLen > 0 && curr_len >= TempDataBuffLen)
+        {
+            NewDataBuffLen = TempDataBuffLen;
+            LastDataStart = NewDataStart;
+            NewDataStart = RxCounter;
+            TempDataBuffLen = 0;
         }
-        LastDataStart = NewDataStart;
-        NewDataStart = RxCounter;
     }
 }
 /**

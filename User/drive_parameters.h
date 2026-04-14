@@ -111,10 +111,10 @@
 
 /* Gains values for torque and flux control loops */
 #define PID_TORQUE_KP_DEFAULT                300   //1204
-#define PID_TORQUE_KI_DEFAULT                600   //242
+#define PID_TORQUE_KI_DEFAULT                100   //600   //242
                                              
 #define PID_FLUX_KP_DEFAULT                  250   //1804
-#define PID_FLUX_KI_DEFAULT                  520   //542
+#define PID_FLUX_KI_DEFAULT                  100   //520   //542
 //弱磁时候开d轴弱磁PI控制 达到最高转速的85%的时候切换到更高的id PI
 #define PID_FLUX_KP_H                  470   //1804
 #define PID_FLUX_KI_H                  1000  //542
@@ -126,8 +126,8 @@
 
 /* Speed control loop */
 #define SPEED_LOOP_FREQUENCY_HZ              1000   /*!< Execution rate of speed regulation loop (Hz) */
-#define PID_SPEED_KP_DEFAULT                 620
-#define PID_SPEED_KI_DEFAULT                 3800
+#define PID_SPEED_KP_DEFAULT                 200   //620
+#define PID_SPEED_KI_DEFAULT                 100   //1000  //3800
 #define PID_SPEED_KD_DEFAULT                 0
 //高速时候切换到高速PID                                             
 #define PID_HSPEED_KP_DEFAULT                 400

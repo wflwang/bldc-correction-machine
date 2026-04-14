@@ -19,7 +19,7 @@
 
 #define duplex  //开启双向模式
 
-#define MOTOR_Min_SPEED_RPM      15  //8 //15 //15 //@10 //3  //5  //1
+#define MOTOR_Min_SPEED_RPM      15U  //8 //15 //15 //@10 //3  //5  //1
 #define PPM_MAX_V    2000
 #define PPM_MAX      1950
 #define PPM_MIN_V    1000

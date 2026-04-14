@@ -72,7 +72,7 @@ int UPDATA_SPEED(app_PPM_t *apm)
 {
   static int lastOut=0;  //上次的速度
   int out;
-  int16_t maxs = apm->GetMaxSpeed();	//获取最大允许转速
+  int maxs = apm->GetMaxSpeed();	//获取最大允许转速
   int16_t plus = apm->GetNowPPM();
   //if(maxs<MOTOR_Mid_SPEED_RPM)  //最小转速限制
   //  maxs = MOTOR_Mid_SPEED_RPM;
@@ -88,7 +88,7 @@ int UPDATA_SPEED(app_PPM_t *apm)
     maxAdd = 1;
   if(maxDec<1)
     maxDec = 1;
-  if(apm->GetPPMLost()==false)
+  if(apm->GetPPMLost()==true)
     out = 0;
   else if(maxs<MOTOR_Min_SPEED_RPM)
     out =  0;	//最大速度小于最小速度直接输出0
@@ -99,7 +99,7 @@ int UPDATA_SPEED(app_PPM_t *apm)
       out = maxs;
     }else
     //速度做完全线性 放弃攀爬车更长得低速区域
-    out =  ((plus - PPM_midUp)*(maxs-MOTOR_Min_SPEED_RPM)/(PPM_maxLimit - PPM_midUp)+MOTOR_Min_SPEED_RPM);  //DEFAULT_TARGET_SPEED_RPM;
+    out =  ((int)(plus - PPM_midUp)*(maxs-MOTOR_Min_SPEED_RPM)/(PPM_maxLimit - PPM_midUp)+MOTOR_Min_SPEED_RPM);  //DEFAULT_TARGET_SPEED_RPM;
   }else if(plus<PPM_midDown){
     //maxs >>= 2;
     //#ifdef backslow
@@ -112,7 +112,7 @@ int UPDATA_SPEED(app_PPM_t *apm)
       out = -maxs;
       //return -maxs;
     }else
-    out =  -((PPM_midDown - plus)*(maxs-MOTOR_Min_SPEED_RPM)/(PPM_midDown - PPM_minLimit)+MOTOR_Min_SPEED_RPM); //DEFAULT_TARGET_SPEED_RPM;
+    out =  -((int)(PPM_midDown - plus)*(maxs-MOTOR_Min_SPEED_RPM)/(PPM_midDown - PPM_minLimit)+MOTOR_Min_SPEED_RPM); //DEFAULT_TARGET_SPEED_RPM;
   }else{
     out = 0;
   }
@@ -131,16 +131,6 @@ int UPDATA_SPEED(app_PPM_t *apm)
   }
   if(apm->PPM_Dir==0)
     return lastOut;
-  else{
+  else
     return -lastOut;
-  }
-//#else //单向转
-//  if(plus<1200){
-//    return 0;
-//  }else if(plus>1900){
-//    return MOTOR_MAX_SPEED_RPM;
-//  }else{
-//    return ((plus-1200)*(MOTOR_MAX_SPEED_RPM-DEFAULT_TARGET_SPEED_RPM)/700 + DEFAULT_TARGET_SPEED_RPM);
-//  }
-//#endif
 }

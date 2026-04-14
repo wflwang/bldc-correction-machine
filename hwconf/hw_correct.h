@@ -15,7 +15,7 @@
 #define HW_NAME "HK32M070-correct"
 #endif
 
-#define cTestSVPWM  2800        //开环电流
+//#define cTestSVPWM  2800        //开环电流
 #define TesTAngAdd  16       //开环测试每次变化的角度
 
 // Hall sensor pins
@@ -108,6 +108,9 @@
 #define UTU_IOA_PIN     GPIO_Pin_12
 #define UTU_IOA_PIN_SRC GPIO_PinSource12
 #define UTU_IOA_AF      GPIO_AF_2
+#define UTU_CLK         UTU2
+#define RCC_APBUTU      RCC_APB2Periph_UTU2
+#define RCC_APBUTUCmd   RCC_APB2PeriphClockCmd
 
 // Read Hall sensor functions
 #define READ_HALL1() GPIO_ReadInputDataBit(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1)
@@ -213,9 +216,10 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 
 
 #define HallCheckAddVd      10   //每次增加的vd
-#define HallCheckEndVd       7000   //hall开始校准的最大vd电压
-#define HallFastStep        10      //快速步进每次 + 10/65536
-#define HallSlowStep        1       //慢速步进每次 + 1/65536
+#define nextPro             180 //下次学习的角度基于上次的变化
+#define HallCheckEndVd       3500   //hall开始校准的最大vd电压
+#define HallFastStep        100  //10      //快速步进每次 + 10/65536
+#define HallSlowStep        12       //慢速步进每次 + 1/65536
 
 //获取角度值
 #define hEdegree(x)     (x*65536/360)

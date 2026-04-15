@@ -180,6 +180,7 @@ typedef enum{
     hall_null = 0x7f,          //hall 没有校准
     hall_no_ready = 0x80,          //hall 失效
     hall_learnStart = 1,          //hall 学习中
+    hall_learnOver = 70,    //学习结束
 }hall_state_t;
 
 //hall struct define
@@ -255,13 +256,13 @@ typedef struct{
   int16_t TempMotorLVL2;              //电机温度级别2
   int16_t TempMotorLVL1Iq;      //电机温度级别1 限制电流
   int16_t TempMotorLVL2Iq;      //电机温度级别2 限制电流
-  int16_t *foc_hall_table;  //hall 校准好的角度表格
+  int16_t foc_hall_table[8];  //hall 校准好的角度表格
   uint16_t mc_KV;    //电机KV值
   int32_t Fluxlink; //磁链
   int32_t Ld;     //d轴电感
   int32_t Lq;   //q轴电感
   int32_t R;    //电阻
-  int16_t CRC_Data; //数据校验
+  uint16_t CRC_Data; //数据校验
 }mc_config_t;
 /**
   * @brief  Low side or enabling signal definition

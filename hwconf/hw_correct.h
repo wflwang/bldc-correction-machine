@@ -93,6 +93,7 @@
 // Direction pin
 #define HW_DIR_PORT GPIOA
 #define HW_DIR_PIN  GPIO_Pin_13
+#define GetDir() GPIO_ReadInputDataBit(HW_DIR_PORT,HW_DIR_PIN)
 #define HW_En_PORT  GPIOA
 #define HW_En_PIN   GPIO_Pin_11
 #define SetEn(x)    ((x) ? GPIO_SetBits(HW_En_PORT, HW_En_PIN) : GPIO_ResetBits(HW_En_PORT, HW_En_PIN))
@@ -210,7 +211,7 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define MinTorqDecAcc   1  //最小减速限制
 
 //发声时候的音量
-#define speechVol   7000      //  /32768
+#define speechVol   8500      //  /32768
 
 #define Kpdiff      1   //和固定放大倍数 方便放大整个数据 防止数据过小时候全是0
 
@@ -218,8 +219,10 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define HallCheckAddVd      10   //每次增加的vd
 #define nextPro             180 //下次学习的角度基于上次的变化
 #define HallCheckEndVd       3500   //hall开始校准的最大vd电压
-#define HallFastStep        100  //10      //快速步进每次 + 10/65536
-#define HallSlowStep        12       //慢速步进每次 + 1/65536
+#define HallFastStep        64  //10      //快速步进每次 + 10/65536
+#define HallSlowStep        8       //慢速步进每次 + 1/65536
+#define hallLearnEnd        26  //26 2次 14 1次
+#define OpenLearnTime       9  //15ms
 
 //获取角度值
 #define hEdegree(x)     (x*65536/360)
@@ -229,8 +232,8 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define fw_pro    93    //前馈补偿的比例  ?*目标速度/128
 
 
-#define IloopTrigH      500     //切入电流环的速度
-#define IloopTrigL      200     //切回无电流环的速度
+#define IloopTrigH      150     //切入电流环的速度
+#define IloopTrigL      100     //切回无电流环的速度
 
 
 // Motor control limits

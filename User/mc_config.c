@@ -14,6 +14,7 @@
 #include "hw_correct.h"
 #include "app.h"
 #include "mc_tasks.h"
+extern mc_config_t mcconf;
 
 #define MAX_TWAIT 0                 /* Dummy value for single drive */
 #define FREQ_RATIO 1                /* Dummy value for single drive */
@@ -193,8 +194,9 @@ foc_hall_t HALL_M1 =
     .last_ang_diff = 0,
     .I_feed = false,      //电流环跳过
     .anginc = 0,
+    .Nowanginc = 0,
     .angUpdate = false,
-    .foc_hall_table = foc_hall_ang_table,
+    .foc_hall_table = mcconf.foc_hall_table,
     //.hElAngle = 0,
     .real_phase = 0,
 };
@@ -297,10 +299,17 @@ void DefaultMCConfig(mc_config_t *mcconf){
     mcconf->LowVBusLVL2 = VBusVol(LvdLVL2);
     mcconf->LowVBusLVL3 = VBusVol(LvdLVL3);
     mcconf->LowVBusLVL1Speed = LvdLVL1_RPM;
-    mcconf->LowVBusLVL1Speed = LvdLVL2_RPM;
-    mcconf->LowVBusLVL1Speed = LvdLVL3_RPM;
+    mcconf->LowVBusLVL2Speed = LvdLVL2_RPM;
+    mcconf->LowVBusLVL3Speed = LvdLVL3_RPM;
     //mcconf->TempMotorLVL1 = 100;
-    mcconf->foc_hall_table = foc_hall_ang_table;
+	  mcconf->foc_hall_table[0] = 0,
+	  mcconf->foc_hall_table[1] = 0,
+	  mcconf->foc_hall_table[2] = 10922,
+	  mcconf->foc_hall_table[3] = 21845,
+	  mcconf->foc_hall_table[4] = 32767,
+	  mcconf->foc_hall_table[5] = -21845,
+	  mcconf->foc_hall_table[6] = -10922,
+    mcconf->foc_hall_table[7] = 0;
     mcconf->mc_KV = default_KV;
     mcconf->Fluxlink = Q12RLF(FluxLink);    //0x7fffffff
     mcconf->R = Q12RLF(RS);    //0x7fffffff

@@ -18,7 +18,7 @@
 //#include <cstdint>
 
 //24bit = 262ms
-#define MaxAng60IntTime 0x5000000uL   //60度时间默认最大值 65536*8us=524ms 认为是堵转了
+#define MaxAng60IntTime 0x3000000uL   //60度时间默认最大值 65536*8us=524ms 认为是堵转了
 typedef struct
 {
     SpeednPosFdbk_Handle_t _Super;
@@ -36,12 +36,13 @@ typedef struct
     int16_t m_ang_hall_int_Next;   //下次hall预测的角度 hall中断中计算的值
     int16_t real_phase_Next;        //下次hall预测的角度 AD中断中实际的值
     int16_t anginc;    //每次中断变化的角度 相当于角速度*中断时间
+    int16_t Nowanginc;    //每次中断变化的角度 相当于角速度*中断时间
     int16_t real_phase;     //hall 应用的真实角度
-    int16_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
-    //int16_t foc_hall_tableTemp[8];  //hall学习时候临时记录的表格 0-7
-    int16_t *foc_hall_table;  //hall学习完成后正式使用的表格 0-7
+    int32_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
+    int16_t *foc_hall_table;  //hall学习时候临时记录的表格 0-7
+    //int16_t *foc_hall_table;  //hall学习完成后正式使用的表格 0-7
     int16_t hallFastLearnAngDiff; //hall学习时候可以快速跳过的角度增量 增加学习效率
-    uint32_t m_ang60_intTime;   //60度时间
+    int32_t m_ang60_intTime;   //60度时间
     //bool bElDiffMec;  //马达电角度方向是否和磁编角度不同
     //bool hDirFin; //学习的时候是否识别到了方向
     //bool NegDir;
@@ -100,6 +101,7 @@ static inline hall_state_t GetHallState(foc_hall_t * pHandle){
     return pHandle->hallState;
 }
 int16_t GetLastLearnAngDiff(foc_hall_t * pHandle);
+bool CheckHallTab(foc_hall_t * pHandle);
 
 
 

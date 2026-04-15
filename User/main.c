@@ -12,11 +12,16 @@
 #include "motorcontrol.h"
 #include "hw_correct.h"
 #include "app.h"
+#include "foc_hall.h"
+#include "mc_config.h"
 
 extern int32_t Count1ms;        //1ms count
 extern int nowSpeed;
 
 extern app_config_t appconf;   //app config
+static uint8_t midEn=0; //是否回中
+int speed;
+int lastSpeed;
 // System clock configuration
 void SystemClock_Config(void)
 {
@@ -69,6 +74,7 @@ int main(void) {
     #ifdef MainOutMCTime
     printfMC(0);
     #endif
+	Delay_ms(500);
     
     // Main loop
     while (1) {
@@ -88,11 +94,44 @@ int main(void) {
             //有新数据进来
             //XorEn();
             ClrPPMUpDate();
-            int speed = UPDATA_SPEED(&appconf.app_PPM);
-            MC_ProgramSpeedRampMotor1((int16_t)speed,20);    //更新速度
+            speed = UPDATA_SPEED(&appconf.app_PPM);
+            if(GetHallState(&HALL_M1)==hall_run){
+                if(speed == 0){
+                    if(midEn==0){
+                        midEn = 1;
+                        speechEn(100,2);    //第一次回中响两下
+                    }
+					if(speed!=lastSpeed)
+                    MC_ProgramSpeedRampMotor1((int16_t)speed,20);    //更新速度
+                }else{
+                    if(midEn==1){
+						if(speed!=lastSpeed)
+                        MC_ProgramSpeedRampMotor1((int16_t)speed,20);    //更新速度
+                    }else{
+                        MC_ProgramSpeedRampMotor1(0,0);    //更新速度
+                    }
+                }
+            }else if(GetHallState(&HALL_M1)==hall_learnOver){
+                //学习结束 先矫正学习的hall表格对不对 不对 要重新校验
+                //
+                if(CheckHallTab(&HALL_M1)==false){
+                    speechEn(100,2);    //
+                    Delay_ms(500);
+                    speechEn(100,2);    //
+                    Delay_ms(500);
+                    speechEn(100,2);    //失败 响6次
+                    Delay_ms(500);
+				    HALL_M1.hallState = hall_null;
+                }else{
+                    //记住学习的内容
+                    SetMCConfig();  //存储数据
+                    speechEn(500,1);    //学习成功 长响一下
+                    Delay_ms(500);
+				    HALL_M1.hallState = hall_run;
+                }
+            }
+			lastSpeed = speed;
         }
-        // Simple delay
-        //for (volatile int i = 0; i < 1000000; i++);
     }
 }
 
@@ -109,7 +148,7 @@ void speechEn(uint32_t time,uint32_t count){
     Delay_ms(100);
   }
   SetMSpeechEN(0);
-  Delay_ms(20);
+  Delay_ms(200);
 }
 
 /**

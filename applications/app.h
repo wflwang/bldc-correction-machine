@@ -19,7 +19,7 @@
 
 #define duplex  //开启双向模式
 
-#define MOTOR_Min_SPEED_RPM      15U  //8 //15 //15 //@10 //3  //5  //1
+#define MOTOR_Min_SPEED_RPM      5U  //8 //15 //15 //@10 //3  //5  //1
 #define PPM_MAX_V    2000
 #define PPM_MAX      1950
 #define PPM_MIN_V    1000
@@ -71,7 +71,7 @@ typedef struct{
 typedef struct{
     app_mode_t app_mode;
     app_PPM_t app_PPM;
-    int16_t CRC_Data; //数据校验
+    uint16_t CRC_Data; //数据校验
 }app_config_t;
 
 

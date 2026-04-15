@@ -16,6 +16,7 @@
 #include "mc_interface.h"
 #include "app.h"
 #include "foc_hall.h"
+#include "mc_type.h"
 
 /** @addtogroup MCSDK
   * @{
@@ -51,6 +52,8 @@ void TSK_HardwareFaultTask(void);
 uint8_t GetMaxTerefReady(void);
 void GetMCConfig(void);     //flash读取motor
 void GetAPPConfig(void);  //读取APP data
+void SetMCConfig(void);
+void SetAPPConfig(void);
 int32_t GetMaxSpeed(void);  //获取最大转速
 
  /* Locks GPIO pins used for Motor Control to prevent accidental reconfiguration */

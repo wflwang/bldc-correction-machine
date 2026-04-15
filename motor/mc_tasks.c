@@ -8,6 +8,7 @@
 
 
 /* Includes ------------------------------------------------------------------*/
+#include "MCLib/Any/Inc/mc_type.h"
 #include "main.h"
 #include "mc_type.h"
 #include "mc_math.h"
@@ -30,21 +31,21 @@
 /* USER CODE BEGIN Includes */
 
 int16_t AVrspeed = 0;
-static int16_t NowVBusAD = 0;   //当前母线电压AD
-static int16_t NowTempMotorx100 = 0;   //当前马达电压*100
-static int16_t NowTempPCBx100 = 0;   //当前PCB电压*100
-static int IsSpeech = 0;  //是否发声
+static int16_t NowVBusAD = 0;   //锟斤拷前母锟竭碉拷压AD
+static int16_t NowTempMotorx100 = 0;   //锟斤拷前锟斤拷锟斤拷锟窖?*100
+static int16_t NowTempPCBx100 = 0;   //锟斤拷前PCB锟斤拷压*100
+static int IsSpeech = 0;  //锟角凤拷锟斤拷
 #ifndef cTestSVPWM
-static int IScount = 0; //电流环速度环切换时间
+static int IScount = 0; //锟斤拷锟斤拷锟斤拷锟劫度伙拷锟叫伙拷时锟斤拷
 #endif
 #define SYSTICK_DIVIDER (SYS_TICK_FREQUENCY/1000)
 
-static int32_t Maxspeed = 1000;     //最大限制转速 
+static int32_t Maxspeed = 1000;     //锟斤拷锟斤拷锟斤拷锟阶?锟斤拷 
 //int nowSpeed=0;
 
 int32_t Count1ms = 0;   //1ms count
 
-mc_config_t mcconf;     //初始化 马达配置
+mc_config_t mcconf;     //锟斤拷始锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷
 app_config_t appconf;   //app config
 
 /* USER CODE END Includes */
@@ -117,7 +118,7 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
 {
 
     bMCBootCompleted = 0;
-    //GetMCConfig();  //从flash中读取电机配置
+    //GetMCConfig();  //锟斤拷flash锟叫讹拷取锟斤拷锟斤拷锟斤拷锟?
     pCLM[M1] = &CircleLimitationM1;
 
     /**********************************************************/
@@ -144,10 +145,10 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
 
     M_Hall_Init(&HALL_M1,&mcconf);
     //HALL_Init (&HALL_M1);
-    //开启一次AD转换，触发一次中断，读取一次电压，给FOC一个初始的v_bus值
-    //ADC_StartConversion(ADC1, ADC_CHANNEL_0); // 触发一次AD
-    //读取上电时候电压 根据初始顶呀KV值算出 最大转速
-    //电机停止2s比较电压最大转速 超过最大电压20%目标转速
+    //锟斤拷锟斤拷一锟斤拷AD转锟斤拷锟斤拷锟斤拷锟斤拷一锟斤拷锟叫断ｏ拷锟斤拷取一锟轿碉拷压锟斤拷锟斤拷FOC一锟斤拷锟斤拷始锟斤拷v_bus值
+    //ADC_StartConversion(ADC1, ADC_CHANNEL_0); // 锟斤拷锟斤拷一锟斤拷AD
+    //锟斤拷取锟较碉拷时锟斤拷锟窖? 锟斤拷锟捷筹拷始锟斤拷呀KV值锟斤拷锟? 锟斤拷锟阶?锟斤拷
+    //锟斤拷锟酵Ｖ?2s锟饺较碉拷压锟斤拷锟阶?锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷压20%目锟斤拷转锟斤拷
 
     /******************************************************/
     /*   Speed & torque component initialization          */
@@ -238,19 +239,19 @@ void MC_RunMotorControlTasks(void)
 
         /* Safety task is run after Medium Frequency task so that
         * it can overcome actions they initiated if needed. */
-        if (ADC->ADIFR & 0x0004)//GroupB采样完成
+        if (ADC->ADIFR & 0x0004)//GroupB锟斤拷锟斤拷锟斤拷锟?
         {
-            TSK_SafetyTask();       //500us执行一次安全任务，检查过压欠压等
-            ADC->ADIFR |= 0x0004;//清除GroupB采样完成标志
+            TSK_SafetyTask();       //500us执锟斤拷一锟轿帮拷全锟斤拷锟今，硷拷锟斤拷压欠压锟斤拷
+            ADC->ADIFR |= 0x0004;//锟斤拷锟紾roupB锟斤拷锟斤拷锟斤拷杀锟街?
         }
     }
 
 }
-//获取是否发声状态
+//锟斤拷取锟角凤拷锟斤拷状态
 int GetMSpeechEN(void){
   return IsSpeech;
 }
-//设置发声状态
+//锟斤拷锟矫凤拷锟斤拷状态
 void SetMSpeechEN(int state){
   IsSpeech = state;
 }
@@ -302,18 +303,17 @@ void MC_Scheduler(void)
 }
 /**
  * @brief Get now speed
- * 计算速度环的速度 要稳定,同时不能有太大延迟
+ * 锟斤拷锟斤拷锟劫度伙拷锟斤拷锟劫讹拷 要锟饺讹拷,同时锟斤拷锟斤拷锟斤拷太锟斤拷锟接筹拷
  * 
  */
 void Hall_CalcAvrgMecSpeed01Hz( foc_hall_t * pHandle)
 {
-  //->两次速度差
+  //->锟斤拷锟斤拷锟劫度诧拷
   /*Stores average mechanical speed [01Hz]*/
-  int div = pHandle->erpm*pHandle->_Super.bElToMecRatio;
-  if(div==0)
-    pHandle->_Super.hAvrMecSpeed01Hz = 0;
+  if(pHandle->_Super.bElToMecRatio)
+  pHandle->_Super.hAvrMecSpeed01Hz  = pHandle->erpm/pHandle->_Super.bElToMecRatio;
   else
-	pHandle->_Super.hAvrMecSpeed01Hz = div; //1ms 内的平均速度 和
+    pHandle->_Super.hAvrMecSpeed01Hz = pHandle->erpm;
 }
 
 /**
@@ -329,7 +329,7 @@ void TSK_MediumFrequencyTaskM1(void)
     State_t StateM1;
     Count1ms++; //1ms add
     //int16_t wAux = 0;
-    //计算hall的平均机械速度和电机功率
+    //锟斤拷锟斤拷hall锟斤拷平锟斤拷锟斤拷械锟劫度和碉拷锟斤拷锟斤拷锟?
     //(void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
     //PQD_CalcElMotorPower( pMPM[M1] );
     //AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
@@ -376,17 +376,17 @@ void TSK_MediumFrequencyTaskM1(void)
 
         case START:
         {
-            //这里要先检测一下 有没有校准hall 和 学习FOC参数 没有的话就先校准一下
-            if((FOCVars[M1].status == ready_RUN)||(FOCVars[M1].status == motor_run)){    //没有电压问题
-                //待机模式才可以初始化hall 并开始校准
-                //if(GetHallState(&HALL_M1)==hall_run){  //获取hall状态
-                    //hall 正常工作了 进入下一环节 开始FOC
+            //锟斤拷锟斤拷要锟饺硷拷锟揭伙拷锟? 锟斤拷没锟斤拷校准hall 锟斤拷 学习FOC锟斤拷锟斤拷 没锟叫的伙拷锟斤拷锟斤拷校准一锟斤拷
+            if((FOCVars[M1].status == ready_RUN)||(FOCVars[M1].status == motor_run)){    //没锟叫碉拷压锟斤拷锟斤拷
+                //锟斤拷锟斤拷模式锟脚匡拷锟皆筹拷始锟斤拷hall 锟斤拷锟斤拷始校准
+                //if(GetHallState(&HALL_M1)==hall_run){  //锟斤拷取hall状态
+                    //hall 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷 锟斤拷锟斤拷锟斤拷一锟斤拷锟斤拷 锟斤拷始FOC
                     STM_NextState( &STM[M1], START_RUN );
                 //}else{
-                    //否则继续开环学习FOC 参数 hall位置
+                    //锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟窖?习FOC 锟斤拷锟斤拷 hall位锟斤拷
                 //}
                 //STM_NextState( &STM[M1], START_RUN );
-            }   //有电压问题 不进入下一个状态
+            }   //锟叫碉拷压锟斤拷锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷一锟斤拷状态
         }
         break;
 
@@ -453,7 +453,6 @@ uint8_t GetMaxTerefReady(void){
   else
   return 0;
 }
-
 /**
   * @brief  It re-initializes the current and voltage variables. Moreover
   *         it clears qd currents PI controllers, voltage sensor and SpeednTorque
@@ -479,7 +478,7 @@ void FOC_Clear(uint8_t bMotor)
     FOCVars[bMotor].Vqd = Vnull;
     FOCVars[bMotor].Valphabeta = Vnull;
     FOCVars[bMotor].hElAngle = (int16_t)0;
-    FOCVars[bMotor].now_duty = 0;   //初始当前duty为0
+    FOCVars[bMotor].now_duty = 0;   //锟斤拷始锟斤拷前duty为0
 
     PID_SetIntegralTerm(pPIDIq[bMotor], (int32_t)0);
     PID_SetIntegralTerm(pPIDId[bMotor], (int32_t)0);
@@ -520,7 +519,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
 {
     static int32_t ETestAngle = 0;
     static int32_t count=0;
-    #ifdef speedLoopInt    //速度环调整变慢
+    #ifdef speedLoopInt    //锟劫度伙拷锟斤拷锟斤拷锟斤拷锟斤拷
     static int pidInter;
     if(pidInter<speedLoopInt){
       pidInter++;
@@ -548,21 +547,21 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                 //iqdtemp.qI_Component2 = cTestSVPWM;
             //}
         }
-        HALL_M1.real_phase = (int16_t)ETestAngle;   //每次增加 1/65536度
-        FOCVars[bMotor].Iqdref = iqdtemp;    //测试SVPWM Iq大小
+        HALL_M1.real_phase = (int16_t)ETestAngle;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
+        FOCVars[bMotor].Iqdref = iqdtemp;    //锟斤拷锟斤拷SVPWM Iq锟斤拷小
         #else
         Curr_Components iqdtemp;
-        if(GetMSpeechEN()){ //有播放声音
-            FOCVars[bMotor].Iqdref.qI_Component1 = 0;  //实际转起来是给q轴
-            FOCVars[bMotor].Iqdref.qI_Component2  = speechVol;  //音量
+        if(GetMSpeechEN()){ //锟叫诧拷锟斤拷锟斤拷锟斤拷
+            FOCVars[bMotor].Iqdref.qI_Component1 = 0;  //实锟斤拷转锟斤拷锟斤拷锟角革拷q锟斤拷
+            FOCVars[bMotor].Iqdref.qI_Component2  = speechVol;  //锟斤拷锟斤拷
         }else{
-            //判断是否开环控制
+            //锟叫讹拷锟角否开伙拷锟斤拷锟斤拷
             if((HALL_M1.hallState&0x80)==hall_no_ready){
-                //hall 失效没有任何功能
-                FOCVars[bMotor].status = Hall_fail; //hall 错误
+                //hall 失效没锟斤拷锟轿何癸拷锟斤拷
+                FOCVars[bMotor].status = Hall_fail; //hall 锟斤拷锟斤拷
             }else if(HALL_M1.hallState == hall_null){
-                //开始学习 先给hall一个初始角度 在给一个固定vd
-                HALL_M1.real_phase = 0;     //电角度先定位到0度 再慢慢增加vd 到一定值 再慢慢增加角度
+                //锟斤拷始学习 锟饺革拷hall一锟斤拷锟斤拷始锟角讹拷 锟节革拷一锟斤拷锟教讹拷vd
+                HALL_M1.real_phase = 0;     //锟斤拷嵌锟斤拷榷锟轿伙拷锟?0锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷vd 锟斤拷一锟斤拷值 锟斤拷锟斤拷锟斤拷锟斤拷锟接角讹拷
                 FOCVars[bMotor].Iqdref.qI_Component1 = 0;
                 if(count<(HallCheckEndVd*2)){
                     count++;
@@ -570,24 +569,39 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                         FOCVars[bMotor].Iqdref.qI_Component2 += HallCheckAddVd;
                     }
                 }else{
-                    //vd电压达到了再增加角度
+                    //vd锟斤拷压锟斤到锟斤拷锟斤拷锟斤拷锟接角讹拷
                     FOCVars[bMotor].Iqdref.qI_Component2 = HallCheckEndVd;
-                    //HALL_M1.real_phase += HallFastStep;   //每次增加 1/65536度
-                    HALL_M1.hallState = hall_learnStart;    //hall 开始学习
+                    HALL_M1.hallFastLearnAngDiff = 0;
+                    count = 0;
+                    piddelay = 0;
+                    ETestAngle = 0;
+                    //HALL_M1.real_phase += HallFastStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
+                    HALL_M1.hallState = hall_learnStart;    //hall 锟斤拷始学习
                 }
             }else if((HALL_M1.hallState >= 1)&&(HALL_M1.hallState < 50)){
-                //hall 学习中达到了一次以上正确换相
+                //hall 学习锟叫达到锟斤拷一锟斤拷锟斤拷锟斤拷锟斤拷确锟斤拷锟斤拷
                 //if((uint8_t)HALL_M1.hallState < 13){
                     piddelay++;
-                    if(piddelay>20){
+                    if(piddelay>OpenLearnTime){
                         piddelay = 0;
-                        if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
-                        //超过了 每次增加1级慢慢学习电角度
-                            ETestAngle += HallSlowStep;
-                            //HALL_M1.real_phase += HallSlowStep;   //每次增加 1/65536度
+                        if(HALL_M1.hallState>((hallLearnEnd/2))){
+                            if(GetLastLearnAngDiff(&HALL_M1)<HALL_M1.hallFastLearnAngDiff){
+                            //锟斤拷锟斤拷锟斤拷 每锟斤拷锟斤拷锟斤拷1锟斤拷锟斤拷锟斤拷学习锟斤拷嵌锟?
+                                ETestAngle -= HallSlowStep;
+                                //HALL_M1.real_phase += HallSlowStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
+                            }else{
+                                ETestAngle -= HallFastStep;
+                                //HALL_M1.real_phase += HallFastStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
+                            }
                         }else{
-                            ETestAngle += HallFastStep;
-                            //HALL_M1.real_phase += HallFastStep;   //每次增加 1/65536度
+                            if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
+                            //锟斤拷锟斤拷锟斤拷 每锟斤拷锟斤拷锟斤拷1锟斤拷锟斤拷锟斤拷学习锟斤拷嵌锟?
+                                ETestAngle += HallSlowStep;
+                                //HALL_M1.real_phase += HallSlowStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
+                            }else{
+                                ETestAngle += HallFastStep;
+                                //HALL_M1.real_phase += HallFastStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
+                            }
                         }
                         if (ETestAngle > 32767)
 		                    ETestAngle -= 65536;
@@ -597,14 +611,16 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                     }
                 //}else{
                 //    if(GetLastLearnAngDiff(&HALL_M1)<(-HALL_M1.hallFastLearnAngDiff)){
-                        //超过了 每次增加1级慢慢学习电角度
-                //        HALL_M1.real_phase -= HallSlowStep;   //每次增加 1/65536度
+                        //锟斤拷锟斤拷锟斤拷 每锟斤拷锟斤拷锟斤拷1锟斤拷锟斤拷锟斤拷学习锟斤拷嵌锟?
+                //        HALL_M1.real_phase -= HallSlowStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
                 //    }else{
-                //        HALL_M1.real_phase -= HallFastStep;   //每次增加 1/65536度
+                //        HALL_M1.real_phase -= HallFastStep;   //每锟斤拷锟斤拷锟斤拷 1/65536锟斤拷
                 //    }
                 //}
+            }else if(HALL_M1.hallState==hall_learnOver){
+                clearRefIdq();  //清除iqd 电流
             }else{
-                //正常给扭矩
+                //normal mode
                 iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
                 FOCVars[bMotor].Iqdref = iqdtemp;
             }
@@ -615,7 +631,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
     }
 }
 /**
- * @brief 清除iqd值
+ * @brief 锟斤拷锟絠qd值
  * 
  * 
 */
@@ -755,19 +771,19 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     Curr_Components Iqd, Ialphabeta;
     Volt_Components Vqd;
     uint16_t hCodeError;
-    PWMC_GetPhaseCurrents(pwmcHandle[bMotor], &Iab);    //获取电流
+    PWMC_GetPhaseCurrents(pwmcHandle[bMotor], &Iab);    //锟斤拷取锟斤拷锟斤拷
     if(HALL_M1.hallState==hall_run){
-        //正常控制模式
-        #ifdef duty_ControlMode //duty控制模式
-	    int16_t duty_set = FOCVars[bMotor].m_duty_cycle_set;	//当前设置的目标duty
-		int16_t duty_now =  FOCVars[bMotor].now_duty;	//上次算出的duty大小
+        //锟斤拷锟斤拷锟斤拷锟斤拷模式
+        #ifdef duty_ControlMode //duty锟斤拷锟斤拷模式
+	    int16_t duty_set = FOCVars[bMotor].m_duty_cycle_set;	//锟斤拷前锟斤拷锟矫碉拷目锟斤拷duty
+		int16_t duty_now =  FOCVars[bMotor].now_duty;	//锟较达拷锟斤拷锟斤拷锟絛uty锟斤拷小
 		int16_t duty_abs = fabsf(duty_now);
 		// Duty cycle control
 		if ((fabsf(duty_set) < duty_abs) &&
 				((!FOCVars[bMotor].duty_was_pi) || (SIGN_int16(FOCVars[bMotor].duty_pi_duty_last) == SIGN_int16(duty_now)))) {
 			// Truncating the duty cycle here would be dangerous, so run a PI controller.
 			FOCVars[bMotor].duty_pi_duty_last = duty_now;
-			FOCVars[bMotor].duty_was_pi = true;	//上次控制是PI控制输出
+			FOCVars[bMotor].duty_was_pi = true;	//锟较次匡拷锟斤拷锟斤拷PI锟斤拷锟斤拷锟斤拷锟?
 			// Reset the integrator in duty mode to not increase the duty if the load suddenly changes. In braking
 			// mode this would cause a discontinuity, so there we want to keep the value of the integrator.
 			//if (motor_now->m_control_mode == CONTROL_MODE_DUTY) {
@@ -783,15 +799,15 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 			//}
 			// Compute error
 			int32_t error = (int32_t)duty_set - (int32_t)duty_now;
-			//带上v_bus 的意义是 不同电压下 做一个比例参考 让电压一致
+			//锟斤拷锟斤拷v_bus 锟斤拷锟斤拷锟斤拷锟斤拷 锟斤拷同锟斤拷压锟斤拷 锟斤拷一锟斤拷锟斤拷锟斤拷锟轿匡拷 锟矫碉拷压一锟斤拷
 			// Compute parameters
 			//float scale = 1.0 / state_now->v_bus;
 			int32_t p_term = (error * FOCVars[bMotor].foc_duty_dowmramp_kp<<15) / FOCVars[bMotor].vBus;
-            //*dt 是不同中断时间 ki的影响不大 FOCVars[bMotor].foc_hall.intTime
-			// 先计算增量
+            //*dt 锟角诧拷同锟叫讹拷时锟斤拷 ki锟斤拷影锟届不锟斤拷 FOCVars[bMotor].foc_hall.intTime
+			// 锟饺硷拷锟斤拷锟斤拷锟斤拷
             int32_t i_inc = (error * (FOCVars[bMotor].foc_duty_dowmramp_ki << 15)) / FOCVars[bMotor].vBus;
 
-            // 【安全写法】防止累加后溢出
+            // 锟斤拷锟斤拷全写锟斤拷锟斤拷锟斤拷止锟桔加猴拷锟斤拷锟?
             if ((i_inc > 0) && (FOCVars[bMotor].m_duty_i_term > (INT32_MAX - i_inc))) {
                 FOCVars[bMotor].m_duty_i_term = INT32_MAX;
             } else if ((i_inc < 0) && (FOCVars[bMotor].m_duty_i_term < (-INT32_MAX - i_inc))) {
@@ -814,113 +830,129 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 		} else {
 			// If the duty cycle is less than or equal to the set duty cycle just limit
 			// the modulation and use the maximum allowed current.
-            //目的是给一个积分,让下次电流减小时候先锁定在这个电流值 不要直接锁定在duty上 这样可以让电流变化更平滑
-			FOCVars[bMotor].m_duty_i_term = (FOCVars[bMotor].Iqd.qI_Component1<<15) / current_max_for_duty;   //当前iq/max
-			//state_now->max_duty = duty_set; //猛加速时让D轴变化慢一点  转速不高不考虑
+            //目锟斤拷锟角革拷一锟斤拷锟斤拷锟斤拷,锟斤拷锟铰次碉拷锟斤拷锟斤拷小时锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟街? 锟斤拷要直锟斤拷锟斤拷锟斤拷锟斤拷duty锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷锟矫碉拷锟斤拷锟戒化锟斤拷平锟斤拷
+			FOCVars[bMotor].m_duty_i_term = (FOCVars[bMotor].Iqd.qI_Component1<<15) / current_max_for_duty;   //锟斤拷前iq/max
+			//state_now->max_duty = duty_set; //锟酵硷拷锟斤拷时锟斤拷D锟斤拷浠?锟斤拷一锟斤拷  转锟劫诧拷锟竭诧拷锟斤拷锟斤拷
 			if (duty_set > 0) {
-				FOCVars[bMotor].Iqdref.qI_Component1 = current_max_for_duty;	//如果设置的目标duty是正的 就给正的最大电流
+				FOCVars[bMotor].Iqdref.qI_Component1 = current_max_for_duty;	//锟斤拷锟斤拷锟斤拷玫锟侥匡拷锟絛uty锟斤拷锟斤拷锟斤拷 锟酵革拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 			} else {
 				FOCVars[bMotor].Iqdref.qI_Component1 = -current_max_for_duty;
 			}
 			FOCVars[bMotor].duty_was_pi = false;
 		}
-        FOCVars[bMotor].Iqdref.qI_Component2 = 0; // 初始化id_set_tmp
+        FOCVars[bMotor].Iqdref.qI_Component2 = 0; // 锟斤拷始锟斤拷id_set_tmp
         #endif
-        //duty 控制模式是 用 上次   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
-        //角度由hall算出来
-        if(HALL_M1.angUpdate==true){ //有换相更新
-            HALL_M1.real_phase = HALL_M1.m_ang_hall_int_prev;    //真实相位
-            HALL_M1.real_phase_Next = HALL_M1.m_ang_hall_int_Next; //下次相位
-            HALL_M1.angUpdate = false;   //换相更新完成
+        //duty 锟斤拷锟斤拷模式锟斤拷 锟斤拷 锟较达拷   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
+        //锟角讹拷锟斤拷hall锟斤拷锟斤拷锟?
+        if(HALL_M1.angUpdate==true){ //锟叫伙拷锟斤拷锟斤拷锟?
+            HALL_M1.real_phase = HALL_M1.m_ang_hall_int_prev;    //锟斤拷实锟斤拷位
+            HALL_M1.real_phase_Next = HALL_M1.m_ang_hall_int_Next; //锟铰达拷锟斤拷位
+            HALL_M1.angUpdate = false;   //锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
+            HALL_M1.Nowanginc = HALL_M1.anginc;
         }
-        int16_t minDec = HALL_M1.anginc >>3; 
-        if(minDec==0){
-            minDec = 1; //最小的幅度
+        int16_t minDec = HALL_M1.Nowanginc >>3; 
+        if((minDec==0)&&(HALL_M1.Nowanginc!=0)){
+            if(HALL_M1.Nowanginc>0)
+            minDec = 1; //锟斤拷小锟侥凤拷锟斤拷
+            else
+            minDec = -1;
         }
         int16_t diff = 0;
         //min speed is 1*83us 5s-1 1min - 12erpm
-        HALL_M1.real_phase =  HALL_M1.real_phase + HALL_M1.anginc;    //真实相位
-        if(HALL_M1.anginc > 0)  // 正转
+        HALL_M1.real_phase +=  HALL_M1.Nowanginc;    //锟斤拷实锟斤拷位
+        #if 1   //不限制增量
+        if(HALL_M1.Nowanginc > 0)  // 速度是正 diff是增 next-now>0 now-next<0 -> >0 now over
         {   
             diff = HALL_M1.real_phase-HALL_M1.real_phase_Next;
-            //角度插值已经到了预测的下个角度 但是实际还没有触发下次角度
+            //锟角度诧拷值锟窖撅拷锟斤拷锟斤拷预锟斤拷锟斤拷赂锟斤拷嵌锟? 锟斤拷锟斤拷实锟绞伙拷没锟叫达拷锟斤拷锟铰次角讹拷
             if(diff >= 0)
             {
-                // 不让角度超过目标
+                // 锟斤拷锟矫角度筹拷锟斤拷目锟斤拷
                 HALL_M1.real_phase = HALL_M1.real_phase_Next;  
-                // 速度自动变小（衰减），防止超前太多
-                // 下次以更小步距走，等待真实霍尔跳变
-                HALL_M1.anginc -= minDec;  
-                // 防止速度变成0，保持极小蠕动  
-                if(HALL_M1.anginc < 1){
-                    //角度变化太慢了 要限制速度?
-                    //达到下次换相点但是不换相,角度变化很慢了 此时要限制duty_set
-                    //不减速处理
+                // 锟劫讹拷锟皆讹拷锟斤拷小锟斤拷衰锟斤拷锟斤拷锟斤拷锟斤拷止锟斤拷前太锟斤拷
+                // 锟铰达拷锟皆革拷小锟斤拷锟斤拷锟竭ｏ拷锟饺达拷锟斤拷实锟斤拷锟斤拷锟斤拷锟斤拷
+                HALL_M1.Nowanginc -= minDec;  
+                // 锟斤拷止锟劫度憋拷锟?0锟斤拷锟斤拷锟街硷拷小锟戒动  
+                if(HALL_M1.Nowanginc < 1){
+                    //锟角度变化太锟斤拷锟斤拷 要锟斤拷锟斤拷锟劫讹拷?
+                    //锟斤到锟铰次伙拷锟斤拷愕?锟角诧拷锟斤拷锟斤拷,锟角度变化锟斤拷锟斤拷锟斤拷 锟斤拷时要锟斤拷锟斤拷duty_set
+                    //锟斤拷锟斤拷锟劫达拷锟斤拷
                     //duty_set = (duty_set *7) >>3;   //87.5%
-                    //if(duty_set < 10) duty_set = 10; // 最低限幅
-                    HALL_M1.anginc = 1;
+                    //if(duty_set < 10) duty_set = 10; // 锟斤拷锟斤拷薹锟?
+                    HALL_M1.Nowanginc = 1;
                 }
             }
-        }else if(HALL_M1.anginc < 0){
+        }else if(HALL_M1.Nowanginc < 0){
+            //now-next>0 -> <0 keep
             diff = HALL_M1.real_phase-HALL_M1.real_phase_Next;
             if(diff <= 0)
             {
                 HALL_M1.real_phase = HALL_M1.real_phase_Next;
-                // 反向速度衰减
-                HALL_M1.anginc += minDec;
-                if(HALL_M1.anginc > -1){
+                // 锟斤拷锟斤拷锟劫讹拷衰锟斤拷
+                HALL_M1.Nowanginc -= minDec;
+                if(HALL_M1.Nowanginc > -1){
                     //duty_set = (duty_set *7) >>3;   //87.5%
                     //if(duty_set > -10) duty_set = -10;
-                    HALL_M1.anginc = -1;
+                    HALL_M1.Nowanginc = -1;
                 }
             }
         }else{
-            //没有角度增量 是停止了 此时duty要 = 0;
-            //duty_set = 0; 时间太长 速度太慢 不插值
+            //没锟叫角讹拷锟斤拷锟斤拷 锟斤拷停止锟斤拷 锟斤拷时duty要 = 0;
+            //duty_set = 0; 时锟斤拷太锟斤拷 锟劫讹拷太锟斤拷 锟斤拷锟斤拷值
         }
-    }   //其他模式角度由外部提供
-    hElAngle = HALL_M1.real_phase;    //hall 算出来的真实角度
-    //低速时候速度换直接vd vq控制  高速时候再切换到 电流控制闭环
-    //hall 学习校准时候不用电流环 很低速时候不用电流环 无感启动时候也不用电流环
+        #endif
+    }   //锟斤拷锟斤拷模式锟角讹拷锟斤拷锟解部锟结供
+    hElAngle = HALL_M1.real_phase;    //hall 锟斤拷锟斤拷锟斤拷锟斤拷锟绞碉拷嵌锟?
+    //锟斤拷锟斤拷时锟斤拷锟劫度伙拷直锟斤拷vd vq锟斤拷锟斤拷  锟斤拷锟斤拷时锟斤拷锟斤拷锟叫伙拷锟斤拷 锟斤拷锟斤拷锟斤拷锟狡闭伙拷
+    //hall 学习校准时锟斤拷锟矫碉拷锟斤拷锟斤拷 锟杰碉拷锟斤拷时锟斤拷锟矫碉拷锟斤拷锟斤拷 锟睫革拷锟斤拷锟斤拷时锟斤拷也锟斤拷锟矫碉拷锟斤拷锟斤拷
     int16_t speed = SPD_GetAvrgMecSpeed01Hz(pSTC[bMotor]->SPD);
     if(GetMSpeechEN()){
           static uint8_t phase = 0;
-          //static int16_t sine_table[4] = {0, 707, 1000, 707};  // 正弦波采样
+          //static int16_t sine_table[4] = {0, 707, 1000, 707};  // 锟斤拷锟揭诧拷锟斤拷锟斤拷
           HALL_M1.feed_v = 0;
-          phase = (phase + 1) & 0x07;  // 0-3循环
-          // 注入旋转的电压矢量，但平均转矩为0
+          phase = (phase + 1) & 0x0f;  // 0-3循锟斤拷
+          // 注锟斤拷锟斤拷转锟侥碉拷压矢锟斤拷锟斤拷锟斤拷平锟斤拷转锟斤拷为0
           int16_t amplitude = FOCVars[bMotor].Iqdref.qI_Component2;
-          // 在d-q坐标系中画圆
-          switch((phase)){
-                case 0:  // 0度
+          // 锟斤拷d-q锟斤拷锟斤拷系锟叫伙拷圆
+          switch((phase>>1)){
+                case 0:  // 0锟斤拷
                     Vqd.qV_Component1 = 0;
                     Vqd.qV_Component2 = amplitude;
                     break;
-                case 1: //45度
-                case 3:
-                case 5:
-                case 7:
+                case 1: //45锟斤拷
                     Vqd.qV_Component1 = amplitude>>1;
                     Vqd.qV_Component2 = amplitude>>1;
                     break;
-                case 2:  // 90度
+                case 2:  // 90锟斤拷
                     Vqd.qV_Component1 = amplitude;
                     Vqd.qV_Component2 = 0;
                     break;
-                case 4:  // 180度
+                case 3:
+                    Vqd.qV_Component1 = (amplitude>>1);
+                    Vqd.qV_Component2 = -(amplitude>>1);
+                    break;
+                case 4:  // 180锟斤拷
                     Vqd.qV_Component1 = 0;
                     Vqd.qV_Component2 = -amplitude;
                     break;
-                case 6:  // 270度
+                case 5:
+                    Vqd.qV_Component1 = -(amplitude>>1);
+                    Vqd.qV_Component2 = -(amplitude>>1);
+                    break;
+                case 6:  // 270锟斤拷
                     Vqd.qV_Component1 = -amplitude;
                     Vqd.qV_Component2 = 0;
+                    break;
+                case 7:
+                    Vqd.qV_Component1 = -(amplitude>>1);
+                    Vqd.qV_Component2 = (amplitude>>1);
                     break;
           }
     }
     #ifndef cTestSVPWM
     else if((HALL_M1.hallState==hall_run)){  //
         if(HALL_M1.I_feed == false){
-            //加入电流环
+            //锟斤拷锟斤拷锟斤拷锟斤拷锟?
             if((speed>IloopTrigH)||(speed<-IloopTrigH)){  //650 0x400 //0x300 //0x500
               if(IScount>ISDelayT){
                 HALL_M1.I_feed = true;
@@ -937,7 +969,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                     IScount--;
             }
         }else{
-            //舍弃电流环
+            //锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
             if((speed<IloopTrigL)&&(speed>-IloopTrigL)){  //0x500
               //ENC_KTH7823_M1.I_feed = false;
               if(IScount==0){
@@ -953,7 +985,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                 IScount++;
             }
         }
-        //电流环时候hall一定校准的了
+        //锟斤拷锟斤拷锟斤拷时锟斤拷hall一锟斤拷校准锟斤拷锟斤拷
         //hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
         Ialphabeta = MCM_Clarke(Iab);
         Iqd = MCM_Park(Ialphabeta, hElAngle);   
@@ -963,30 +995,30 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                                           (int32_t)(FOCVars[bMotor].Iqdref.qI_Component2) - Iqd.qI_Component2);
         Vqd.qV_Component1 = (((Vqd.qV_Component1* HALL_M1.feed_v)>>14) + ((FOCVars[bMotor].Iqdref.qI_Component1*(16384-HALL_M1.feed_v))>>14));
         Vqd.qV_Component2 = (((Vqd.qV_Component2* HALL_M1.feed_v)>>14) + ((FOCVars[bMotor].Iqdref.qI_Component2*(16384-HALL_M1.feed_v))>>14));
-        #ifdef decodedqEm            //         解耦             
+        #ifdef decodedqEm            //         锟斤拷锟斤拷             
         //=====================================================================
-        //  VESC 标准 d/q 交叉解耦（MXlemming 高速弱磁必加，角度更稳）
+        //  VESC 锟斤拷准 d/q 锟斤拷锟斤拷锟斤拷睿∕Xlemming 锟斤拷锟斤拷锟斤拷锟脚必加ｏ拷锟角度革拷锟饺ｏ拷
         //=====================================================================
-        #define ELEC_SPEED   hElSpeed         // 你的电角速度 Q15 或 int32
-        #define FLUX        pMC[bMotor]->Flux // 磁链
+        #define ELEC_SPEED   hElSpeed         // 锟斤拷牡锟斤拷锟劫讹拷 Q15 锟斤拷 int32
+        #define FLUX        pMC[bMotor]->Flux // 锟斤拷锟斤拷
         #define Lq_Ld       (pMC[bMotor]->Lq - pMC[bMotor]->Ld)
 
-        Vqd.qV_Component1 += (int32_t)ELEC_SPEED * FLUX / 32768;       // 反电动势前馈
-        Vqd.qV_Component2 -= (int32_t)ELEC_SPEED * Lq_Ld * Iqd.qI_Component1 / 32768; // 解耦
+        Vqd.qV_Component1 += (int32_t)ELEC_SPEED * FLUX / 32768;       // 锟斤拷锟界动锟斤拷前锟斤拷
+        Vqd.qV_Component2 -= (int32_t)ELEC_SPEED * Lq_Ld * Iqd.qI_Component1 / 32768; // 锟斤拷锟斤拷
         //FOCVars[bMotor].Vqd = Vqd;
         //Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
         #endif
     }
     #endif
     else{
-        HALL_M1.feed_v = 0; //舍弃电流环
+        HALL_M1.feed_v = 0; //锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
         Vqd.qV_Component1 = FOCVars[bMotor].Iqdref.qI_Component1;
         Vqd.qV_Component2 = FOCVars[bMotor].Iqdref.qI_Component2;
     }
     //=====================================================================
-    //  VESC 风格：内切圆 → 六边形 平滑渐进过调制（适配你的代码）
+    //  VESC 锟斤拷锟斤拷锟斤拷锟皆? 锟斤拷 锟斤拷锟斤拷锟斤拷 平锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟狡ｏ拷锟斤拷锟斤拷锟斤拷拇锟斤拷耄?
     //=====================================================================
-    #ifndef  cTestSVPWM
+    //#ifndef  cTestSVPWM
     Volt_Components Vqd_circle;
     int32_t mag_sq;
     int32_t circle_max_sq;
@@ -995,36 +1027,36 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     int32_t ratio;
     int32_t one_minus_ratio;
 
-    // 1. 先做你原来的圆形限制
+    // 1. 锟斤拷锟斤拷锟斤拷原锟斤拷锟斤拷圆锟斤拷锟斤拷锟斤拷
     Vqd_circle = Circle_Limitation(pCLM[bMotor], Vqd);
 
-    // 2. 计算电压模长平方（不用开方！）
+    // 2. 锟斤拷锟斤拷锟窖鼓ｏ拷锟狡斤拷锟斤拷锟斤拷锟斤拷每锟斤拷锟斤拷锟斤拷锟?
     mag_sq = (int32_t)Vqd.qV_Component1 * Vqd.qV_Component1
            + (int32_t)Vqd.qV_Component2 * Vqd.qV_Component2;
 
-    // 3. 你内切圆的最大幅值平方
+    // 3. 锟斤拷锟斤拷锟斤拷圆锟斤拷锟斤拷锟斤拷值平锟斤拷
     circle_max_sq = (int32_t)pCLM[bMotor]->MaxModule * pCLM[bMotor]->MaxModule;
 
-    // 4. 六边形最大幅值平方（比圆大 15% 左右，VESC标准）
-    //hex_max_sq = (circle_max_sq * 130) / 100;  // 放大1.3倍，最安全
-    hex_max_sq = ((circle_max_sq * 334) >> 8);  // 放大1.3倍，最安全
+    // 4. 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷值平锟斤拷锟斤拷锟斤拷圆锟斤拷 15% 锟斤拷锟揭ｏ拷VESC锟斤拷准锟斤拷
+    //hex_max_sq = (circle_max_sq * 130) / 100;  // 锟脚达拷1.3锟斤拷锟斤拷锟筋安全
+    hex_max_sq = ((circle_max_sq * 334) >> 8);  // 锟脚达拷1.3锟斤拷锟斤拷锟筋安全
 
     Volt_Components Vqd_final;
 
     if (mag_sq <= circle_max_sq)
     {
-        // 完全在线性区 → 只用圆形限制
+        // 锟斤拷全锟斤拷锟斤拷锟斤拷锟斤拷 锟斤拷 只锟斤拷圆锟斤拷锟斤拷锟斤拷
         Vqd_final = Vqd_circle;
     }
     else if (mag_sq >= hex_max_sq)
     {
-        // 完全进入过调制 → 不用限制
+        // 锟斤拷全锟斤拷锟斤拷锟斤拷锟斤拷锟? 锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷
         Vqd_final = Vqd;
     }
     else
     {
         // ==============================
-        // VESC 核心：平滑过渡（全定点）
+        // VESC 锟斤拷锟侥ｏ拷平锟斤拷锟斤拷锟缴ｏ拷全锟斤拷锟姐）
         // ==============================
         diff = mag_sq - circle_max_sq;
         //ratio = (diff * 32767) / (hex_max_sq - circle_max_sq); // 0~32767
@@ -1032,7 +1064,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //one_minus_ratio = 32767 - ratio;
         one_minus_ratio = 32768 - ratio;
 
-        // 平滑混合：圆形限制 + 原始电压
+        // 平锟斤拷锟斤拷希锟皆诧拷锟斤拷锟斤拷锟? + 原始锟斤拷压
         //Vqd_final.qV_Component1 = (Vqd_circle.qV_Component1 * one_minus_ratio
         //                         + Vqd.qV_Component1 * ratio) / 32767;
         Vqd_final.qV_Component1 = (Vqd_circle.qV_Component1 * one_minus_ratio
@@ -1044,16 +1076,16 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                                  + Vqd.qV_Component2 * ratio) >>15;
     }
 
-    // 最终输出
+    // 锟斤拷锟斤拷锟斤拷锟?
     Vqd = Vqd_final;
-    #endif
+    //#endif
 
     Valphabeta = MCM_Rev_Park(Vqd, hElAngle);
     hCodeError = PWMC_SetPhaseVoltage(pwmcHandle[bMotor], Valphabeta);
 
     //int32_t vq2 = (int32_t)Vqd.qV_Component1*Vqd.qV_Component1;
     //int32_t vd2 = (int32_t)Vqd.qV_Component2*Vqd.qV_Component2;
-    ////motor_now->m_motor_state.duty_now = ((vq2+vd2)>>16);    //当前算出的duty大小
+    ////motor_now->m_motor_state.duty_now = ((vq2+vd2)>>16);    //锟斤拷前锟斤拷锟斤拷锟絛uty锟斤拷小
     //if(Vqd.qV_Component1<0)
     //    FOCVars[bMotor].now_duty = -((vq2+vd2)>>16);
     //else
@@ -1190,92 +1222,92 @@ void TSK_SafetyTask(void)
   * @param  bMotor Motor reference number defined
   *         \link Motors_reference_number here \endlink
   * @retval None
-  * 500us 执行一次安全任务，检查过压欠压等
+  * 500us 执锟斤拷一锟轿帮拷全锟斤拷锟今，硷拷锟斤拷压欠压锟斤拷
   */
 void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
 {
-    uint16_t vBusAD;   //母线电压*100
-    uint16_t vTempMotorx100;   //马达温度*100
-    uint16_t vTempPCBx100;   //PCB温度*100
+    uint16_t vBusAD;   //母锟竭碉拷压*100
+    uint16_t vTempMotorx100;   //锟斤拷锟斤拷锟铰讹拷*100
+    uint16_t vTempPCBx100;   //PCB锟铰讹拷*100
     static int initTime = 0;
-    static int countVolUnder = 0;   //连续过压欠压的次数
-    static int countVolOver = 0;   //连续过压欠压的次数
+    static int countVolUnder = 0;   //锟斤拷锟斤拷锟斤拷压欠压锟侥达拷锟斤拷
+    static int countVolOver = 0;   //锟斤拷锟斤拷锟斤拷压欠压锟侥达拷锟斤拷
 	#ifdef MotorTempEn
-    static int countTempMotorOver = 0;   //连续过压欠压的次数
+    static int countTempMotorOver = 0;   //锟斤拷锟斤拷锟斤拷压欠压锟侥达拷锟斤拷
 	#endif
 	#ifdef MosTempEn
-    static int countTempMosOver = 0;   //连续过压欠压的次数
+    static int countTempMosOver = 0;   //锟斤拷锟斤拷锟斤拷压欠压锟侥达拷锟斤拷
 	#endif
     //uint16_t CodeReturn = MC_NO_ERROR;
     //uint16_t errMask[NBR_OF_MOTORS] = {VBUS_TEMP_ERR_MASK};
-    vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
+    vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //锟斤拷取VDD 锟斤拷AD值
     vTempMotorx100 = NTC_TEMP_MOTOR(TempBeta);
     vTempPCBx100 = NTC_TEMP_PCB(TempBeta);
     if(FOCVars[bMotor].status == not_ready){
-        //电机准备中
+        //锟斤拷锟阶硷拷锟斤拷锟?
         if(initTime==0){
-            NowVBusAD = vBusAD;   //更新当前电压值
+            NowVBusAD = vBusAD;   //锟斤拷锟铰碉拷前锟斤拷压值
             NowTempMotorx100 = vTempMotorx100;
             NowTempPCBx100 = vTempPCBx100;
         }else{
-            vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
-            UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //更新当前电压值 
-            UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //更新Motor温度
-            UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //更新PCB温度
+            vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //锟斤拷取VDD 锟斤拷AD值
+            UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //锟斤拷锟铰碉拷前锟斤拷压值 
+            UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //锟斤拷锟斤拷Motor锟铰讹拷
+            UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //锟斤拷锟斤拷PCB锟铰讹拷
         }
         initTime++;
         if(initTime>200){
             if(NowVBusAD < vMinBus){   //
-                //电机过低 不工作
-                FOCVars[bMotor].status = mc_under_voltage;   //欠压了
+                //锟斤拷锟斤拷锟斤拷锟? 锟斤拷锟斤拷锟斤拷
+                FOCVars[bMotor].status = mc_under_voltage;   //欠压锟斤拷
             }else if(NowVBusAD > vMaxBus){
-                FOCVars[bMotor].status = mc_over_voltage;   //过压了
+                FOCVars[bMotor].status = mc_over_voltage;   //锟斤拷压锟斤拷
             }else{
                 Maxspeed = get_MaxSpeed(NowVBusAD,mcconf.mc_KV)+baseSpeed;
-                //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //算出最大转速
-                //初始化电压 根据上电电压算出最大转速
-                FOCVars[bMotor].status = ready_RUN;   //准备好了 可以运行了
+                //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //锟斤拷锟斤拷锟斤拷转锟斤拷
+                //锟斤拷始锟斤拷锟斤拷压 锟斤拷锟斤拷锟较碉拷锟窖癸拷锟斤拷锟斤拷锟阶?锟斤拷
+                FOCVars[bMotor].status = ready_RUN;   //准锟斤拷锟斤拷锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
             }
         }
-        return; //如果电机还没有开始运行 就不检查安全了
+        return; //锟斤拷锟斤拷锟斤拷锟斤拷没锟叫匡拷始锟斤拷锟斤拷 锟酵诧拷锟斤拷榘踩?锟斤拷
     }else{
-        //vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //获取VDD 的AD值
-        UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //更新当前电压值 
-        UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //更新Motor温度
-        UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //更新PCB温度
+        //vBusAD = GetVBusAD(); //GET_INPUT_VOLTAGE();     //锟斤拷取VDD 锟斤拷AD值
+        UTILS_LPInt16_FAST(NowVBusAD, vBusAD, VBusFilterConstant);   //锟斤拷锟铰碉拷前锟斤拷压值 
+        UTILS_LPInt16_FAST(NowTempMotorx100, vTempMotorx100, VTempMotorFilterConstant);   //锟斤拷锟斤拷Motor锟铰讹拷
+        UTILS_LPInt16_FAST(NowTempPCBx100, vTempPCBx100, VTempPCBFilterConstant);   //锟斤拷锟斤拷PCB锟铰讹拷
 		if((FOCVars[bMotor].status != ready_RUN)&&(FOCVars[bMotor].status != motor_run))
             return;     //没訍战鲁拢詪袗
         if(NowVBusAD < vMinBus){   //
-            //电机过低 不工作
+            //锟斤拷锟斤拷锟斤拷锟? 锟斤拷锟斤拷锟斤拷
             countVolUnder++;
             if(countVolUnder > 2000){    //1s
-                FOCVars[bMotor].status = mc_under_voltage;   //欠压了
+                FOCVars[bMotor].status = mc_under_voltage;   //欠压锟斤拷
             }
         }else
             countVolUnder = 0;
         if(NowVBusAD > vMaxBus){
             countVolOver++;
             if(countVolOver > 2000){    //1s
-                FOCVars[bMotor].status = mc_over_voltage;   //过压了
+                FOCVars[bMotor].status = mc_over_voltage;   //锟斤拷压锟斤拷
             }
         }else   
             countVolOver = 0;
         #ifdef MotorTempEn
-        if(NowTempMotorx100>vMaxMotorTemp){   //电机温度超过
+        if(NowTempMotorx100>vMaxMotorTemp){   //锟斤拷锟斤拷露瘸锟斤拷锟?
             countTempMotorOver++;
             if(countTempMotorOver>6000){
                 //3s
-                FOCVars[bMotor].status = mc_over_MotorTemp;   //motor 过温
+                FOCVars[bMotor].status = mc_over_MotorTemp;   //motor 锟斤拷锟斤拷
             }
         }else
             countTempMotorOver = 0;
         #endif
         #ifdef MosTempEn
-        if(NowTempPCBx100>vMaxPCBTemp){   //MOS 温度超过
+        if(NowTempPCBx100>vMaxPCBTemp){   //MOS 锟铰度筹拷锟斤拷
             countTempMosOver++;
             if(countTempMosOver>6000){
                 //3s
-                FOCVars[bMotor].status = mc_over_MosTemp;   //mos 过温
+                FOCVars[bMotor].status = mc_over_MosTemp;   //mos 锟斤拷锟斤拷
             }
         }else   
             countTempMosOver = 0;
@@ -1349,7 +1381,7 @@ int32_t GetMaxSpeed(void){
 }
 
 /**
- * @brief 从flash中读取 APPConfig 并矫正数据是否正确
+ * @brief 锟斤拷flash锟叫讹拷取 APPConfig 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟角凤拷锟斤拷确
  * 
  * 
  */
@@ -1357,26 +1389,53 @@ void GetAPPConfig(void){
   EE_ReadConfig((uint32_t)ADDR_FLASH_EEPROM_APPCONF,&appconf,sizeof(app_config_t));
   uint16_t crc = crc16((uint8_t* )&appconf,sizeof(app_config_t)-2);
   if(appconf.CRC_Data!=crc){
-    DefaultAPPConfig(&appconf);      //用默认马达配置 读取数据失败 要重新学习
-    //HALL_M1.hallState = hall_null;  //hall 不存在 要重新学习
+    DefaultAPPConfig(&appconf);      //锟斤拷默锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷 锟斤拷取锟斤拷锟斤拷失锟斤拷 要锟斤拷锟斤拷学习
+    //HALL_M1.hallState = hall_null;  //hall 锟斤拷锟斤拷锟斤拷 要锟斤拷锟斤拷学习
   }else{ 
-    //HALL_M1.hallState = hall_run;  //读取数据成功 hall可以直接运行
+    //HALL_M1.hallState = hall_run;  //锟斤拷取锟斤拷锟捷成癸拷 hall锟斤拷锟斤拷直锟斤拷锟斤拷锟斤拷
   }
 }
 /**
- * @brief 从flash中读取 MCConfig 并矫正数据是否正确
+ * @brief 锟斤拷flash锟叫讹拷取 MCConfig 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟角凤拷锟斤拷确
  * 
  * 
  */
 void GetMCConfig(void){
   EE_ReadConfig((uint32_t)ADDR_FLASH_EEPROM_MCCONF,&mcconf,sizeof(mc_config_t));
-  uint16_t crc = crc16((uint8_t* )&mcconf,sizeof(mc_config_t)-2);
-  if(mcconf.CRC_Data!=crc){
-    DefaultMCConfig(&mcconf);      //用默认马达配置 读取数据失败 要重新学习
-    HALL_M1.hallState = hall_null;  //hall 不存在 要重新学习
+  uint16_t tmp = mcconf.CRC_Data;
+  mcconf.CRC_Data = 0;
+  uint16_t crc = crc16
+	((uint8_t* )&mcconf,sizeof(mc_config_t));
+  if((tmp!=crc)||(GetDir()==0)){
+    DefaultMCConfig(&mcconf);      //锟斤拷默锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷 锟斤拷取锟斤拷锟斤拷失锟斤拷 要锟斤拷锟斤拷学习
+    HALL_M1.hallState = hall_null;  //hall 锟斤拷锟斤拷锟斤拷 要锟斤拷锟斤拷学习
   }else{ 
-    HALL_M1.hallState = hall_run;  //读取数据成功 hall可以直接运行
+    mcconf.CRC_Data = tmp;
+    HALL_M1.hallState = hall_run;  //锟斤拷取锟斤拷锟捷成癸拷 hall锟斤拷锟斤拷直锟斤拷锟斤拷锟斤拷
   }
+}
+/**
+ * @brief set Motor config
+ * 
+ */
+void SetMCConfig(void){
+    mcconf.CRC_Data = 0;
+    uint16_t crc = crc16((uint8_t* )&mcconf,sizeof(mc_config_t));
+    mcconf.CRC_Data = crc;
+    EE_WriteConfig((uint32_t)ADDR_FLASH_EEPROM_MCCONF,&mcconf,sizeof(mc_config_t));
+	//EE_ReadConfig((uint32_t)ADDR_FLASH_EEPROM_MCCONF,&mcconf,sizeof(mc_config_t));
+	//crc = crc16((uint8_t* )&mcconf,sizeof(mc_config_t)-2);
+	//if(mcconf.CRC_Data == crc){
+	//}
+}
+/**
+ * @brief set App config
+ * 
+ */
+void SetAPPConfig(void){
+    uint16_t crc = crc16((uint8_t* )&appconf,sizeof(app_config_t)-2);
+    appconf.CRC_Data = crc;
+    EE_WriteConfig((uint32_t)ADDR_FLASH_EEPROM_APPCONF,&appconf,sizeof(app_config_t));
 }
 
 /**
@@ -1390,12 +1449,12 @@ app_mode_t GetAPPMode(void){
 }
 
 uint8_t aRxBuffer[64];
-uint8_t RxCounter = 0;  //接收计数
-uint8_t NewDataBuffLen = 0; //新数据的长度
-uint8_t TempDataBuffLen = 0; //新数据的长度
-uint8_t NewDataStart = 0;   //新数据开始位置
-uint8_t LastDataStart = 0;  //上次数据开始的位置
-uint8_t IDLEflag = 0;   //是否开启空闲中断
+uint8_t RxCounter = 0;  //锟斤拷锟秸硷拷锟斤拷
+uint8_t NewDataBuffLen = 0; //锟斤拷锟斤拷锟捷的筹拷锟斤拷
+uint8_t TempDataBuffLen = 0; //锟斤拷锟斤拷锟捷的筹拷锟斤拷
+uint8_t NewDataStart = 0;   //锟斤拷锟斤拷锟捷匡拷始位锟斤拷
+uint8_t LastDataStart = 0;  //锟较达拷锟斤拷锟捷匡拷始锟斤拷位锟斤拷
+uint8_t IDLEflag = 0;   //锟角凤拷锟斤拷锟斤拷锟斤拷锟叫讹拷
 /**
   * @brief  This function handles USART interrupt request.
   * @param  None
@@ -1403,27 +1462,27 @@ uint8_t IDLEflag = 0;   //是否开启空闲中断
   */
 void UART2_IRQHandler(void)
 {
-    // ===================== 【关键】清除所有错误（适配你的寄存器） =====================
+    // ===================== 锟斤拷锟截硷拷锟斤拷锟斤拷锟斤拷锟斤拷写锟斤拷锟斤拷锟斤拷锟斤拷锟侥寄达拷锟斤拷锟斤拷 =====================
     if(UART2->ISR & (UART_ISR_ORE | UART_ISR_FE | UART_ISR_NF | UART_ISR_PE))
     {
-        // 用 ICR 清除错误（你的MCU唯一正确方式）
+        // 锟斤拷 ICR 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷MCU唯一锟斤拷确锟斤拷式锟斤拷
         UART2->ICR = UART_ICR_ORECF | UART_ICR_FECF | UART_ICR_NCF | UART_ICR_PECF;
         return;
     }
     if (UART_GetITStatus(UART2, UART_IT_RXNE) == SET)
     {
-        // 1. 读数据 → 自动清 RXNE，不需要手动清！
+        // 1. 锟斤拷锟斤拷锟斤拷 锟斤拷 锟皆讹拷锟斤拷 RXNE锟斤拷锟斤拷锟斤拷要锟街讹拷锟藉！
         aRxBuffer[RxCounter++] = UART_ReceiveData(UART2);
         if(RxCounter >= 64) RxCounter = 0;
 
-        // 2. 计算当前帧已接收长度（环形缓冲正确算法）
+        // 2. 锟斤拷锟姐当前帧锟窖斤拷锟秸筹拷锟饺ｏ拷锟斤拷锟轿伙拷锟斤拷锟斤拷确锟姐法锟斤拷
         uint16_t curr_len;
         if(RxCounter >= NewDataStart)
             curr_len = RxCounter - NewDataStart;
         else
             curr_len = 64 + RxCounter - NewDataStart;
 
-        // 3. 收到第1个字节 → 记录长度
+        // 3. 锟秸碉拷锟斤拷1锟斤拷锟街斤拷 锟斤拷 锟斤拷录锟斤拷锟斤拷
         if(curr_len == 1)
         {
             uint8_t len = aRxBuffer[NewDataStart];
@@ -1433,7 +1492,7 @@ void UART2_IRQHandler(void)
                 TempDataBuffLen = 0;
         }
 
-        // 4. 收够长度 → 帧完成
+        // 4. 锟秸癸拷锟斤拷锟斤拷 锟斤拷 帧锟斤拷锟?
         if(TempDataBuffLen > 0 && curr_len >= TempDataBuffLen)
         {
             NewDataBuffLen = TempDataBuffLen;
@@ -1450,7 +1509,7 @@ void UART2_IRQHandler(void)
  */
 void ScanUartRX(void){
     if(NewDataBuffLen>0){
-        //有新数据进来 读出读到的uartRX 数据
+        //锟斤拷锟斤拷锟斤拷锟捷斤拷锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷uartRX 锟斤拷锟斤拷
         NewDataBuffLen = 0;
     }
 }

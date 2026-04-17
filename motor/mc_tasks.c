@@ -446,9 +446,9 @@ void TSK_MediumFrequencyTaskM1(void)
  * 
 */
 uint8_t GetMaxTerefReady(void){
-  if(FOCVars[M1].Iqdref.qI_Component1>=CurrentInt16(DefaultMaxCurrent))
+  if(FOCVars[M1].Iqdref.qI_Component1>=CurrentInt16_MaxCur) //CurrentInt16(DefaultMaxCurrent)
   return 1;
-  else if(FOCVars[M1].Iqdref.qI_Component1<=CurrentInt16(-DefaultMaxCurrent))
+  else if(FOCVars[M1].Iqdref.qI_Component1<=-CurrentInt16_MaxCur)   //CurrentInt16(-DefaultMaxCurrent)
   return 2;
   else
   return 0;
@@ -845,22 +845,42 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //duty ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ï´ï¿½   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
         //ï¿½Ç¶ï¿½ï¿½ï¿½hallï¿½ï¿½ï¿½ï¿½ï¿?
         if(HALL_M1.angUpdate==true){ //ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
-            HALL_M1.real_phase = HALL_M1.m_ang_hall_int_prev;    //ï¿½ï¿½Êµï¿½ï¿½Î»
-            HALL_M1.real_phase_Next = HALL_M1.m_ang_hall_int_Next; //ï¿½Â´ï¿½ï¿½ï¿½Î»
+            //HALL_M1.real_phase = HALL_M1.m_ang_hall_int_prev;    //ï¿½ï¿½Êµï¿½ï¿½Î»
+            HALL_M1.real_phase = HALL_M1.m_ang_hall_int_Next; //ï¿½Â´ï¿½ï¿½ï¿½Î»
+            HALL_M1.LastHallNext = HALL_M1.m_ang_hall_int_prev; //ÖÐµã
             HALL_M1.angUpdate = false;   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             HALL_M1.Nowanginc = HALL_M1.anginc;
         }
-        int16_t minDec = HALL_M1.Nowanginc >>3; 
-        if((minDec==0)&&(HALL_M1.Nowanginc!=0)){
-            if(HALL_M1.Nowanginc>0)
-            minDec = 1; //ï¿½ï¿½Ð¡ï¿½Ä·ï¿½ï¿½ï¿½
-            else
-            minDec = -1;
-        }
-        int16_t diff = 0;
+        //int16_t minDec = HALL_M1.Nowanginc >>3; 
+        //if((minDec==0)&&(HALL_M1.Nowanginc!=0)){
+        //    if(HALL_M1.Nowanginc>0)
+        //    minDec = 1; //ï¿½ï¿½Ð¡ï¿½Ä·ï¿½ï¿½ï¿½
+        //    else
+        //    minDec = -1;
+        //}
+        //int16_t diff = 0;
         //min speed is 1*83us 5s-1 1min - 12erpm
-        HALL_M1.real_phase +=  HALL_M1.Nowanginc;    //ï¿½ï¿½Êµï¿½ï¿½Î»
-        #if 1   //²»ÏÞÖÆÔöÁ¿
+        int ang = (((int)HALL_M1.real_phase)<<4);   //À©´ó16±¶ÊÊÓ¦²åÖµ
+        int16_t diff =  HALL_M1.real_phase - HALL_M1.LastHallNext;
+        int16_t abs_diff = diff;
+        if(abs_diff<0)
+            abs_diff = -abs_diff;
+        //dir different / abs(diff) <= 30du
+        if((DirCMPint16(diff,HALL_M1.Nowanginc))||(abs_diff<5461)||(HALL_M1.Nowanginc==0)){
+            //Ö±½Ó²åÖµ
+            ang +=  HALL_M1.Nowanginc;    //ï¿½ï¿½Êµï¿½ï¿½Î»
+            ang = ang>>4;   //»¹Ô­½Ç¶È
+            if(ang>32767)
+                ang -= 65536;
+            else if(ang<-32768)
+                ang += 65536;
+            HALL_M1.real_phase = (int16_t)ang;
+        }else{
+            //½Ç¶È³¬¹ý ÒªÂýÂý»áÀ­£¿ »ØÀ­Ò»´ÎËÙ¶È - 1/1000 ÈÏÎªËÙ¶È²»¹»ÁË
+            HALL_M1.erpm = UTILS_LPInt32_FAST(HALL_M1.erpm,0,(int32_t)(0.001*32767)); //»ñÈ¡±¾´Îµç½ÇËÙ¶È
+            HALL_M1.real_phase -= (diff>>7);   //»Ø¼õ1%
+        }
+        #if 0   //²»ÏÞÖÆÔöÁ¿
         if(HALL_M1.Nowanginc > 0)  // ËÙ¶ÈÊÇÕý diffÊÇÔö next-now>0 now-next<0 -> >0 now over
         {   
             diff = HALL_M1.real_phase-HALL_M1.real_phase_Next;
@@ -949,6 +969,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                     break;
           }
     }
+    #if 1
     #ifndef cTestSVPWM
     else if((HALL_M1.hallState==hall_run)){  //
         if(HALL_M1.I_feed == false){
@@ -989,6 +1010,8 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //hElAngle = SPD_GetElAngle(STC_GetSpeedSensor(pSTC[bMotor]));
         Ialphabeta = MCM_Clarke(Iab);
         Iqd = MCM_Park(Ialphabeta, hElAngle);   
+        //Iqd.qI_Component1 = -Iqd.qI_Component1;
+        //Iqd.qI_Component2 = -Iqd.qI_Component2;
         Vqd.qV_Component1 = PI_Controller(pPIDIq[bMotor],
                                           (int32_t)(FOCVars[bMotor].Iqdref.qI_Component1) - Iqd.qI_Component1);
         Vqd.qV_Component2 = PI_Controller(pPIDId[bMotor],
@@ -1009,6 +1032,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //Vqd = Circle_Limitation(pCLM[bMotor], Vqd);
         #endif
     }
+    #endif
     #endif
     else{
         HALL_M1.feed_v = 0; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½

@@ -64,7 +64,7 @@
 //#define HW_PWM3_PIN GPIO_Pin_10
 //uart config
 
-#define MainOutMCTime   1   //打印内部数据的时间间隔 这个数加1
+#define MainOutMCTime   0   //打印内部数据的时间间隔 这个数加1
 
 #define bps_rate    115200
 
@@ -85,10 +85,10 @@
 //PWM IO config
 #define PWMIO_PB10      ATU_PWM_REMAP_SOURCE_TIO2B
 #define PWMIO_PB11      ATU_PWM_REMAP_SOURCE_TIO2A
-#define PWMIO_PB12      ATU_PWM_REMAP_SOURCE_TIO1B
-#define PWMIO_PB13      ATU_PWM_REMAP_SOURCE_TIO1A
-#define PWMIO_PB14      ATU_PWM_REMAP_SOURCE_TIO0B
-#define PWMIO_PB15      ATU_PWM_REMAP_SOURCE_TIO0A
+#define PWMIO_PB12      ATU_PWM_REMAP_SOURCE_TIO0B
+#define PWMIO_PB13      ATU_PWM_REMAP_SOURCE_TIO0A
+#define PWMIO_PB14      ATU_PWM_REMAP_SOURCE_TIO1B
+#define PWMIO_PB15      ATU_PWM_REMAP_SOURCE_TIO1A
 
 // Direction pin
 #define HW_DIR_PORT GPIOA
@@ -128,6 +128,7 @@
 #define VIN_R2  22.0
 #endif
 #ifndef CURRENT_AMP_GAIN
+#define OPA_GAIN     PGA1_PGA_GAIN_12
 #define CURRENT_AMP_GAIN    12.0
 #endif
 #ifndef CURRENT_SHUNT_RES
@@ -180,15 +181,21 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define MaxBoostVol     0.9f
 
 //采样电阻 RSHUNT 0.005 放大倍数12倍 最高知道检测到31.75A
-// vref*2/RSHUNT/AMP/sqrt(3) ~= 31.75A -> 32767  ---V_REG = vref*2
-//32.75*x/32767 =>
-#define  DefaultMaxCurrent       30.0    //最大电流60A？
-#define  DefaultMaxBrakeCurrent  30.0
-#define  DefaultMinBrakeCurrent  10.0
-#define MaxWeakId    -18.0    //最大弱磁电流
+// vref/RSHUNT/AMP/sqrt(3) ~= 15.87A -> 32767 ~ -15.87  ---V_REG = vref*2
+//x*32767 / MaxCurrent =>   
+//#define  MaxCurrScan		(V_REG/2/RSHUNT/AMPLIFICATION_GAIN/SQRT_3)	//max scan current
+//#define  DefaultMaxCurrent       15.0    //最大电流60A？
+//#define  DefaultMaxBrakeCurrent  15.0
+//#define  DefaultMinBrakeCurrent  5.0
+//#define MaxWeakId    -9.0    //最大弱磁电流
+
+#define CurrentInt16_MaxCur         32767
+#define CurrentInt16_MaxBrakeCur    32767
+#define CurrentInt16_MinBrakeCur    12000
+#define CurrentInt16_MaxWeakId      -19000
 
 //电流换算
-#define CurrentInt16(x) (int16_t)(x*31.75*V_REG/RSHUNT/AMPLIFICATION_GAIN/SQRT_3)
+//#define CurrentInt16(x) (int16_t)(x*32767.0/MaxCurrScan)
 
 // 弱磁-d 过滤系数
 #define WEAK_FIELD_ALPHA         30000 //32768  // 0.25的滤波系数
@@ -211,7 +218,7 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define MinTorqDecAcc   1  //最小减速限制
 
 //发声时候的音量
-#define speechVol   8500      //  /32768
+#define speechVol   5500      //  /32768
 
 #define Kpdiff      1   //和固定放大倍数 方便放大整个数据 防止数据过小时候全是0
 
@@ -220,20 +227,20 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define nextPro             180 //下次学习的角度基于上次的变化
 #define HallCheckEndVd       3500   //hall开始校准的最大vd电压
 #define HallFastStep        64  //10      //快速步进每次 + 10/65536
-#define HallSlowStep        8       //慢速步进每次 + 1/65536
+#define HallSlowStep        16       //慢速步进每次 + 1/65536
 #define hallLearnEnd        26  //26 2次 14 1次
-#define OpenLearnTime       9  //15ms
+#define OpenLearnTime       5  //15ms
 
 //获取角度值
 #define hEdegree(x)     (x*65536/360)
 //速度比例常数 64000000*60(1min)/65536(1圈)
 #define ScaleErpm       (64000000UL*60UL/65536UL)
 //转速前馈补偿
-#define fw_pro    93    //前馈补偿的比例  ?*目标速度/128
+#define fw_pro    73    //前馈补偿的比例  ?*目标速度/128
 
 
-#define IloopTrigH      150     //切入电流环的速度
-#define IloopTrigL      100     //切回无电流环的速度
+#define IloopTrigH      300 //150     //切入电流环的速度
+#define IloopTrigL      220 //100     //切回无电流环的速度
 
 
 // Motor control limits

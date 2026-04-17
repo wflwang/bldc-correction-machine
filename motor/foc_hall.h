@@ -34,9 +34,10 @@ typedef struct
     int16_t intTime;      //中断时间 ?*1/64us
     int16_t m_ang_hall_int_prev;   //上次hall保存的角度
     int16_t m_ang_hall_int_Next;   //下次hall预测的角度 hall中断中计算的值
+    int16_t LastHallNext;
     int16_t real_phase_Next;        //下次hall预测的角度 AD中断中实际的值
-    int16_t anginc;    //每次中断变化的角度 相当于角速度*中断时间
-    int16_t Nowanginc;    //每次中断变化的角度 相当于角速度*中断时间
+    int32_t anginc;    //每次中断变化的角度 相当于角速度*中断时间
+    int32_t Nowanginc;    //每次中断变化的角度 相当于角速度*中断时间
     int16_t real_phase;     //hall 应用的真实角度
     int32_t last_ang_diff;     //上次hall角度误差 主要是为了判断误差变化方向
     int16_t *foc_hall_table;  //hall学习时候临时记录的表格 0-7

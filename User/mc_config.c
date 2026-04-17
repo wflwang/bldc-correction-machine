@@ -291,9 +291,9 @@ void DefaultMCConfig(mc_config_t *mcconf){
     mcconf->current_Kp = PID_TORQUE_KP_DEFAULT;
     mcconf->current_Ki = PID_TORQUE_KI_DEFAULT;
     mcconf->IntTime = PWM_PERIOD_CYCLES;    //1/64us  64*1000,000 / PWMFre = 
-    mcconf->limitCurrentMax = CurrentInt16(DefaultMaxCurrent);     //最大限制电流
-    mcconf->brakeCurrentMax = CurrentInt16(DefaultMaxBrakeCurrent);     //最大刹车电流
-    mcconf->brakeCurrentMin = CurrentInt16(DefaultMinBrakeCurrent);     //最小刹车电流
+    mcconf->limitCurrentMax = CurrentInt16_MaxCur;  //CurrentInt16(DefaultMaxCurrent);     //最大限制电流
+    mcconf->brakeCurrentMax = CurrentInt16_MaxBrakeCur; //CurrentInt16(DefaultMaxBrakeCurrent);     //最大刹车电流
+    mcconf->brakeCurrentMin = CurrentInt16_MinBrakeCur; //CurrentInt16(DefaultMinBrakeCurrent);     //最小刹车电流
     mcconf->deadCompCnt = SW_DEADTIME_NS;      //SVPWM死区时间a
     mcconf->LowVBusLVL1 = VBusVol(LvdLVL1);
     mcconf->LowVBusLVL2 = VBusVol(LvdLVL2);

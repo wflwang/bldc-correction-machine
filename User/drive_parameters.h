@@ -64,8 +64,7 @@
 #define RSHUNT                               0.005
 
 /*  ICSs gains in case of isolated current sensors, amplification gain for shunts based sensing */
-#define OPA_GAIN     PGA1_PGA_GAIN_12
-#define AMPLIFICATION_GAIN                   12.0 //3.2//5.18 
+#define AMPLIFICATION_GAIN                   CURRENT_AMP_GAIN  //12.0 //3.2//5.18 
 //#define AMPLIFICATION_GAIN_IBUS              3.2
 
 /*** Noise parameters ***/
@@ -100,7 +99,7 @@
                                                            
 /**************************    DRIVE SETTINGS SECTION   **********************/
 /* PWM generation and current reading */
-#define PWM_FREQUENCY                        12000
+#define PWM_FREQUENCY                        12000 //12000
                                              
 #define LOW_SIDE_SIGNALS_ENABLING            LS_PWM_TIMER
 #define SW_DEADTIME_NS                       700 /*!< Dead-time to be inserted  
@@ -126,8 +125,8 @@
 
 /* Speed control loop */
 #define SPEED_LOOP_FREQUENCY_HZ              1000   /*!< Execution rate of speed regulation loop (Hz) */
-#define PID_SPEED_KP_DEFAULT                 320   //620
-#define PID_SPEED_KI_DEFAULT                 1500  ////3800
+#define PID_SPEED_KP_DEFAULT                 190   //620
+#define PID_SPEED_KI_DEFAULT                 1900  ////3800
 #define PID_SPEED_KD_DEFAULT                 0
 //高速时候切换到高速PID                                             
 #define PID_HSPEED_KP_DEFAULT                 400
@@ -140,7 +139,7 @@
 
 /* Default settings */
 #define DEFAULT_CONTROL_MODE                 STC_SPEED_MODE /*!< STC_TORQUE_MODE or STC_SPEED_MODE */
-#define DEFAULT_TARGET_SPEED_RPM             1000
+#define DEFAULT_TARGET_SPEED_RPM             0  //1000
 #define DEFAULT_TORQUE_COMPONENT             0  //4266
 #define DEFAULT_FLUX_COMPONENT               0
 

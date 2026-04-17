@@ -32,7 +32,7 @@ static int ErrorStopCount=0;  //累计大于误差的次数
 //static int32_t MinErrS = cMinErrH;
 static int LhError=0;
 static int16_t id_weak_field_filtered = 0;  //上次弱磁限制
-static int16_t smoothed_brake_limit = CurrentInt16(DefaultMinBrakeCurrent);; //上次最大刹车限制
+static int16_t smoothed_brake_limit = CurrentInt16_MinBrakeCur;        //CurrentInt16(DefaultMinBrakeCurrent); //上次最大刹车限制
 static int16_t lastTorq = 0;  //上次的输出转矩
 
 /** @addtogroup MCSDK
@@ -567,9 +567,9 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
       //-IdRef 最大给到20% 
       uint16_t diff = (GetNowVBusAD() - GetVBusLimit());
       if(diff>VBusVol(MaxBoostVol)){ //升高对应电压时候对应的最大-Id
-        weak_Id = CurrentInt16(MaxWeakId);  //最大-Id
+        weak_Id = CurrentInt16_MaxWeakId;  //CurrentInt16(MaxWeakId);  //最大-Id
       }else{
-        weak_Id = diff*CurrentInt16(MaxWeakId)/VBusVol(MaxBoostVol);
+        weak_Id = diff*CurrentInt16_MaxWeakId/VBusVol(MaxBoostVol);    //
       }
     }
     // 应用一阶低通滤波
@@ -583,15 +583,15 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
       //速度大于一定值时候反向Iq要限制,防止-Iq过大 方向升压太高
       int16_t targetLimitIq = 0;  //目标限制-Iq
       if(speed_abs<=SpeedLimit_MIN_NIq_TH){
-        targetLimitIq = CurrentInt16(DefaultMaxBrakeCurrent);
+        targetLimitIq = CurrentInt16_MaxBrakeCur; //CurrentInt16(DefaultMaxBrakeCurrent);
       }else if(speed_abs>=SpeedLimit_MAX_NIq_TH){
-        targetLimitIq = CurrentInt16(DefaultMinBrakeCurrent);
+        targetLimitIq = CurrentInt16_MinBrakeCur; //CurrentInt16(DefaultMinBrakeCurrent);
       }else{
         //targetLimitIq = IQMAX - (speed_abs-SpeedLimit_MIN_NIq_TH)*(IQMAX-IQBrakelimit)/(SpeedLimit_MAX_NIq_TH-SpeedLimit_MIN_NIq_TH)
         int32_t speed_diff = speed_abs - SpeedLimit_MIN_NIq_TH;
-        int32_t iq_range = CurrentInt16(DefaultMaxBrakeCurrent) - CurrentInt16(DefaultMinBrakeCurrent);
+        int32_t iq_range = CurrentInt16_MaxBrakeCur - CurrentInt16_MinBrakeCur; //CurrentInt16(DefaultMaxBrakeCurrent) - CurrentInt16(DefaultMinBrakeCurrent);
         int32_t speed_range = SpeedLimit_MAX_NIq_TH - SpeedLimit_MIN_NIq_TH;
-        targetLimitIq = CurrentInt16(DefaultMaxBrakeCurrent) - (int16_t)((speed_diff * iq_range) / speed_range); //线性限制刹车力度
+        targetLimitIq = CurrentInt16_MaxBrakeCur - (int16_t)((speed_diff * iq_range) / speed_range); //线性限制刹车力度
       }
       smoothed_brake_limit += (((targetLimitIq-smoothed_brake_limit)*LIMIT_SMOOTH_ALPHA)>>16);  //本次限制的最大刹车力度
       //本次力度如果超过这个值 就直接限制到这个值

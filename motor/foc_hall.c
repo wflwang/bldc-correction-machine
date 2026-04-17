@@ -91,10 +91,10 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     //uint16_t hPrscBuf;
     //int16_t nowEAngle= 0;   //当前电角度
 	int16_t ang_hall_int=0;
-	int16_t tempL_int_diff=0;
-	int16_t tempR_int_diff=0;
-    int16_t tempL_int = 0; //下次误差预测
-    int16_t tempR_int = 0;
+	//int16_t tempL_int_diff=0;
+	//int16_t tempR_int_diff=0;
+    //int16_t tempL_int = 0; //下次误差预测
+    //int16_t tempR_int = 0;
     //uint32_t hHighSpeedCapture;
     //霍尔值
     uint32_t hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
@@ -177,52 +177,52 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     ang_diff += 65536;
                 }
                 //预测下次的角度 做最大插值限制
-                switch(hall_val)
-                {
-                    case 1:
-                        tempL_int = pHandle->foc_hall_table[3];
-                        tempR_int = pHandle->foc_hall_table[5];
-                        break;
-                    case 2:
-                        tempL_int = pHandle->foc_hall_table[3];
-                        tempR_int = pHandle->foc_hall_table[6];
-                        break;
-                    case 3:
-                        tempL_int = pHandle->foc_hall_table[1];
-                        tempR_int = pHandle->foc_hall_table[2];
-                        break;
-                    case 4:
-                        tempL_int = pHandle->foc_hall_table[5];
-                        tempR_int = pHandle->foc_hall_table[6];
-                        break;  
-                    case 5:
-                        tempL_int = pHandle->foc_hall_table[1];
-                        tempR_int = pHandle->foc_hall_table[4];
-                        break;
-                    case 6:
-                    default:
-                        tempL_int = pHandle->foc_hall_table[2];
-                        tempR_int = pHandle->foc_hall_table[4];
-                        break;
-                }
-                tempL_int_diff = tempL_int-ang_hall_int; //下次误差预测
-                tempR_int_diff = tempR_int-ang_hall_int;
-
-                if(ang_diff>0){
-                    //角度变大 预测下次角度不能超过右边的值
-                    if(tempL_int_diff>0){ //方向一致 本次角度的下一个角度 也是增加
-                        pHandle->m_ang_hall_int_Next = tempL_int;   //下次插值的终点
-                    }else{ 
-                        pHandle->m_ang_hall_int_Next = tempR_int;   //下次插值的终点
-                    }
-                }else{
-                    //角度变小 预测下次角度不能超过左边的值
-                    if(tempR_int_diff<0){ //方向一致
-                        pHandle->m_ang_hall_int_Next = tempR_int;   //下次插值的终点
-                    }else{ 
-                        pHandle->m_ang_hall_int_Next = tempL_int;   //下次插值的终点
-                    }
-                }
+                //switch(hall_val)
+                //{
+                //    case 1:
+                //        tempL_int = pHandle->foc_hall_table[3];
+                //        tempR_int = pHandle->foc_hall_table[5];
+                //        break;
+                //    case 2:
+                //        tempL_int = pHandle->foc_hall_table[3];
+                //        tempR_int = pHandle->foc_hall_table[6];
+                //        break;
+                //    case 3:
+                //        tempL_int = pHandle->foc_hall_table[1];
+                //        tempR_int = pHandle->foc_hall_table[2];
+                //        break;
+                //    case 4:
+                //        tempL_int = pHandle->foc_hall_table[5];
+                //        tempR_int = pHandle->foc_hall_table[6];
+                //        break;  
+                //    case 5:
+                //        tempL_int = pHandle->foc_hall_table[1];
+                //        tempR_int = pHandle->foc_hall_table[4];
+                //        break;
+                //    case 6:
+                //    default:
+                //        tempL_int = pHandle->foc_hall_table[2];
+                //        tempR_int = pHandle->foc_hall_table[4];
+                //        break;
+                //}
+                //tempL_int_diff = tempL_int-ang_hall_int; //下次误差预测
+                //tempR_int_diff = tempR_int-ang_hall_int;
+//
+                //if(ang_diff>0){
+                //    //角度变大 预测下次角度不能超过右边的值
+                //    if(tempL_int_diff>0){ //方向一致 本次角度的下一个角度 也是增加
+                //        pHandle->m_ang_hall_int_Next = tempL_int;   //下次插值的终点
+                //    }else{ 
+                //        pHandle->m_ang_hall_int_Next = tempR_int;   //下次插值的终点
+                //    }
+                //}else{
+                //    //角度变小 预测下次角度不能超过左边的值
+                //    if(tempR_int_diff<0){ //方向一致
+                //        pHandle->m_ang_hall_int_Next = tempR_int;   //下次插值的终点
+                //    }else{ 
+                //        pHandle->m_ang_hall_int_Next = tempL_int;   //下次插值的终点
+                //    }
+                //}
                 //误差变化方向是否一致 一致时候计算变化时间才有效 否则用上次60度时间
                 //每次中断中的hall角度用算出的 变化的角度/60度时间 * 中断时间 = 每次变化的角度
                 int16_t abs_ang_diff = ang_diff;
@@ -231,14 +231,14 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 //int16_t abs_ang_diff = abs(ang_diff);
                 if((DirCMPint16((int16_t)ang_diff,pHandle->last_ang_diff)==0)||(pHandle->last_ang_diff==0)){   //误差变化方向是否一致 
                     //误差方向一致
-                    XorEn();
+                    //XorEn();
                     if(abs_ang_diff>hEdegree(80)){    //>80度 认为只变化80度
                         //本次角度变化过大 限制更新角度 本次误差如果>80度 可能是上次60度变化丢失了 duty限制要降下来
-                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree(80)); 
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)SignCMPint16(ang_diff,hEdegree(40)); 
                     }else if(abs_ang_diff<hEdegree(40)){  //<40度 直接认为变化60度吗？
-                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree(60)); 
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)SignCMPint16(ang_diff,hEdegree(30)); 
                     }else{
-                        pHandle->m_ang_hall_int_prev += ang_diff; //正常更新角度
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)(ang_diff>>1); //正常更新角度 增加上次hall角度的一般到跳变点
                     }
                     pHandle->m_ang60_intTime = m_ang60_intTime; //更新时间
                     m_ang60_intTime = 0;    //重新更新下一次时间
@@ -249,9 +249,11 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                         pHandle->m_ang60_intTime = 1;
                     int32_t tmp = pHandle->last_ang_diff * (int32_t)pHandle->intTime * Kpdiff;
                     //变化的角度 * 中断时间(1/64us) / 变化的时间(1/64us) = 每次中断变化的角度;
-                    pHandle->anginc = tmp / pHandle->m_ang60_intTime;  //每次中断变化的角度 
+                    //扩大16倍提高精度
+                    pHandle->anginc = (tmp<<4) / pHandle->m_ang60_intTime;  //每次中断变化的角度 
                     erpm = (int32_t)ScaleErpm*(int)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
-                    pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.1*32767)); //获取本次电角速度
+                    pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.75*32767)); //获取本次电角速度
+                    pHandle->m_ang_hall_int_prev = ang_hall_int;
                     pHandle->angUpdate = true;   //中断允许更新最新角度了 中断中清除
                     //if(ang_diff>0){
                     //    //误差变大
@@ -271,11 +273,11 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     //用上次的角度
                     if(abs_ang_diff>hEdegree(80)){    //>80度 认为只变化80度
                         //本次角度变化过大 限制更新角度 本次误差如果>80度 可能是上次60度变化丢失了 duty限制要降下来
-                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree(80)); 
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)SignCMPint16(ang_diff,hEdegree(40)); 
                     }else if(abs_ang_diff<hEdegree(40)){  //<40度 直接认为变化60度吗？
-                        pHandle->m_ang_hall_int_prev += SignCMPint16(ang_diff,hEdegree(60)); 
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)SignCMPint16(ang_diff,hEdegree(30)); 
                     }else{
-                        pHandle->m_ang_hall_int_prev += ang_diff; //正常更新角度
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)(ang_diff>>1); //正常更新角度 增加上次hall角度的一般到跳变点
                     }
                     //pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev;
                     //pHandle->m_ang_hall_int_prev  = ang_hall_int; //本次角度直接更新 下次以这个角度开始算误差
@@ -283,6 +285,7 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     pHandle->erpm = 0;
                     //pHandle->erpm = -pHandle->erpm;
                     //pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,(-pHandle->erpm),(int32_t)(0.3*32767)); //获取本次电角速度          
+                    pHandle->m_ang_hall_int_prev = ang_hall_int;
                     pHandle->angUpdate = true;   //中断允许更新最新角度了
                 }
             }
@@ -345,7 +348,7 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 }
                 //结束hall学习  正反转后学习的位置是 hall的中点角度位置
                 pHandle->m_ang_hall_int_prev = pHandle->real_phase; //给最后校准的角度
-                HALL_M1.m_ang_hall_int_Next = pHandle->real_phase;
+                pHandle->m_ang_hall_int_Next = pHandle->real_phase;
                 pHandle->m_ang60_intTime = 0;   //最长换相时间 后续基本插值无效
                 pHandle->anginc = 0;    //每次变化的角度  不插值处理
                 //clearRefIdq();  //清除iqd 电流
@@ -403,10 +406,12 @@ static void M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
             //return; //不计算速度和时间
         }else{
             if(pHandle->hallState==hall_run){
-                pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,0,(int32_t)(0.3*32767)); //获取本次电角速度
+                pHandle->erpm = 0;
+                //pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,0,(int32_t)(0.6*32767)); //获取本次电角速度
                 //角度合法 说明电机堵转了 没有动 此时目标角度设置为当前hall角度 当前值慢慢靠近这个角度
                 pHandle->anginc = 0;    //每次变化的角度0 长时间不换相 认为电机堵转了 角度不动 速度慢慢降到0 且不能再启动 直到hall恢复正常
-                HALL_M1.m_ang_hall_int_prev = pHandle->foc_hall_table[hall_val];
+                pHandle->m_ang_hall_int_prev = pHandle->foc_hall_table[hall_val];
+                pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev;
                 HALL_M1.angUpdate = true;
             }
         }

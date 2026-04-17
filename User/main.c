@@ -54,7 +54,7 @@ int main(void) {
 	delay_us(60000);
 	};
     initCorePeripherals();
-    //读取电机配置
+    //读取电机配置                         
     GetMCConfig();
     GetAPPConfig(); //获取APP的配置
     //conf_general_init();
@@ -87,7 +87,7 @@ int main(void) {
             printfMC(1); //输出电机信息
         }
 		//Delay_ms(1);
-		//printfMC(1); //输出电机信息
+		printfMC(1); //输出电机信息
         ScanUartRX();
         #endif
         if(GetPPMUpdate()==1){

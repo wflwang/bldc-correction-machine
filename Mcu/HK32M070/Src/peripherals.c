@@ -10,6 +10,7 @@
 #include "drive_parameters.h"
 #include "parameters_conversion.h"
 #include "main.h"
+#include "hk32m07x_flash.h"
 
 
 static __IO uint32_t msTick=0;
@@ -306,6 +307,7 @@ void ATU_Init_Config(void)
     
     /* Enable ATU Counter */
     ATU_CounterCMD(ENABLE);
+	//while(1);
 }
 /**
   * @brief  HTU configuration
@@ -346,7 +348,7 @@ void HTU_Init_Config(void)
 
     /* Configure HTU TimeBase */
     HTU_TimeBaseStructInit(&HTU_TimeBaseInitStruct);
-    HTU_TimeBaseInitStruct.HTU_NFCR = 0x03; //0x3F;
+    HTU_TimeBaseInitStruct.HTU_NFCR = 0x0f; //0x3F;
     HTU_TimeBaseInitStruct.HTU_Period = 0xFFFFFF;
     HTU_TimeBaseInitStruct.HTU_ClockDivision = HTU_CLK_DIV_1;   //64/1 = 64M?
     HTU_TimeBaseInit(&HTU_TimeBaseInitStruct);
@@ -731,6 +733,9 @@ void MX_GPIO_Init(void){
     GPIO_InitStructure.GPIO_Pin = HW_En_PIN;
     GPIO_Init(HW_En_PORT, &GPIO_InitStructure);
     SetEn(0);
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0|GPIO_Pin_1|GPIO_Pin_2;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;    //开启上拉
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 /**
   * @brief NVIC Configuration.
@@ -793,4 +798,18 @@ void MX_NVIC_init(void)
     //NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
     //NVIC_Init(&NVIC_InitStruct);
 	
+}
+
+/**
+ * set RST -> GPIO
+ * 
+ * 
+ */
+void SetNrstToGPIOPA13(void){
+    FLASH_Unlock();
+    FLASH_OBUnlock();
+    FLASH_OBErase();
+    FLASH_OBNRSTSELConfig(ENABLE);
+    FLASH_Lock();
+    FLASH_OBLock();
 }

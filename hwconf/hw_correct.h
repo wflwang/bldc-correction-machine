@@ -236,11 +236,11 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 //速度比例常数 64000000*60(1min)/65536(1圈)
 #define ScaleErpm       (64000000UL*60UL/65536UL)
 //转速前馈补偿
-#define fw_pro    73    //前馈补偿的比例  ?*目标速度/128
+#define fw_pro    33    //73    //前馈补偿的比例  ?*目标速度/128
 
 
-#define IloopTrigH      300 //150     //切入电流环的速度
-#define IloopTrigL      220 //100     //切回无电流环的速度
+#define IloopTrigH      50  //300 //150     //切入电流环的速度
+#define IloopTrigL      35  //220 //100     //切回无电流环的速度
 
 
 // Motor control limits

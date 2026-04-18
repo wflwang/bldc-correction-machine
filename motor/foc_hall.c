@@ -251,8 +251,8 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     //变化的角度 * 中断时间(1/64us) / 变化的时间(1/64us) = 每次中断变化的角度;
                     //扩大16倍提高精度
                     pHandle->anginc = (tmp<<4) / pHandle->m_ang60_intTime;  //每次中断变化的角度 
-                    erpm = (int32_t)ScaleErpm*(int)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
-                    pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.75*32767)); //获取本次电角速度
+                    pHandle->erpm = (int32_t)ScaleErpm*(int)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
+                    //pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.35*32767)); //获取本次电角速度
                     pHandle->m_ang_hall_int_prev = ang_hall_int;
                     pHandle->angUpdate = true;   //中断允许更新最新角度了 中断中清除
                     //if(ang_diff>0){
@@ -421,7 +421,8 @@ static void M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
  * @brief hall init config 
  * 
  */
-void M_Hall_Init(foc_hall_t * pHandle,mc_config_t *mcconf){
+void M_Hall_Init(foc_hall_t * pHandle,SpeednTorqCtrl_Handle_t * pSTC,mc_config_t *mcconf){
+    pHandle->pSTC = pSTC;
     m_ang60_intTime = 0;	//MaxAng60IntTime;  //60度最长换相时间
     pHandle->foc_hall_table = mcconf->foc_hall_table;
     //pHandle->foc_hall_tableTemp = foc_hall_ang_Temptable;

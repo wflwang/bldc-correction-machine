@@ -92,7 +92,7 @@ typedef struct
 } foc_hall_t;
 
 
-void M_Hall_Init(foc_hall_t * pHandle,mc_config_t *mcconf);
+void M_Hall_Init(foc_hall_t * pHandle,SpeednTorqCtrl_Handle_t * pSTC,mc_config_t *mcconf);
 /**
  * @brief get hall state
  * 

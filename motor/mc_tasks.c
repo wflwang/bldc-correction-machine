@@ -143,7 +143,7 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     pPIDSpeed[M1] = &PIDSpeedHandle_M1;
     pSTC[M1] = &SpeednTorqCtrlM1;
 
-    M_Hall_Init(&HALL_M1,&mcconf);
+    M_Hall_Init(&HALL_M1,pSTC[M1],&mcconf);
     //HALL_Init (&HALL_M1);
     //锟斤拷锟斤拷一锟斤拷AD转锟斤拷锟斤拷锟斤拷锟斤拷一锟斤拷锟叫断ｏ拷锟斤拷取一锟轿碉拷压锟斤拷锟斤拷FOC一锟斤拷锟斤拷始锟斤拷v_bus值
     //ADC_StartConversion(ADC1, ADC_CHANNEL_0); // 锟斤拷锟斤拷一锟斤拷AD
@@ -876,7 +876,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                 ang += 65536;
             HALL_M1.real_phase = (int16_t)ang;
         }else{
-            //角度超过 要慢慢会拉？ 回拉一次速度 - 1/1000 认为速度不够了
+            //角度超过 要慢慢回拉？ 回拉一次速度 - 1/1000 认为速度不够了
             HALL_M1.erpm = UTILS_LPInt32_FAST(HALL_M1.erpm,0,(int32_t)(0.001*32767)); //获取本次电角速度
             HALL_M1.real_phase -= (diff>>7);   //回减1%
         }

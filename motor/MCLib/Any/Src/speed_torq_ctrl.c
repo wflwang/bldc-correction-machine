@@ -554,7 +554,7 @@ Curr_Components STC_CalcTorqueReference( SpeednTorqCtrl_Handle_t * pHandle )
       //本次目标值不为0 一切正常执行
       ErrorStopCount = 0;
     }
-    pHandle->PISpeed->hCompensation = (hTargetSpeed*fw_pro)>>7;  //前馈补偿
+    pHandle->PISpeed->hCompensation = (hTargetSpeed*(int16_t)fw_pro)>>7;  //前馈补偿
     hTorqueReference = PI_Controller( pHandle->PISpeed, ( int32_t )hError );
     pHandle->SpeedRef01HzExt = wCurrentReference;
     //本次速度正 误差负 / 本次速度负 误差正  需要减速

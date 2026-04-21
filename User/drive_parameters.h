@@ -25,7 +25,7 @@
 #define HALL_TIM_CLK                         64000000uL
 #define ADC_REFERENCE_VOLTAGE                5
 /***************** MOTOR ELECTRICAL PARAMETERS  ******hDTCompCnt************************/
-#define POLE_PAIR_NUM                        10 //40 //4       /*!< Number of motor pole pairs */
+#define POLE_PAIR_NUM                        40 //40 //4       /*!< Number of motor pole pairs */
 #define RS                                   3.2     /*!< Stator resistance, ohm */
 #define LS                                   0.00043 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
 #define LdS                                   0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
@@ -102,18 +102,18 @@
 #define PWM_FREQUENCY                        16000 //12000
                                              
 #define LOW_SIDE_SIGNALS_ENABLING            LS_PWM_TIMER
-#define SW_DEADTIME_NS                       700 /*!< Dead-time to be inserted  
+#define SW_DEADTIME_NS                       600 /*!< Dead-time to be inserted  
                                                        by FW, only if low side 
                                                        signals are enabled */
 /* Torque and flux regulation loops */
 #define REGULATION_EXECUTION_RATE            1  /*!< FOC execution rate in number of PWM cycles */
 
 /* Gains values for torque and flux control loops */
-#define PID_TORQUE_KP_DEFAULT                100   //1204
-#define PID_TORQUE_KI_DEFAULT                300   //242
+#define PID_TORQUE_KP_DEFAULT                290   //1204
+#define PID_TORQUE_KI_DEFAULT                200   //242
                                              
-#define PID_FLUX_KP_DEFAULT                  100   //1804
-#define PID_FLUX_KI_DEFAULT                  300   //542
+#define PID_FLUX_KP_DEFAULT                  290   //1804
+#define PID_FLUX_KI_DEFAULT                  200   //542
 //弱磁时候开d轴弱磁PI控制 达到最高转速的85%的时候切换到更高的id PI
 #define PID_FLUX_KP_H                  470   //1804
 #define PID_FLUX_KI_H                  1000  //542
@@ -125,8 +125,8 @@
 
 /* Speed control loop */
 #define SPEED_LOOP_FREQUENCY_HZ              1000   /*!< Execution rate of speed regulation loop (Hz) */
-#define PID_SPEED_KP_DEFAULT                 80   //620
-#define PID_SPEED_KI_DEFAULT                 1000  ////3800
+#define PID_SPEED_KP_DEFAULT                 320   //620
+#define PID_SPEED_KI_DEFAULT                 2000  //1000  ////3800
 #define PID_SPEED_KD_DEFAULT                 0
 //高速时候切换到高速PID                                             
 #define PID_HSPEED_KP_DEFAULT                 400

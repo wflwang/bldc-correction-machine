@@ -101,12 +101,16 @@ int main(void) {
                         midEn = 1;
                         speechEn(100,2);    //第一次回中响两下
                     }
-					if(speed!=lastSpeed)
-                    MC_ProgramSpeedRampMotor1((int16_t)speed,20);    //更新速度
+					if(speed!=lastSpeed){
+                        speedLimitOut();   //速度限制增减速
+                        MC_ProgramSpeedRampMotor1((int16_t)speed,100);    //更新速度
+                    }
                 }else{
                     if(midEn==1){
-						if(speed!=lastSpeed)
-                        MC_ProgramSpeedRampMotor1((int16_t)speed,20);    //更新速度
+						if(speed!=lastSpeed){
+                            speedLimitOut();   //速度限制增减速
+                            MC_ProgramSpeedRampMotor1((int16_t)speed,100);    //更新速度
+                        }
                     }else{
                         MC_ProgramSpeedRampMotor1(0,0);    //更新速度
                     }
@@ -151,6 +155,96 @@ void speechEn(uint32_t time,uint32_t count){
   Delay_ms(200);
 }
 
+/**
+ * 
+ * 
+ * 
+ */
+void speedLimitOut(void){
+    //int32_t temp =  0;
+    //int32_t div = 1;
+    if(GetISChangeState()==true){
+      //有电流环时候
+      if(GetISChangeCount()>=16384){
+        //完全过度了 快速加减
+        //div = 1;
+      }
+    }else{
+      //无电流环
+      if(GetISChangeCount()<=12){ //刚过度 超过阈值目标速度直接启动
+        //完全过度了 快速加减
+        //div = 1;
+        if((lastSpeed>(IloopTrigH*8/5))||(lastSpeed<(-(IloopTrigH*8/5))))
+            SetISStateToI();
+      }
+    }
+}
+#if 0
+/**
+ * @brief 速度限制增减速
+ * 
+*/
+void speedLimitOut(void){
+    int32_t temp =  0;
+    int32_t div = 1;
+    if(GetISChangeState()==true){
+      //有电流环时候
+      if(GetISChangeCount()>=16384){
+        //完全过度了 快速加减
+        div = 1;
+      }
+    }else{
+      //无电流环
+      if(GetISChangeCount()<=12){ //刚过度 超过阈值目标速度直接启动
+        //完全过度了 快速加减
+        div = 1;
+        if((Target_speed>(IloopTrigH*8/5))||(Target_speed<(-(IloopTrigH*8/5))))
+            SetISStateToI();
+      }
+    }
+    if(((Target_speed>0)&&(lastTarget>0))||((Target_speed<0)&&(lastTarget<0))){
+      if(Target_speed>lastTarget){
+        temp = Target_speed - lastTarget;
+        //temp >>= 2;
+        temp /= div;
+        if(temp>MaxFBSpeedADD)
+          temp = MaxFBSpeedADD;
+        if(temp==0)
+          temp = 1;
+        Target_speed = temp + lastTarget;
+      }else if(Target_speed<lastTarget){
+        temp = lastTarget - Target_speed;
+        //temp >>= 2;
+        temp /= div;
+        if(temp>MaxFBSpeedADD)
+          temp = MaxFBSpeedADD;
+        if(temp==0)
+          temp = 1;
+        Target_speed = lastTarget - temp;
+      }
+    }else{
+      if(Target_speed>lastTarget){
+        temp = Target_speed - lastTarget;
+        //temp >>= 3;   //8
+        temp /= div;   //8
+        if(temp>MaxFBSpeedADD)
+          temp = MaxFBSpeedADD;
+        if(temp==0)
+          temp = 1;
+        Target_speed = temp + lastTarget;
+      }else if(Target_speed<lastTarget){
+        temp = lastTarget - Target_speed;
+        //temp >>= 3;
+        temp /= div;
+        if(temp>MaxFBSpeedADD)
+          temp = MaxFBSpeedADD;
+        if(temp==0)
+          temp = 1;
+        Target_speed = lastTarget - temp;
+      }
+    }
+}
+#endif
 /**
   * @brief  This function handles Hard Fault exception.
   * @param  None

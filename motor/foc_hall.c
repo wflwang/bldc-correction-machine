@@ -19,7 +19,7 @@
 #include "hw_correct.h"
 #include "utils_math.h"
 
-static volatile uint32_t m_ang60_intTime=0;  //60度换向时间单位是 1/8us 最长 512s
+static volatile int32_t m_ang60_intTime=0;  //60度换向时间单位是 1/8us 最长 512s
 static int16_t lastHallEAngle = 0;  //上次hall保存的电角度
 //int16_t foc_hall_ang_table[8] = {    //0 7 fail
 //    0,0,10922,21845,32767,-21845,-10922,0
@@ -27,6 +27,10 @@ static int16_t lastHallEAngle = 0;  //上次hall保存的电角度
 static int foc_hall_ang_Temptable[8] = {
     0,0,10922,21845,32767,-21845,-10922,0
 };
+#ifdef testhall
+static int test[30]={0};
+static int testcount=0;
+#endif
 static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid );
 static void M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid );
 
@@ -100,19 +104,19 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
     uint32_t hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
                         | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
                         | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-    //uint32_t hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
-    //                    | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
-    //                    | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-    //uint8_t count=0;
-    //while((hall_val!=hall_val1)&&(count<4)){
-    //    count++;
-    //    hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
-    //                    | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
-    //                    | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-    //    hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
-    //                    | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
-    //                    | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-    //}
+    uint32_t hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
+                        | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
+    uint8_t count=0;
+    while((hall_val!=hall_val1)&&(count<4)){
+        count++;
+        hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
+                        | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
+        hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
+                        | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
+                        | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
+    }
     //对应出不同角度值 0,1,2,3,4,5,6,7
     //每次进来比较本次和上次的时间误差
     // 角度变化/时间误差 = 当前变化的角速度 *dt(中断时间) = 每次中断预计变化的角度
@@ -228,8 +232,9 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                 int16_t abs_ang_diff = ang_diff;
                 if(abs_ang_diff<0)
                     abs_ang_diff = -abs_ang_diff;
+                //有一次hall的更新
                 //int16_t abs_ang_diff = abs(ang_diff);
-                if((DirCMPint16((int16_t)ang_diff,pHandle->last_ang_diff)==0)||(pHandle->last_ang_diff==0)){   //误差变化方向是否一致 
+                if((DirCMPint32(ang_diff,pHandle->last_ang_diff)==0)||(pHandle->last_ang_diff==0)){   //误差变化方向是否一致 
                     //误差方向一致
                     //XorEn();
                     if(abs_ang_diff>hEdegree(80)){    //>80度 认为只变化80度
@@ -251,8 +256,8 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     //变化的角度 * 中断时间(1/64us) / 变化的时间(1/64us) = 每次中断变化的角度;
                     //扩大16倍提高精度
                     pHandle->anginc = (tmp<<4) / pHandle->m_ang60_intTime;  //每次中断变化的角度 
-                    pHandle->erpm = (int32_t)ScaleErpm*(int)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
-                    //pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.35*32767)); //获取本次电角速度
+                    erpm = (int32_t)ScaleErpm*(int32_t)pHandle->last_ang_diff / pHandle->m_ang60_intTime;
+                    pHandle->erpm = UTILS_LPInt32_FAST(pHandle->erpm,erpm,(int32_t)(0.85*32767)); //获取本次电角速度
                     pHandle->m_ang_hall_int_prev = ang_hall_int;
                     pHandle->angUpdate = true;   //中断允许更新最新角度了 中断中清除
                     //if(ang_diff>0){
@@ -307,6 +312,9 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
 			foc_hall_ang_Temptable[5] = 0;
 			foc_hall_ang_Temptable[6] = 0;
             m_ang60_intTime = 0;
+            #ifdef testhall
+            testcount = 0;
+            #endif
         break;
         //正转2圈 反转2圈 共4次取平均
         default:    //第二次触发到开始记录 记录当前角度和相对上次变化的角度 推测下一个可能的角度
@@ -332,10 +340,17 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
             //    ang_diff += 65536
             //}
             //是下次hall 可以快速跳过的角度 下次能快速到达的角度
-            pHandle->hallFastLearnAngDiff = (int16_t)(((int32_t)ang_diff*nextPro)>>8);    //下次快速更新到的角度 省去78%的慢速时间 剩余<3s 1ms变化一次
+            pHandle->hallFastLearnAngDiff = (int16_t)((ang_diff*(int32_t)nextPro)>>8);    //下次快速更新到的角度 省去78%的慢速时间 剩余<3s 1ms变化一次
             //记住当前角度
             foc_hall_ang_Temptable[hall_val] = foc_hall_ang_Temptable[hall_val]+(int)pHandle->real_phase;    //赋值当前电角度
             lastHallEAngle = pHandle->real_phase;
+            #ifdef testhall
+            //if(hall_val==4){
+                test[testcount++] = (pHandle->real_phase&0xffff)|(hall_val<<16);
+                if(testcount>=30)
+                    testcount=0;
+            //}
+            #endif
             pHandle->hallState++;
 			//3(+1),4,5,6,7,8(+6)  9,10,11,12,13,14 --- 15 16 17 18 19 20, 21 22 23 24 25 26
 			//return;
@@ -386,19 +401,19 @@ static void M_HALL_TIMx_UP_IRQHandler( void * pHandleVoid )
         uint32_t hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
                             | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
                             | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-        //uint32_t hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
-        //                    | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
-        //                    | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-        //uint8_t count=0;
-        //while((hall_val!=hall_val1)&&(count<3)){
-        //    count++;
-        //    hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
-        //                    | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
-        //                    | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-        //    hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
-        //                    | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
-        //                    | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
-        //}
+        uint32_t hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
+                            | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
+                            | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
+        uint8_t count=0;
+        while((hall_val!=hall_val1)&&(count<3)){
+            count++;
+            hall_val = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
+                            | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
+                            | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
+            hall_val1 = (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1 ) << 2)
+                            | (GPIO_IsInputPinSet( HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2 ) << 1)
+                            | GPIO_IsInputPinSet( HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3 );
+        }
         if((hall_val==0)||(hall_val>=7)){
 			//长时间不换相 且角度不合法 说明hall坏了 角度不动 速度慢慢降到0 且不能再启动 直到hall恢复正常
 			pHandle->hallState |= 0x80;    //hall 失效/丢失

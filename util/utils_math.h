@@ -59,6 +59,9 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
 #define SIGN_int16(x)		(((x) < 0) ? -1 : 1)
 //比较int16_t 误差反向是否一样 =0 相等 !0 不相等
 #define DirCMPint16(x,y)			((x^y)&0x8000)
+#define DirCMPint32(x,y)			((x^y)&0x80000000)
+// 正确示例：使用有符号判断
+//#define DirCMPint(a, b)  (((int32_t)(a) * (int32_t)(b)) >= 0) // 同号返回非0
 //比较int16_t 方向输出后面的值
 #define SignCMPint16(x,y)			((x>0)?y:(-y))
 

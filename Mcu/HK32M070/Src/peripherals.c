@@ -333,7 +333,7 @@ void HTU_Init_Config(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF; // I/O AF Function
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_4; // I/O output speed
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;    //GPIO_PuPd_DOWN; //Pull-DOWN
-    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Enable;    //GPIO_Schmit_Disable;   //GPIO_Schmit_Enable;    //GPIO_Schmit_Disable; //Schmit function
+    GPIO_InitStructure.GPIO_Schmit = GPIO_Schmit_Disable;    //GPIO_Schmit_Disable;   //GPIO_Schmit_Enable;    //GPIO_Schmit_Disable; //Schmit function
     GPIO_Init(HW_HALL_ENC_GPIO1, &GPIO_InitStructure);
     
     GPIO_InitStructure.GPIO_Pin  =  HW_HALL_ENC_PIN2;

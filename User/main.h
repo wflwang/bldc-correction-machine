@@ -50,6 +50,7 @@ extern "C" {
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 void speechEn(uint32_t time,uint32_t count);
+void speedLimitOut(void);
 #ifdef __cplusplus
 }
 #endif

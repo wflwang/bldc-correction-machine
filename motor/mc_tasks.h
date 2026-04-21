@@ -68,6 +68,8 @@ int GetMSpeechEN(void);
 void Delay_ms(__IO uint32_t Delay);
 void printfMC(uint8_t mode);
 void ScanUartRX(void);
+int16_t GetISChangeCount(void);
+void SetISStateToI(void);
 /**
   * @}
   */

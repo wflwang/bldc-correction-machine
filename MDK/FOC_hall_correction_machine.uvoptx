@@ -175,6 +175,11 @@
           <WinNumber>1</WinNumber>
           <ItemText>pSTC</ItemText>
         </Ww>
+        <Ww>
+          <count>5</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>test</ItemText>
+        </Ww>
       </WatchWindow1>
       <MemoryWindow1>
         <Mm>

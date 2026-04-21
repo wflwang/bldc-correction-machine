@@ -15,6 +15,8 @@
 #define HW_NAME "HK32M070-correct"
 #endif
 
+#define testhall    //test hall
+
 //#define cTestSVPWM  2800        //开环电流
 #define TesTAngAdd  16       //开环测试每次变化的角度
 
@@ -36,8 +38,9 @@
 #define ADC_IND_VIN 2
 #define ADC_IND_EXT 3
 
-#define default_KV  125 //默认KV值125
+#define default_KV  25  //125 //默认KV值125
 #define baseSpeed   200 //最小增加转速
+#define MaxOverspeedAdd 200 //最大溢出转速增量
 
 //#define MotorTempEn     //使能motor temp
 //#define MosTempEn       //使能MOS temp
@@ -191,7 +194,7 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 
 #define CurrentInt16_MaxCur         32767
 #define CurrentInt16_MaxBrakeCur    32767
-#define CurrentInt16_MinBrakeCur    12000
+#define CurrentInt16_MinBrakeCur    9000    //12000
 #define CurrentInt16_MaxWeakId      -19000
 
 //电流换算
@@ -202,19 +205,20 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define LIMIT_SMOOTH_ALPHA       26000 //32768   // 限制值平滑滤波系数 (α=0.25)
 
 //4000转以下 -Iq限制最小(值最大) 10000转以上-Iq限制达到最大(值最小)
-#define SpeedLimit_MIN_NIq_TH 1500
-#define SpeedLimit_MAX_NIq_TH 2500
+//对应实际测量的速度  erpm/10
+#define SpeedLimit_MIN_NIq_TH  100     //1500
+#define SpeedLimit_MAX_NIq_TH  350     //2500
 #define IQBrakelimit                   6000 //最大刹车限幅
 
 //限制前进时候最大转矩增速
 #define ISDelayT        15 //200   //800   //I Speed change delay
 #define MaxFBSpeedADD   5350  //最大速度误差
 #define LIMIT_AddAcc_ALPHA 18000 //加速幅度   /65536  扭矩变化的一阶滤波
-#define MaxTorqAcc      20000   //最大增加的电流扭矩 上个版本每次增加6% 现在最大增加到30%
+#define MaxTorqAcc     20000   //最大增加的电流扭矩 上个版本每次增加6% 现在最大增加到30%
 #define MinTorqAcc      1  //最小增加的电流扭矩 12% 变化样子
 //限制刹车时候的最大转矩增速
-#define LIMIT_SubAcc_ALPHA 10000  //减速幅度 /65536  
-#define MaxTorqDecAcc   8000   //最大减速限制 最大减速扭矩
+#define LIMIT_SubAcc_ALPHA 10000 //10000  //减速幅度 /65536  
+#define MaxTorqDecAcc   6000    //8000   //最大减速限制 最大减速扭矩
 #define MinTorqDecAcc   1  //最小减速限制
 
 //发声时候的音量
@@ -222,25 +226,28 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 
 #define Kpdiff      1   //和固定放大倍数 方便放大整个数据 防止数据过小时候全是0
 
+//电速度比例
+#define ESpeedPro   10    //电速度比例 1/10速度用于运算 最高电速度300000erpm / 10 = 30000
+
 
 #define HallCheckAddVd      10   //每次增加的vd
-#define nextPro             180 //下次学习的角度基于上次的变化
+#define nextPro             130 //下次学习的角度基于上次的变化
 #define HallCheckEndVd       3500   //hall开始校准的最大vd电压
 #define HallFastStep        64  //10      //快速步进每次 + 10/65536
 #define HallSlowStep        16       //慢速步进每次 + 1/65536
 #define hallLearnEnd        26  //26 2次 14 1次
-#define OpenLearnTime       5  //15ms
+#define OpenLearnTime       7  //15ms
 
 //获取角度值
 #define hEdegree(x)     (x*65536/360)
 //速度比例常数 64000000*60(1min)/65536(1圈)
 #define ScaleErpm       (64000000UL*60UL/65536UL)
 //转速前馈补偿
-#define fw_pro    33    //73    //前馈补偿的比例  ?*目标速度/128
+#define fw_pro    53    //73    //前馈补偿的比例  ?*目标速度/128
 
 
-#define IloopTrigH      50  //300 //150     //切入电流环的速度
-#define IloopTrigL      35  //220 //100     //切回无电流环的速度
+#define IloopTrigH      80  //300 //150     //切入电流环的速度
+#define IloopTrigL      60  //220 //100     //切回无电流环的速度
 
 
 // Motor control limits

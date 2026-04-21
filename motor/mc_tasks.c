@@ -9,6 +9,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "MCLib/Any/Inc/mc_type.h"
+#include "MCLib/Any/Inc/pid_regulator.h"
 #include "main.h"
 #include "mc_type.h"
 #include "mc_math.h"
@@ -44,6 +45,7 @@ static int32_t Maxspeed = 1000;     //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×?ï¿½ï¿½
 //int nowSpeed=0;
 
 int32_t Count1ms = 0;   //1ms count
+static uint8_t speedIEnbale=0;  //Ê¹ÄÜ»ý·Ö
 
 mc_config_t mcconf;     //ï¿½ï¿½Ê¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 app_config_t appconf;   //app config
@@ -265,7 +267,17 @@ bool GetISChangeState(void){
 int16_t GetNowVBusAD(void){
     return NowVBusAD;
 }
-
+void SetISStateToI(void){
+  HALL_M1.I_feed = true;
+  IScount = ISDelayT+1;
+}
+/**
+ * @brief µçÁ÷»·ËÙ¶È»·¼ÓÈ¨ÏµÊý
+ * 
+*/
+int16_t GetISChangeCount(void){
+  return HALL_M1.feed_v;
+}
 /**
  * @brief  Executes the Medium Frequency Task functions for each drive instance.
  *
@@ -310,10 +322,10 @@ void Hall_CalcAvrgMecSpeed01Hz( foc_hall_t * pHandle)
 {
   //->ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È²ï¿½
   /*Stores average mechanical speed [01Hz]*/
-  if(pHandle->_Super.bElToMecRatio)
-  pHandle->_Super.hAvrMecSpeed01Hz  = pHandle->erpm/pHandle->_Super.bElToMecRatio;
-  else
-    pHandle->_Super.hAvrMecSpeed01Hz = pHandle->erpm;
+  //if(pHandle->_Super.bElToMecRatio)
+    pHandle->_Super.hAvrMecSpeed01Hz  = (int16_t)(pHandle->erpm/ESpeedPro);
+  //else
+  //  pHandle->_Super.hAvrMecSpeed01Hz = (int16_t)(pHandle->erpm);
 }
 
 /**
@@ -584,8 +596,17 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                     piddelay++;
                     if(piddelay>OpenLearnTime){
                         piddelay = 0;
-                        if(HALL_M1.hallState>((hallLearnEnd/2))){
-                            if(GetLastLearnAngDiff(&HALL_M1)<HALL_M1.hallFastLearnAngDiff){
+                        ETestAngle = (int32_t)HALL_M1.real_phase;   //Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/65536ï¿½ï¿½
+                        if(HALL_M1.hallState==((hallLearnEnd/2)+1)){
+                            if(count>100){
+                                ETestAngle -= HallSlowStep;
+                            }else{
+                                count++;
+                                ETestAngle += HallSlowStep;
+                            }
+                        }else if(HALL_M1.hallState>((hallLearnEnd/2))){
+                            count = 0;
+                            if(GetLastLearnAngDiff(&HALL_M1)<=HALL_M1.hallFastLearnAngDiff){
                             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ§Ï°ï¿½ï¿½Ç¶ï¿?
                                 ETestAngle -= HallSlowStep;
                                 //HALL_M1.real_phase += HallSlowStep;   //Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/65536ï¿½ï¿½
@@ -594,6 +615,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                                 //HALL_M1.real_phase += HallFastStep;   //Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/65536ï¿½ï¿½
                             }
                         }else{
+                            count = 0;
                             if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
                             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ§Ï°ï¿½ï¿½Ç¶ï¿?
                                 ETestAngle += HallSlowStep;
@@ -621,7 +643,17 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                 clearRefIdq();  //Çå³ýiqd µçÁ÷
             }else{
                 //normal mode
-                iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
+                
+                int16_t KiTemp = 0;
+                if((speedIEnbale==1)||(MC_GetMecSpeedAverageMotor1()==0)){
+                    speedIEnbale = 0;
+                    iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
+                }else{    //no I
+                    KiTemp = PID_GetKI(pPIDSpeed[bMotor]);
+                    PID_SetKI(pPIDSpeed[bMotor],1);
+                    iqdtemp = STC_CalcTorqueReference(pSTC[bMotor]);
+                    PID_SetKI(pPIDSpeed[bMotor],KiTemp);
+                }
                 FOCVars[bMotor].Iqdref = iqdtemp;
             }
         }
@@ -850,6 +882,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
             HALL_M1.LastHallNext = HALL_M1.m_ang_hall_int_prev; //ÖÐµã
             HALL_M1.angUpdate = false;   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             HALL_M1.Nowanginc = HALL_M1.anginc;
+            speedIEnbale = 1;  //Ê¹ÄÜ»ý·Ö
         }
         //int16_t minDec = HALL_M1.Nowanginc >>3; 
         //if((minDec==0)&&(HALL_M1.Nowanginc!=0)){
@@ -866,7 +899,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         if(abs_diff<0)
             abs_diff = -abs_diff;
         //dir different / abs(diff) <= 30du
-        if((DirCMPint16(diff,HALL_M1.Nowanginc))||(abs_diff<5461)||(HALL_M1.Nowanginc==0)){
+        if((DirCMPint32((int32_t)diff,(int32_t)HALL_M1.Nowanginc))||(abs_diff<5461)||(HALL_M1.Nowanginc==0)){
             //Ö±½Ó²åÖµ
             ang +=  HALL_M1.Nowanginc;    //ï¿½ï¿½Êµï¿½ï¿½Î»
             ang = ang>>4;   //»¹Ô­½Ç¶È
@@ -1287,7 +1320,9 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
             }else if(NowVBusAD > vMaxBus){
                 FOCVars[bMotor].status = mc_over_voltage;   //ï¿½ï¿½Ñ¹ï¿½ï¿½
             }else{
-                Maxspeed = get_MaxSpeed(NowVBusAD,mcconf.mc_KV)+baseSpeed;
+                Maxspeed = (get_MaxSpeed(NowVBusAD,mcconf.mc_KV)*HALL_M1._Super.bElToMecRatio/ESpeedPro)+baseSpeed;
+                SpeednTorqCtrlM1.MinAppNegativeMecSpeed01Hz = -(uint16_t)(Maxspeed+MaxOverspeedAdd);
+                SpeednTorqCtrlM1.MaxAppPositiveMecSpeed01Hz = (uint16_t)(Maxspeed+MaxOverspeedAdd);
                 //Maxspeed = GET_INPUT_VOLTAGE(vBusAD)*FOCVars[bMotor].mc_KV/100;   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½
                 //ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ñ¹ ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×?ï¿½ï¿½
                 FOCVars[bMotor].status = ready_RUN;   //×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½

@@ -36,9 +36,9 @@ static int16_t NowVBusAD = 0;   //��ǰĸ�ߵ�ѹAD
 static int16_t NowTempMotorx100 = 0;   //��ǰ������?*100
 static int16_t NowTempPCBx100 = 0;   //��ǰPCB��ѹ*100
 static int IsSpeech = 0;  //�Ƿ���
-#ifndef cTestSVPWM
+//#ifndef cTestSVPWM
 static int IScount = 0; //�������ٶȻ��л�ʱ��
-#endif
+//#endif
 #define SYSTICK_DIVIDER (SYS_TICK_FREQUENCY/1000)
 
 static int32_t Maxspeed = 1000;     //��������?�� 
@@ -120,7 +120,7 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
 {
 
     bMCBootCompleted = 0;
-    //GetMCConfig();  //��flash�ж�ȡ�������?
+    //GetMCConfig();  //��flash�ж�ȡ�������??
     pCLM[M1] = &CircleLimitationM1;
 
     /**********************************************************/
@@ -149,7 +149,7 @@ void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS], MCT_Handle_t* pMCTList[NBR_O
     //HALL_Init (&HALL_M1);
     //����һ��ADת��������һ���жϣ���ȡһ�ε�ѹ����FOCһ����ʼ��v_busֵ
     //ADC_StartConversion(ADC1, ADC_CHANNEL_0); // ����һ��AD
-    //��ȡ�ϵ�ʱ����? ���ݳ�ʼ��ѽKVֵ���? ����?��
+    //��ȡ�ϵ�ʱ����? ���ݳ�ʼ��ѽKVֵ���?? ����?��
     //���ͣ�?2s�Ƚϵ�ѹ����?�� ��������ѹ20%Ŀ��ת��
 
     /******************************************************/
@@ -241,7 +241,7 @@ void MC_RunMotorControlTasks(void)
 
         /* Safety task is run after Medium Frequency task so that
         * it can overcome actions they initiated if needed. */
-        if (ADC->ADIFR & 0x0004)//GroupB�������?
+        if (ADC->ADIFR & 0x0004)//GroupB�������??
         {
             TSK_SafetyTask();       //500usִ��һ�ΰ�ȫ���񣬼���ѹǷѹ��
             ADC->ADIFR |= 0x0004;//���GroupB������ɱ��?
@@ -267,10 +267,12 @@ bool GetISChangeState(void){
 int16_t GetNowVBusAD(void){
     return NowVBusAD;
 }
+//#ifndef cTestSVPWM
 void SetISStateToI(void){
   HALL_M1.I_feed = true;
   IScount = ISDelayT+1;
 }
+//#endif
 /**
  * @brief �������ٶȻ���Ȩϵ��
  * 
@@ -341,7 +343,7 @@ void TSK_MediumFrequencyTaskM1(void)
     State_t StateM1;
     Count1ms++; //1ms add
     //int16_t wAux = 0;
-    //����hall��ƽ����е�ٶȺ͵������?
+    //����hall��ƽ����е�ٶȺ͵������??
     //(void) HALL_CalcAvrgMecSpeed01Hz( &HALL_M1, &wAux );
     //PQD_CalcElMotorPower( pMPM[M1] );
     //AVrspeed = 6 * HALL_M1._Super.hAvrMecSpeed01Hz;
@@ -388,7 +390,7 @@ void TSK_MediumFrequencyTaskM1(void)
 
         case START:
         {
-            //����Ҫ�ȼ��һ��? ��û��У׼hall �� ѧϰFOC���� û�еĻ�����У׼һ��
+            //����Ҫ�ȼ��һ��?? ��û��У׼hall �� ѧϰFOC���� û�еĻ�����У׼һ��
             if((FOCVars[M1].status == ready_RUN)||(FOCVars[M1].status == motor_run)){    //û�е�ѹ����
                 //����ģʽ�ſ��Գ�ʼ��hall ����ʼУ׼
                 //if(GetHallState(&HALL_M1)==hall_run){  //��ȡhall״̬
@@ -573,7 +575,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                 FOCVars[bMotor].status = Hall_fail; //hall ����
             }else if(HALL_M1.hallState == hall_null){
                 //��ʼѧϰ �ȸ�hallһ����ʼ�Ƕ� �ڸ�һ���̶�vd
-                HALL_M1.real_phase = 0;     //��Ƕ��ȶ�λ��?0�� ����������vd ��һ��ֵ ���������ӽǶ�
+                HALL_M1.real_phase = 0;     //��Ƕ��ȶ�λ��??0�� ����������vd ��һ��ֵ ���������ӽǶ�
                 FOCVars[bMotor].Iqdref.qI_Component1 = 0;
                 if(count<(HallCheckEndVd*2)){
                     count++;
@@ -607,7 +609,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                         }else if(HALL_M1.hallState>((hallLearnEnd/2))){
                             count = 0;
                             if(GetLastLearnAngDiff(&HALL_M1)<=HALL_M1.hallFastLearnAngDiff){
-                            //������ ÿ������1������ѧϰ��Ƕ�?
+                            //������ ÿ������1������ѧϰ��Ƕ�??
                                 ETestAngle -= HallSlowStep;
                                 //HALL_M1.real_phase += HallSlowStep;   //ÿ������ 1/65536��
                             }else{
@@ -617,7 +619,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                         }else{
                             count = 0;
                             if(GetLastLearnAngDiff(&HALL_M1)>HALL_M1.hallFastLearnAngDiff){
-                            //������ ÿ������1������ѧϰ��Ƕ�?
+                            //������ ÿ������1������ѧϰ��Ƕ�??
                                 ETestAngle += HallSlowStep;
                                 //HALL_M1.real_phase += HallSlowStep;   //ÿ������ 1/65536��
                             }else{
@@ -633,7 +635,7 @@ void FOC_CalcCurrRef(uint8_t bMotor)
                     }
                 //}else{
                 //    if(GetLastLearnAngDiff(&HALL_M1)<(-HALL_M1.hallFastLearnAngDiff)){
-                        //������ ÿ������1������ѧϰ��Ƕ�?
+                        //������ ÿ������1������ѧϰ��Ƕ�??
                 //        HALL_M1.real_phase -= HallSlowStep;   //ÿ������ 1/65536��
                 //    }else{
                 //        HALL_M1.real_phase -= HallFastStep;   //ÿ������ 1/65536��
@@ -815,7 +817,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 				((!FOCVars[bMotor].duty_was_pi) || (SIGN_int16(FOCVars[bMotor].duty_pi_duty_last) == SIGN_int16(duty_now)))) {
 			// Truncating the duty cycle here would be dangerous, so run a PI controller.
 			FOCVars[bMotor].duty_pi_duty_last = duty_now;
-			FOCVars[bMotor].duty_was_pi = true;	//�ϴο�����PI�������?
+			FOCVars[bMotor].duty_was_pi = true;	//�ϴο�����PI�������??
 			// Reset the integrator in duty mode to not increase the duty if the load suddenly changes. In braking
 			// mode this would cause a discontinuity, so there we want to keep the value of the integrator.
 			//if (motor_now->m_control_mode == CONTROL_MODE_DUTY) {
@@ -839,7 +841,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 			// �ȼ�������
             int32_t i_inc = (error * (FOCVars[bMotor].foc_duty_dowmramp_ki << 15)) / FOCVars[bMotor].vBus;
 
-            // ����ȫд������ֹ�ۼӺ����?
+            // ����ȫд������ֹ�ۼӺ����??
             if ((i_inc > 0) && (FOCVars[bMotor].m_duty_i_term > (INT32_MAX - i_inc))) {
                 FOCVars[bMotor].m_duty_i_term = INT32_MAX;
             } else if ((i_inc < 0) && (FOCVars[bMotor].m_duty_i_term < (-INT32_MAX - i_inc))) {
@@ -864,7 +866,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
 			// the modulation and use the maximum allowed current.
             //Ŀ���Ǹ�һ������,���´ε�����Сʱ������������������? ��Ҫֱ��������duty�� ���������õ����仯��ƽ��
 			FOCVars[bMotor].m_duty_i_term = (FOCVars[bMotor].Iqd.qI_Component1<<15) / current_max_for_duty;   //��ǰiq/max
-			//state_now->max_duty = duty_set; //�ͼ���ʱ��D���?��һ��  ת�ٲ��߲�����
+			//state_now->max_duty = duty_set; //�ͼ���ʱ��D���??��һ��  ת�ٲ��߲�����
 			if (duty_set > 0) {
 				FOCVars[bMotor].Iqdref.qI_Component1 = current_max_for_duty;	//������õ�Ŀ��duty������ �͸�����������
 			} else {
@@ -875,8 +877,8 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         FOCVars[bMotor].Iqdref.qI_Component2 = 0; // ��ʼ��id_set_tmp
         #endif
         //duty ����ģʽ�� �� �ϴ�   sqrt(vq*vq+vd*vd)*2/sqrt(3)*sign(vq) = duty_now
-        //�Ƕ���hall�����?
-        if(HALL_M1.angUpdate==true){ //�л������?
+        //�Ƕ���hall�����??
+        if(HALL_M1.angUpdate==true){ //�л������??
             //HALL_M1.real_phase = HALL_M1.m_ang_hall_int_prev;    //��ʵ��λ
             HALL_M1.real_phase = HALL_M1.m_ang_hall_int_Next; //�´���λ
             HALL_M1.LastHallNext = HALL_M1.m_ang_hall_int_prev; //�е�
@@ -910,8 +912,8 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                 HALL_M1.real_phase = (int16_t)ang;
             }else{
                 //�Ƕȳ��� Ҫ���������� ����һ���ٶ� - 1/1000 ��Ϊ�ٶȲ�����
-                HALL_M1.erpm = UTILS_LPInt32_FAST(HALL_M1.erpm,0,(int32_t)(0.001*32767)); //��ȡ���ε���ٶ�
-                // 防止整数溢出
+                HALL_M1.erpm = UTILS_LPInt32_FAST(HALL_M1.erpm,0,(int32_t)(0.001*32767)); //��ȡ���ε���ٶ�?
+                // 防�?�整数溢�?
                 int16_t adjust = diff >> 7;
                 if (adjust > 0 && HALL_M1.real_phase < (INT16_MIN + adjust)) {
                     HALL_M1.real_phase = INT16_MIN;
@@ -925,7 +927,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         if(HALL_M1.Nowanginc > 0)  // �ٶ����� diff���� next-now>0 now-next<0 -> >0 now over
         {   
             diff = HALL_M1.real_phase-HALL_M1.real_phase_Next;
-            //�ǶȲ�ֵ�Ѿ�����Ԥ����¸��Ƕ�? ����ʵ�ʻ�û�д����´νǶ�
+            //�ǶȲ�ֵ�Ѿ�����Ԥ����¸��Ƕ�?? ����ʵ�ʻ�û�д����´νǶ�
             if(diff >= 0)
             {
                 // ���ýǶȳ���Ŀ��
@@ -933,13 +935,13 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                 // �ٶ��Զ���С��˥��������ֹ��ǰ̫��
                 // �´��Ը�С�����ߣ��ȴ���ʵ��������
                 HALL_M1.Nowanginc -= minDec;  
-                // ��ֹ�ٶȱ��?0�����ּ�С�䶯  
+                // ��ֹ�ٶȱ��??0�����ּ�С�䶯  
                 if(HALL_M1.Nowanginc < 1){
                     //�Ƕȱ仯̫���� Ҫ�����ٶ�?
-                    //�ﵽ�´λ����?�ǲ�����,�Ƕȱ仯������ ��ʱҪ����duty_set
+                    //�ﵽ�´λ����??�ǲ�����,�Ƕȱ仯������ ��ʱҪ����duty_set
                     //�����ٴ���
                     //duty_set = (duty_set *7) >>3;   //87.5%
-                    //if(duty_set < 10) duty_set = 10; // ����޷�?
+                    //if(duty_set < 10) duty_set = 10; // ����޷�??
                     HALL_M1.Nowanginc = 1;
                 }
             }
@@ -963,7 +965,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         }
         #endif
     }   //����ģʽ�Ƕ����ⲿ�ṩ
-    hElAngle = HALL_M1.real_phase;    //hall ���������ʵ�Ƕ�?
+    hElAngle = HALL_M1.real_phase;    //hall ���������ʵ�Ƕ�??
     //����ʱ���ٶȻ�ֱ��vd vq����  ����ʱ�����л��� �������Ʊջ�
     //hall ѧϰУ׼ʱ���õ����� �ܵ���ʱ���õ����� �޸�����ʱ��Ҳ���õ�����
     int16_t speed = SPD_GetAvrgMecSpeed01Hz(pSTC[bMotor]->SPD);
@@ -1014,7 +1016,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     #ifndef cTestSVPWM
     else if((HALL_M1.hallState==hall_run)){  //
         if(HALL_M1.I_feed == false){
-            //���������?
+            //���������??
             if((speed>IloopTrigH)||(speed<-IloopTrigH)){  //650 0x400 //0x300 //0x500
               if(IScount>ISDelayT){
                 HALL_M1.I_feed = true;
@@ -1081,7 +1083,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         Vqd.qV_Component2 = FOCVars[bMotor].Iqdref.qI_Component2;
     }
     //=====================================================================
-    //  VESC ��������? �� ������ ƽ�����������ƣ�������Ĵ���?
+    //  VESC ��������? �� ������ ƽ�����������ƣ�������Ĵ���??
     //=====================================================================
     //#ifndef  cTestSVPWM
     Volt_Components Vqd_circle;
@@ -1095,7 +1097,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     // 1. ������ԭ����Բ������
     Vqd_circle = Circle_Limitation(pCLM[bMotor], Vqd);
 
-    // 2. �����ѹģ��ƽ�������ÿ�������?
+    // 2. �����ѹģ��ƽ�������ÿ�������??
     mag_sq = (int32_t)Vqd.qV_Component1 * Vqd.qV_Component1
            + (int32_t)Vqd.qV_Component2 * Vqd.qV_Component2;
 
@@ -1115,7 +1117,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
     }
     else if (mag_sq >= hex_max_sq)
     {
-        // ��ȫ���������? �� ��������
+        // ��ȫ���������?? �� ��������
         Vqd_final = Vqd;
     }
     else
@@ -1129,7 +1131,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
         //one_minus_ratio = 32767 - ratio;
         one_minus_ratio = 32768 - ratio;
 
-        // ƽ����ϣ�Բ������? + ԭʼ��ѹ
+        // ƽ����ϣ�Բ������?? + ԭʼ��ѹ
         //Vqd_final.qV_Component1 = (Vqd_circle.qV_Component1 * one_minus_ratio
         //                         + Vqd.qV_Component1 * ratio) / 32767;
         Vqd_final.qV_Component1 = (Vqd_circle.qV_Component1 * one_minus_ratio
@@ -1141,7 +1143,7 @@ inline uint16_t FOC_CurrController(uint8_t bMotor)
                                  + Vqd.qV_Component2 * ratio) >>15;
     }
 
-    // �������?
+    // �������??
     Vqd = Vqd_final;
     //#endif
 
@@ -1309,7 +1311,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
     vTempMotorx100 = NTC_TEMP_MOTOR(TempBeta);
     vTempPCBx100 = NTC_TEMP_PCB(TempBeta);
     if(FOCVars[bMotor].status == not_ready){
-        //���׼����?
+        //���׼����??
         if(initTime==0){
             NowVBusAD = vBusAD;   //���µ�ǰ��ѹֵ
             NowTempMotorx100 = vTempMotorx100;
@@ -1323,7 +1325,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
         initTime++;
         if(initTime>200){
             if(NowVBusAD < vMinBus){   //
-                //�������? ������
+                //�������?? ������
                 FOCVars[bMotor].status = mc_under_voltage;   //Ƿѹ��
             }else if(NowVBusAD > vMaxBus){
                 FOCVars[bMotor].status = mc_over_voltage;   //��ѹ��
@@ -1345,7 +1347,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
 		if((FOCVars[bMotor].status != ready_RUN)&&(FOCVars[bMotor].status != motor_run))
             return;     //ûӐս³£ԋА
         if(NowVBusAD < vMinBus){   //
-            //�������? ������
+            //�������?? ������
             countVolUnder++;
             if(countVolUnder > 2000){    //1s
                 FOCVars[bMotor].status = mc_under_voltage;   //Ƿѹ��
@@ -1360,7 +1362,7 @@ void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
         }else   
             countVolOver = 0;
         #ifdef MotorTempEn
-        if(NowTempMotorx100>vMaxMotorTemp){   //����¶ȳ���?
+        if(NowTempMotorx100>vMaxMotorTemp){   //����¶ȳ���??
             countTempMotorOver++;
             if(countTempMotorOver>6000){
                 //3s
@@ -1559,7 +1561,7 @@ void UART2_IRQHandler(void)
                 TempDataBuffLen = 0;
         }
 
-        // 4. �չ����� �� ֡���?
+        // 4. �չ����� �� ֡���??
         if(TempDataBuffLen > 0 && curr_len >= TempDataBuffLen)
         {
             NewDataBuffLen = TempDataBuffLen;

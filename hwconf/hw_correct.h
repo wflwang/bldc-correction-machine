@@ -17,7 +17,7 @@
 
 #define testhall    //test hall
 
-//#define cTestSVPWM  2800        //开环电流
+//#define cTestSVPWM  9800        //开环电流
 #define TesTAngAdd  16       //开环测试每次变化的角度
 
 // Hall sensor pins
@@ -122,7 +122,7 @@
 #define READ_HALL3() GPIO_ReadInputDataBit(HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN3)
 
 #ifndef V_REG
-#define V_REG   3.3
+#define V_REG   5.0
 #endif
 #ifndef VIN_R1  
 #define VIN_R1  470.0

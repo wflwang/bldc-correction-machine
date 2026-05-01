@@ -130,7 +130,7 @@
 #define PID_SPEED_KD_DEFAULT                 0
 //高速时候切换到高速PID                                             
 #define PID_HSPEED_KP_DEFAULT                 400
-#define PID_HSPEED_KI_DEFAULT                 3800
+#define PID_HSPEED_KI_DEFAULT                 1800
 #define PID_HSPEED_KD_DEFAULT                 0
 /* Speed PID parameter dividers */           
 #define SP_KPDIV                             128

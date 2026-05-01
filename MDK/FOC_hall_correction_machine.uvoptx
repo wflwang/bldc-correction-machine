@@ -140,7 +140,7 @@
         <SetRegEntry>
           <Number>0</Number>
           <Key>CMSIS_AGDI</Key>
-          <Name>-X"CMSIS-DAP_CZ" -UCZ_2023_6688 -O206 -S9 -C0 -P00000000 -N00("ARM CoreSight SW-DP") -D00(0BC11477) -L00(0) -TO65554 -TC10000000 -TT10000000 -TP20 -TDS8007 -TDT0 -TDC1F -TIEFFFFFFFF -TIP8 -FO15 -FD20000000 -FC1000 -FN1 -FF0HK32M07x_MEM_32K.FLM -FS08000000 -FL08000 -FP0($$Device:HK32M070K6U7$Flash\HK32M07x_MEM_32K.FLM)</Name>
+          <Name>-X"CMSIS-DAP_CZ" -UCZ_2023_6688 -O206 -S9 -C0 -P00000000 -N00("ARM CoreSight SW-DP") -D00(0BB11477) -L00(0) -TO65554 -TC10000000 -TT10000000 -TP20 -TDS8007 -TDT0 -TDC1F -TIEFFFFFFFF -TIP8 -FO15 -FD20000000 -FC1000 -FN1 -FF0HK32M07x_MEM_32K.FLM -FS08000000 -FL08000 -FP0($$Device:HK32M070K6U7$Flash\HK32M07x_MEM_32K.FLM)</Name>
         </SetRegEntry>
         <SetRegEntry>
           <Number>0</Number>
@@ -148,7 +148,24 @@
           <Name>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0HK32M07x_MEM_32K -FS08000000 -FL08000 -FP0($$Device:HK32M070K6U7$Flash\HK32M07x_MEM_32K.FLM))</Name>
         </SetRegEntry>
       </TargetDriverDllRegistry>
-      <Breakpoint/>
+      <Breakpoint>
+        <Bp>
+          <Number>0</Number>
+          <Type>0</Type>
+          <LineNumber>257</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134225380</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>E:\project\ARM\bldc\User\main.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\FOC_hall_correction_machine\../User/main.c\257</Expression>
+        </Bp>
+      </Breakpoint>
       <WatchWindow1>
         <Ww>
           <count>0</count>

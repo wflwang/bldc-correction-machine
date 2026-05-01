@@ -101,13 +101,13 @@ int main(void) {
                         midEn = 1;
                         speechEn(100,2);    //第一次回中响两下
                     }
-					if(speed!=lastSpeed){
+					          if(speed!=lastSpeed){
                         speedLimitOut();   //速度限制增减速
                         MC_ProgramSpeedRampMotor1((int16_t)speed,100);    //更新速度
                     }
                 }else{
                     if(midEn==1){
-						if(speed!=lastSpeed){
+						            if(speed!=lastSpeed){
                             speedLimitOut();   //速度限制增减速
                             MC_ProgramSpeedRampMotor1((int16_t)speed,100);    //更新速度
                         }
@@ -125,13 +125,13 @@ int main(void) {
                     Delay_ms(500);
                     speechEn(100,2);    //失败 响6次
                     Delay_ms(500);
-				    HALL_M1.hallState = hall_null;
+				            HALL_M1.hallState = hall_null;
                 }else{
                     //记住学习的内容
                     SetMCConfig();  //存储数据
                     speechEn(500,1);    //学习成功 长响一下
                     Delay_ms(500);
-				    HALL_M1.hallState = hall_run;
+				            HALL_M1.hallState = hall_run;
                 }
             }
 			lastSpeed = speed;

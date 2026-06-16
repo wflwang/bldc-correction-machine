@@ -99,7 +99,7 @@
                                                            
 /**************************    DRIVE SETTINGS SECTION   **********************/
 /* PWM generation and current reading */
-#define PWM_FREQUENCY                        16000 //12000
+#define PWM_FREQUENCY                        10000 //12000
                                              
 #define LOW_SIDE_SIGNALS_ENABLING            LS_PWM_TIMER
 #define SW_DEADTIME_NS                       600 /*!< Dead-time to be inserted  

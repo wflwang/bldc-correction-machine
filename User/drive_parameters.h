@@ -26,11 +26,12 @@
 #define ADC_REFERENCE_VOLTAGE                5
 /***************** MOTOR ELECTRICAL PARAMETERS  ******hDTCompCnt************************/
 #define POLE_PAIR_NUM                        40 //40 //4       /*!< Number of motor pole pairs */
-#define RS                                   3.2     /*!< Stator resistance, ohm */
-#define LS                                   0.00043 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
-#define LdS                                   0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
-#define LqS                                   0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
-#define FluxLink                             3.232 //磁链
+#define RS                                   0.137 //3.2     /*!< Stator resistance, ohm */
+#define LS                                   0.00011758 //0.00043 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
+#define LdS                                  0.00011187 //0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
+#define LqS                                  0.00012329 //0.00023 /*!< Stator inductance, H For I-PMSM it is equal to Lq */
+#define FluxLink                             0.00733  //3.232 //磁链
+#define FluxLinkQ15              3018          //FluxLink*2pi/65536 * 65536*65536 换算成定点数利于换算
 
 
 #define Q12RLF(x) (x*0x1fffffff)
@@ -43,8 +44,8 @@
 */
 #define NOMINAL_CURRENT                      2100
 #define MOTOR_MAX_SPEED_RPM                  4000 /*!< Maximum rated speed  */
-#define MOTOR_VOLTAGE_CONSTANT               2.45 /*!< Volts RMS ph-ph /kRPM */
-
+#define MOTOR_VOLTAGE_CONSTANT               37.6  //2.45 /*!< Volts RMS ph-ph /kRPM */
+//Kv = 1000/sqrt2/Ke = 18.8KV
 
 /***************** MOTOR SENSORS PARAMETERS  ******************************/
 /* Motor sensors parameters are always generated but really meaningful only
@@ -96,10 +97,38 @@
 #define HALL_AVERAGING_FIFO_DEPTH            16 /*!< depth of the FIFO used to 
                                                      average mechanical speed in 
                                                      0.1Hz resolution */
-                                                           
+/****** State Observer + PLL ****/
+#define VARIANCE_THRESHOLD               0.1 /*!<Maximum accepted 
+                                                            variance on speed 
+                                                            estimates (percentage) */
+/* State observer scaling factors F1 */                    
+#define F1                               8192   //4096
+#define F2                               32768  //16384
+
+/* State observer constants */
+#define GAIN1                            -1216  //-3858
+#define GAIN2                            2304   //4221
+/*Only in case PLL is used, PLL gains */
+#define PLL_KP_GAIN                      551
+#define PLL_KI_GAIN                      40
+
+#define OBS_MEAS_ERRORS_BEFORE_FAULTS    3  /*!< Number of consecutive errors   
+                                                           on variance test before a speed 
+                                                           feedback error is reported */
+#define STO_FIFO_DEPTH_DPP               64  /*!< Depth of the FIFO used  
+                                                            to average mechanical speed  
+                                                            in dpp format */
+#define STO_FIFO_DEPTH_01HZ              64  /*!< Depth of the FIFO used  
+                                                            to average mechanical speed  
+                                                            in dpp format */
+#define BEMF_CONSISTENCY_TOL             64   /* Parameter for B-emf 
+                                                            amplitude-speed consistency */
+#define BEMF_CONSISTENCY_GAIN            64   /* Parameter for B-emf 
+                                                           amplitude-speed consistency */
+                                                                 
 /**************************    DRIVE SETTINGS SECTION   **********************/
 /* PWM generation and current reading */
-#define PWM_FREQUENCY                        10000 //12000
+#define PWM_FREQUENCY                        20000 //12000
                                              
 #define LOW_SIDE_SIGNALS_ENABLING            LS_PWM_TIMER
 #define SW_DEADTIME_NS                       600 /*!< Dead-time to be inserted  

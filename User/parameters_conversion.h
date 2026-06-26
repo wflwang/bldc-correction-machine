@@ -27,7 +27,24 @@
 #define SYS_TICK_FREQUENCY             2000
 
 #define MF_TASK_OCCURENCE_TICKS        (SYS_TICK_FREQUENCY/SPEED_LOOP_FREQUENCY_HZ)-1u
+/************************* OBSERVER + PLL PARAMETERS **************************/
+#define MAX_BEMF_VOLTAGE  (uint16_t)((MAX_APPLICATION_SPEED * 1.2 *\
+                           MOTOR_VOLTAGE_CONSTANT*SQRT_2)/(1000u*SQRT_3))
 
+/*max phase voltage, 0-peak Volts*/
+#define MAX_VOLTAGE (int16_t)((ADC_REFERENCE_VOLTAGE/2)/BUS_ADC_CONV_RATIO) 
+
+#define MAX_CURRENT (ADC_REFERENCE_VOLTAGE/(2*RSHUNT*AMPLIFICATION_GAIN))
+
+#define C1 (int32_t)((((int16_t)F1)*RS)/(LS*TF_REGULATION_RATE))
+#define C2 (int32_t) GAIN1
+#define C3 (int32_t)((((int16_t)F1)*MAX_BEMF_VOLTAGE)/(LS*MAX_CURRENT*TF_REGULATION_RATE))
+#define C4 (int32_t) GAIN2
+#define C5 (int32_t)((((int16_t)F1)*MAX_VOLTAGE)/(LS*MAX_CURRENT*TF_REGULATION_RATE))
+
+#define PERCENTAGE_FACTOR    (uint16_t)(VARIANCE_THRESHOLD*128u)      
+#define OBS_MINIMUM_SPEED        (uint16_t) (OBS_MINIMUM_SPEED_RPM/6u)
+#define HFI_MINIMUM_SPEED        (uint16_t) (HFI_MINIMUM_SPEED_RPM/6u)
 /**************************   VOLTAGE CONVERSIONS  ****************************/
 #define BUS_ADC_CONV_RATIO             VBUS_PARTITIONING_FACTOR
 

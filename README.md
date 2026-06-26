@@ -55,6 +55,15 @@ MCU/HK32G003/Inc/peripherals.h 可以看可以调哪些参数
 flash 32个word 256byte 一个 page 共 64 个page 第1&2个page 作为bootloader  最后2个page作为EEPROM(存储磁编每一个角度值(256byte*2) 和上次陀螺仪的校准值)
 中间 60个page 作为flash 程序空间
 
+### 滑膜观测
+
+静止 αβ 坐标系 PMSM 电压模型：
+
+u_alpha = Rs * i_alpha + Ls * d_alpha/dt - We * psi_beta \\
+u_beta = Rs * i_beta + Ls * d_beta/dt + W_e * psi_alpha
+
+(psi_alpha、psi_beta) 是永磁磁链（反电动势 (e_alpha=We * psi_beta, e_beta=We * psi_alpha)）。
+
 
 ## 历史
 

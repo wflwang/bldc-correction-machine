@@ -15,7 +15,8 @@
 #define HW_NAME "HK32M070-correct"
 #endif
 
-#define testhall    //test hall
+//#define testhall    //test hall
+#define speedLoopInt    3   //速度环
 
 //#define cTestSVPWM  9800        //开环电流
 #define TesTAngAdd  16       //开环测试每次变化的角度
@@ -236,7 +237,7 @@ static inline uint32_t get_MaxSpeed(uint16_t adc_val,uint16_t kv) {
 #define HallFastStep        64  //10      //快速步进每次 + 10/65536
 #define HallSlowStep        16       //慢速步进每次 + 1/65536
 #define hallLearnEnd        26  //26 2次 14 1次
-#define OpenLearnTime       7  //15ms
+#define OpenLearnTime       3  // 3*3 = 9ms
 
 //获取角度值
 #define hEdegree(x)     (x*65536/360)

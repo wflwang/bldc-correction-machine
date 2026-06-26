@@ -348,7 +348,7 @@ void HTU_Init_Config(void)
 
     /* Configure HTU TimeBase */
     HTU_TimeBaseStructInit(&HTU_TimeBaseInitStruct);
-    HTU_TimeBaseInitStruct.HTU_NFCR = 0x0f; //0x3F;
+    HTU_TimeBaseInitStruct.HTU_NFCR = 0x0f; //0x3F; //滤波系数
     HTU_TimeBaseInitStruct.HTU_Period = 0xFFFFFF;
     HTU_TimeBaseInitStruct.HTU_ClockDivision = HTU_CLK_DIV_1;   //64/1 = 64M?
     HTU_TimeBaseInit(&HTU_TimeBaseInitStruct);

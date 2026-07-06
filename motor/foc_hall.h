@@ -101,6 +101,15 @@ void M_Hall_Init(foc_hall_t * pHandle,SpeednTorqCtrl_Handle_t * pSTC,mc_config_t
 static inline hall_state_t GetHallState(foc_hall_t * pHandle){
     return pHandle->hallState;
 }
+//hall 环形角度输出
+static inline int32_t hallDetaLoopOut(int32_t d1,int32_t d2){
+    int32_t out = d1 + d2;
+    if(out>32767)
+        out -= 65536;
+    else if(out<-32768)
+        out += 65536;
+    return out;
+}
 int16_t GetLastLearnAngDiff(foc_hall_t * pHandle);
 bool CheckHallTab(foc_hall_t * pHandle);
 

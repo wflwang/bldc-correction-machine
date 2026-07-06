@@ -27,6 +27,9 @@ static int16_t lastHallEAngle = 0;  //上次hall保存的电角度
 static int foc_hall_ang_Temptable[8] = {
     0,0,10922,21845,32767,-21845,-10922,0
 };
+static int foc_hall_ang_TemptableNeg[8] = {
+    0,0,10922,21845,32767,-21845,-10922,0
+};
 #ifdef testhall
 static int test[30]={0};
 static int testcount=0;
@@ -234,6 +237,7 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     abs_ang_diff = -abs_ang_diff;
                 //有一次hall的更新
                 //int16_t abs_ang_diff = abs(ang_diff);
+                //误差方向是否一致或者上次误差是否=0
                 if((DirCMPint32(ang_diff,pHandle->last_ang_diff)==0)||(pHandle->last_ang_diff==0)){   //误差变化方向是否一致 
                     //误差方向一致
                     //XorEn();
@@ -243,7 +247,7 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
                     }else if(abs_ang_diff<hEdegree(40)){  //<40度 直接认为变化60度吗？
                         pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)SignCMPint16(ang_diff,hEdegree(30)); 
                     }else{
-                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)(ang_diff>>1); //正常更新角度 增加上次hall角度的一般到跳变点
+                        pHandle->m_ang_hall_int_Next = pHandle->m_ang_hall_int_prev + (int16_t)(ang_diff>>1); //正常更新角度 增加上次hall角度的一半到跳变点
                     }
                     pHandle->m_ang60_intTime = m_ang60_intTime; //更新时间
                     m_ang60_intTime = 0;    //重新更新下一次时间
@@ -311,6 +315,12 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
 			foc_hall_ang_Temptable[4] = 0;
 			foc_hall_ang_Temptable[5] = 0;
 			foc_hall_ang_Temptable[6] = 0;
+			foc_hall_ang_TemptableNeg[1] = 0;
+			foc_hall_ang_TemptableNeg[2] = 0;
+			foc_hall_ang_TemptableNeg[3] = 0;
+			foc_hall_ang_TemptableNeg[4] = 0;
+			foc_hall_ang_TemptableNeg[5] = 0;
+			foc_hall_ang_TemptableNeg[6] = 0;
             m_ang60_intTime = 0;
             #ifdef testhall
             testcount = 0;
@@ -329,20 +339,40 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
 			//return;
             //2,3,4,5,6,7, 8,9,10,11,12,13,  14(12),15(11),16(10),17(9),18(9),19(7),  20(6),21(5),22(4),23(3),24(2),25(13)  正反两圈
             //计算电角度的变化
-            ang_diff = (int)pHandle->real_phase - (int)lastHallEAngle; //上次角度 - 本次角度 = 角度的变化值
-			if (ang_diff > 32767)
-				ang_diff -= 65536;
-			else if (ang_diff < -32768)
-				ang_diff += 65536;
-            //if(ang_diff>32767){
-            //    ang_diff -= 65536
-            //}else if(ang_diff<-32768){
-            //    ang_diff += 65536
-            //}
+            int tempphase = (int)pHandle->real_phase;
+
+            //记住当前角度
+            if(pHandle->hallState<8){   //2-7
+                foc_hall_ang_Temptable[hall_val] = tempphase;
+            }else if(pHandle->hallState<14){
+                ang_diff = hallDetaLoopOut(tempphase,-foc_hall_ang_Temptable[hall_val]);
+                //ang_diff = tempphase - foc_hall_ang_Temptable[hall_val]; //上次角度 - 本次角度 = 角度的变化值
+			    //if (ang_diff > 32767)
+			    //	ang_diff -= 65536;
+			    //else if (ang_diff < -32768)
+			    //	ang_diff += 65536;
+                //foc_hall_ang_Temptable[hall_val] += (ang_diff>>1);
+                foc_hall_ang_Temptable[hall_val] = hallDetaLoopOut(foc_hall_ang_Temptable[hall_val],(ang_diff>>1));
+            }else if(pHandle->hallState<20){
+                foc_hall_ang_TemptableNeg[hall_val] = tempphase;
+            }else{
+                ang_diff = hallDetaLoopOut(tempphase,-foc_hall_ang_TemptableNeg[hall_val]);
+                //ang_diff = tempphase - foc_hall_ang_TemptableNeg[hall_val]; //上次角度 - 本次角度 = 角度的变化值
+			    //if (ang_diff > 32767)
+			    //	ang_diff -= 65536;
+			    //else if (ang_diff < -32768)
+			    //	ang_diff += 65536;
+                foc_hall_ang_TemptableNeg[hall_val] = hallDetaLoopOut(foc_hall_ang_TemptableNeg[hall_val],(ang_diff>>1));
+            }
+            //foc_hall_ang_Temptable[hall_val] = foc_hall_ang_Temptable[hall_val]+(int)pHandle->real_phase;    //赋值当前电角度
+            ang_diff = hallDetaLoopOut(tempphase,-(int)lastHallEAngle);
+            //ang_diff = tempphase - (int)lastHallEAngle; //上次角度 - 本次角度 = 角度的变化值
+			//if (ang_diff > 32767)
+			//	ang_diff -= 65536;
+			//else if (ang_diff < -32768)
+			//	ang_diff += 65536;
             //是下次hall 可以快速跳过的角度 下次能快速到达的角度
             pHandle->hallFastLearnAngDiff = (int16_t)((ang_diff*(int32_t)nextPro)>>8);    //下次快速更新到的角度 省去78%的慢速时间 剩余<3s 1ms变化一次
-            //记住当前角度
-            foc_hall_ang_Temptable[hall_val] = foc_hall_ang_Temptable[hall_val]+(int)pHandle->real_phase;    //赋值当前电角度
             lastHallEAngle = pHandle->real_phase;
             #ifdef testhall
             //if(hall_val==4){
@@ -354,12 +384,21 @@ static void M_HALL_TIMx_CC_IRQHandler( void * pHandleVoid )
             pHandle->hallState++;
 			//3(+1),4,5,6,7,8(+6)  9,10,11,12,13,14 --- 15 16 17 18 19 20, 21 22 23 24 25 26
 			//return;
+            //正反算出平均后 结果就是hall的中点
             if(HALL_M1.hallState==((hallLearnEnd/2)+1))
                 pHandle->hallFastLearnAngDiff = 0;
             if(pHandle->hallState>=hallLearnEnd){
                 //4轮了 每个点有4轮角度数据 取平均
                 for(uint8_t i=0;i<8;i++){
-                    pHandle->foc_hall_table[i] = (int16_t)(foc_hall_ang_Temptable[i]>>2);    //逐个更新hall table
+                    ang_diff = hallDetaLoopOut(foc_hall_ang_TemptableNeg[i],-foc_hall_ang_Temptable[i]);
+                    //ang_diff = foc_hall_ang_TemptableNeg[hall_val] - foc_hall_ang_Temptable[hall_val]; //上次角度 - 本次角度 = 角度的变化值
+			        //if (ang_diff > 32767)
+			    	//    ang_diff -= 65536;
+			        //else if (ang_diff < -32768)
+			    	//    ang_diff += 65536;
+                    //foc_hall_ang_Temptable[hall_val] += (ang_diff>>1);  //找到一个60度内的中点
+                    pHandle->foc_hall_table[i]  = (int16_t)hallDetaLoopOut(foc_hall_ang_Temptable[i],(ang_diff>>1));
+                    //pHandle->foc_hall_table[i] = (int16_t)(foc_hall_ang_Temptable[i]>>2);    //逐个更新hall table
                 }
                 //结束hall学习  正反转后学习的位置是 hall的中点角度位置
                 pHandle->m_ang_hall_int_prev = pHandle->real_phase; //给最后校准的角度
@@ -472,37 +511,43 @@ int16_t GetLastLearnAngDiff(foc_hall_t * pHandle){
  * 
  */
 bool CheckHallTab(foc_hall_t * pHandle){
-    int16_t diff = pHandle->foc_hall_table[1]-pHandle->foc_hall_table[3];
+    //int16_t diff = pHandle->foc_hall_table[1]-pHandle->foc_hall_table[3];
+    int16_t diff = hallDetaLoopOut((int32_t)pHandle->foc_hall_table[1],-(int32_t)pHandle->foc_hall_table[3]);
     if(diff<0)
         diff = -diff;
     // >50度 <70度
     if((diff<9102)||(diff>12743))
         return false;   // 角度校准失败
-    diff = pHandle->foc_hall_table[3]-pHandle->foc_hall_table[2];
+    //diff = pHandle->foc_hall_table[3]-pHandle->foc_hall_table[2];
+    diff = hallDetaLoopOut((int32_t)pHandle->foc_hall_table[3],-(int32_t)pHandle->foc_hall_table[2]);
     if(diff<0)
         diff = -diff;
     // >50度 <70度
     if((diff<9102)||(diff>12743))
         return false;   // 角度校准失败
-    diff = pHandle->foc_hall_table[2]-pHandle->foc_hall_table[6];
+    //diff = pHandle->foc_hall_table[2]-pHandle->foc_hall_table[6];
+    diff = hallDetaLoopOut((int32_t)pHandle->foc_hall_table[2],-(int32_t)pHandle->foc_hall_table[6]);
     if(diff<0)
         diff = -diff;
     // >50度 <70度
     if((diff<9102)||(diff>12743))
         return false;   // 角度校准失败
-    diff = pHandle->foc_hall_table[6]-pHandle->foc_hall_table[4];
+    //diff = pHandle->foc_hall_table[6]-pHandle->foc_hall_table[4];
+    diff = hallDetaLoopOut((int32_t)pHandle->foc_hall_table[6],-(int32_t)pHandle->foc_hall_table[4]);
     if(diff<0)
         diff = -diff;
     // >50度 <70度
     if((diff<9102)||(diff>12743))
         return false;   // 角度校准失败
-    diff = pHandle->foc_hall_table[4]-pHandle->foc_hall_table[5];
+    //diff = pHandle->foc_hall_table[4]-pHandle->foc_hall_table[5];
+    diff = hallDetaLoopOut((int32_t)pHandle->foc_hall_table[4],-(int32_t)pHandle->foc_hall_table[5]);
     if(diff<0)
         diff = -diff;
     // >50度 <70度
     if((diff<9102)||(diff>12743))
         return false;   // 角度校准失败
-    diff = pHandle->foc_hall_table[5]-pHandle->foc_hall_table[1];
+    //diff = pHandle->foc_hall_table[5]-pHandle->foc_hall_table[1];
+    diff = hallDetaLoopOut((int32_t)pHandle->foc_hall_table[5],-(int32_t)pHandle->foc_hall_table[1]);
     if(diff<0)
         diff = -diff;
     // >50度 <70度

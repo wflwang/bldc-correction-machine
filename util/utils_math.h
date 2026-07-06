@@ -57,6 +57,7 @@ void utils_rotate_vector3(float *input, float *rotation, float *output, bool rev
 // Return the sign of the argument. -1.0 if negative, 1.0 if zero or positive.
 #define SIGN(x)				(((x) < 0.0) ? -1.0 : 1.0)
 #define SIGN_int16(x)		(((x) < 0) ? -1 : 1)
+#define ABS_INT16(x) ((x) >= 0 ? (x) : -(x))
 //比较int16_t 误差反向是否一样 =0 相等 !0 不相等
 #define DirCMPint16(x,y)			((x^y)&0x8000)
 #define DirCMPint32(x,y)			((x^y)&0x80000000)
